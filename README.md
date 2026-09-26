@@ -24,3 +24,10 @@ publishes assets here; this repository does not build private engine source.
 
 The initial public module tag `v0.0.1` still needs to be published. No remote
 repository, commits, tags, or releases were created by this local extraction.
+
+[Contributing](CONTRIBUTING.md) · [MIT license](LICENSE.md)
+
+The MIT license covers this repository’s source. Official engine runtime binaries
+are covered by the separate [Karty Runtime License](RUNTIME_LICENSE.md), allowing
+distribution with free and commercial games. Exported SDK bindings and templates
+are MIT-licensed; private engine implementation source remains proprietary.

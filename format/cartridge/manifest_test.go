@@ -51,6 +51,30 @@ func TestManifestRoundTripInsideGameCartridge(t *testing.T) {
 	}
 }
 
+func TestManifestV2FeaturesRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	want := cartridge.Manifest{
+		ProjectName: "sounds", Compiler: "tinygo", Width: 640, Height: 360,
+		Features: []string{cartridge.FeatureSoundQOAv1, cartridge.FeatureTextureQOIv1},
+	}
+	encoded, err := cartridge.EncodeManifest(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version := uint16(encoded[4]) | uint16(encoded[5])<<8; version != 2 {
+		t.Fatalf("manifest version = %d, want 2", version)
+	}
+
+	got, err := cartridge.DecodeManifest(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("decoded manifest = %+v, want %+v", got, want)
+	}
+}
+
 func TestManifestRejectsMalformedData(t *testing.T) {
 	t.Parallel()
 
@@ -66,6 +90,14 @@ func TestManifestRejectsMalformedData(t *testing.T) {
 		"uppercase hash": {
 			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
 			Levels: []cartridge.LevelDependency{{Name: "a", Kind: "level", ContentSHA256: "A" + validHash[1:], Size: 1, EnvelopeVersion: 1}},
+		},
+		"unknown feature": {
+			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			Features: []string{"sound/future@1"},
+		},
+		"unsorted features": {
+			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			Features: []string{cartridge.FeatureTextureQOIv1, cartridge.FeatureSoundQOAv1},
 		},
 	} {
 		if _, err := cartridge.EncodeManifest(manifest); err == nil {

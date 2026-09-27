@@ -11,7 +11,12 @@ func TestCapabilitiesAreCanonical(t *testing.T) {
 
 	valid := asset.Capabilities{
 		Processors: []asset.Processor{asset.ProcessorCopyPNGv1, asset.ProcessorQOAv1, asset.ProcessorQOIv1},
-		Runtime:    []asset.Capability{asset.CapabilitySoundQOAv1, asset.CapabilityTextureQOIv1},
+		Runtime: []asset.Capability{
+			asset.CapabilityAudioStreamQOAv1,
+			asset.CapabilitySoundQOAv1,
+			asset.CapabilityTextureQOIv1,
+			asset.CapabilityVideoMPEG1v1,
+		},
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatal(err)

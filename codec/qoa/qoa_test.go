@@ -111,6 +111,75 @@ func TestEncodeRejectsInvalidLengthsAndBudgets(t *testing.T) {
 	}
 }
 
+func TestLongFormEncodeAndInspectUseStreamBudgets(t *testing.T) {
+	t.Parallel()
+
+	samples := make([]int16, 24_000*31)
+	for index := range samples {
+		samples[index] = int16(index*17%12_000 - 6_000)
+	}
+	if _, _, err := qoa.Encode(samples, 1, 24_000); err == nil {
+		t.Fatal("one-shot Encode accepted audio longer than 30 seconds")
+	}
+
+	encoded, metadata, err := qoa.EncodeStream(samples, 1, 24_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata.Channels != 1 || metadata.SampleRate != 24_000 || metadata.Frames != uint32(len(samples)) ||
+		metadata.DecodedBytes != uint64(len(samples))*2 {
+		t.Fatalf("metadata = %+v", metadata)
+	}
+	if _, err := qoa.Inspect(encoded); err == nil {
+		t.Fatal("one-shot Inspect accepted audio longer than 30 seconds")
+	}
+	inspected, err := qoa.InspectStream(encoded)
+	if err != nil || inspected != metadata {
+		t.Fatalf("InspectStream() = %+v, %v", inspected, err)
+	}
+}
+
+func TestStreamAndOneShotEncodingAreIdenticalWithinSharedBounds(t *testing.T) {
+	t.Parallel()
+
+	samples := make([]int16, 48_000*2)
+	for index := range samples {
+		samples[index] = int16(index*29%20_000 - 10_000)
+	}
+	oneShot, oneShotMetadata, err := qoa.Encode(samples, 2, 48_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, streamMetadata, err := qoa.EncodeStream(samples, 2, 48_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(stream, oneShot) || streamMetadata != oneShotMetadata {
+		t.Fatal("stream and one-shot encoders produced different QOA")
+	}
+}
+
+func TestEncodeStreamRejectsInvalidPCM(t *testing.T) {
+	t.Parallel()
+
+	for name, test := range map[string]struct {
+		samples  []int16
+		channels uint8
+		rate     uint32
+	}{
+		"empty":         {channels: 1, rate: 48_000},
+		"partial frame": {samples: []int16{1, 2, 3}, channels: 2, rate: 48_000},
+		"channels":      {samples: []int16{1}, channels: 3, rate: 48_000},
+		"sample rate":   {samples: []int16{1}, channels: 1, rate: 96_000},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, _, err := qoa.EncodeStream(test.samples, test.channels, test.rate); err == nil {
+				t.Fatal("EncodeStream accepted invalid PCM")
+			}
+		})
+	}
+}
+
 func FuzzInspectAndDecode(f *testing.F) {
 	golden, err := hex.DecodeString(referenceGolden)
 	if err != nil {
@@ -121,6 +190,7 @@ func FuzzInspectAndDecode(f *testing.F) {
 	f.Add(append([]byte(nil), golden[:len(golden)-1]...))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		_, _ = qoa.Inspect(data)
+		_, _ = qoa.InspectStream(data)
 		_, _, _ = qoa.Decode(data)
 	})
 }

@@ -22,8 +22,9 @@ const (
 )
 
 const (
-	FeatureTextureQOIv1 = "texture/qoi@1"
-	FeatureSoundQOAv1   = "sound/qoa@1"
+	FeatureTextureQOIv1     = "texture/qoi@1"
+	FeatureSoundQOAv1       = "sound/qoa@1"
+	FeatureAudioStreamQOAv1 = "audio-stream/qoa@1"
 )
 
 var ErrManifest = errors.New("game cartridge manifest is invalid")
@@ -306,5 +307,5 @@ func validManifestFeatures(features []string) bool {
 }
 
 func validManifestFeature(feature string) bool {
-	return feature == FeatureSoundQOAv1 || feature == FeatureTextureQOIv1
+	return feature == FeatureAudioStreamQOAv1 || feature == FeatureSoundQOAv1 || feature == FeatureTextureQOIv1 || feature == FeatureVideoMPEG1v1
 }

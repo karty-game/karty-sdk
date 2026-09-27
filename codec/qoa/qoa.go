@@ -1,5 +1,5 @@
-// Package qoa provides a bounded adapter around Karty's pinned QOA codec.
-// It validates the complete file before handing bytes to the dependency.
+// Package qoa provides bounded one-shot and incremental adapters around
+// Karty's pinned QOA codec.
 package qoa
 
 import (
@@ -18,6 +18,14 @@ const (
 	lmsBytesPerChannel = 16
 )
 
+// MaxStreamDurationSeconds bounds long-form QOA metadata without requiring
+// the complete decoded PCM to fit in memory.
+const MaxStreamDurationSeconds = asset.MaxAudioStreamDurationSeconds
+
+// MaxStreamEncodedBytes bounds complete long-form QOA files processed by the
+// packaging APIs. Runtime playback should use StreamDecoder instead.
+const MaxStreamEncodedBytes = asset.MaxEncodedAudioStreamBytes
+
 var ErrInvalid = errors.New("QOA data is invalid")
 
 // Metadata describes bounded, static QOA content. Frames is the number of
@@ -33,7 +41,18 @@ type Metadata struct {
 // rejects streaming files, noncanonical frames, trailing data, and content
 // outside Karty's one-shot sound budgets.
 func Inspect(encoded []byte) (Metadata, error) {
-	if len(encoded) < qoaHeaderSize+frameHeaderSize || len(encoded) > MaxEncodedBytes ||
+	return inspect(encoded, MaxEncodedBytes, asset.MaxSoundDurationSeconds, asset.MaxDecodedSoundBytes)
+}
+
+// InspectStream validates a complete, static long-form QOA file. It applies
+// streaming-audio duration and encoded-size bounds without requiring decoded
+// PCM to fit in the one-shot sound budget.
+func InspectStream(encoded []byte) (Metadata, error) {
+	return inspect(encoded, MaxStreamEncodedBytes, MaxStreamDurationSeconds, 0)
+}
+
+func inspect(encoded []byte, maxEncodedBytes int, maxDurationSeconds int, maxDecodedBytes uint64) (Metadata, error) {
+	if len(encoded) < qoaHeaderSize+frameHeaderSize || len(encoded) > maxEncodedBytes ||
 		string(encoded[:4]) != "qoaf" {
 		return Metadata{}, ErrInvalid
 	}
@@ -88,8 +107,8 @@ func Inspect(encoded []byte) (Metadata, error) {
 	}
 
 	metadata.DecodedBytes = uint64(metadata.Frames) * uint64(metadata.Channels) * 2
-	if metadata.DecodedBytes > asset.MaxDecodedSoundBytes ||
-		uint64(metadata.Frames) > uint64(metadata.SampleRate)*asset.MaxSoundDurationSeconds {
+	if (maxDecodedBytes != 0 && metadata.DecodedBytes > maxDecodedBytes) ||
+		uint64(metadata.Frames) > uint64(metadata.SampleRate)*uint64(maxDurationSeconds) {
 		return Metadata{}, ErrInvalid
 	}
 
@@ -123,6 +142,25 @@ func Decode(encoded []byte) (metadata Metadata, samples []int16, err error) {
 // Encode converts complete interleaved signed PCM16 into deterministic static
 // QOA after validating lengths and Karty's runtime budgets.
 func Encode(samples []int16, channels uint8, sampleRate uint32) (encoded []byte, metadata Metadata, err error) {
+	return encode(samples, channels, sampleRate, asset.MaxSoundDurationSeconds, asset.MaxDecodedSoundBytes, MaxEncodedBytes, Inspect)
+}
+
+// EncodeStream converts complete interleaved signed PCM16 into deterministic
+// static QOA using the long-form streaming-audio bounds. The resulting file is
+// suitable for separate staging and incremental playback with StreamDecoder.
+func EncodeStream(samples []int16, channels uint8, sampleRate uint32) (encoded []byte, metadata Metadata, err error) {
+	return encode(samples, channels, sampleRate, MaxStreamDurationSeconds, 0, MaxStreamEncodedBytes, InspectStream)
+}
+
+func encode(
+	samples []int16,
+	channels uint8,
+	sampleRate uint32,
+	maxDurationSeconds int,
+	maxDecodedBytes uint64,
+	maxEncodedBytes int,
+	inspectEncoded func([]byte) (Metadata, error),
+) (encoded []byte, metadata Metadata, err error) {
 	defer func() {
 		if recover() != nil {
 			encoded, metadata, err = nil, Metadata{}, ErrInvalid
@@ -134,8 +172,9 @@ func Encode(samples []int16, channels uint8, sampleRate uint32) (encoded []byte,
 	}
 	frames := uint64(len(samples) / int(channels))
 	decodedBytes := uint64(len(samples)) * 2
-	if frames > uint64(^uint32(0)) || frames > uint64(sampleRate)*asset.MaxSoundDurationSeconds ||
-		decodedBytes > asset.MaxDecodedSoundBytes {
+	if frames > uint64(^uint32(0)) || frames > uint64(sampleRate)*uint64(maxDurationSeconds) ||
+		(maxDecodedBytes != 0 && decodedBytes > maxDecodedBytes) ||
+		qoaEncodedSize(frames, channels) > uint64(maxEncodedBytes) {
 		return nil, Metadata{}, ErrInvalid
 	}
 
@@ -144,12 +183,25 @@ func Encode(samples []int16, channels uint8, sampleRate uint32) (encoded []byte,
 	if encodeErr != nil {
 		return nil, Metadata{}, ErrInvalid
 	}
-	metadata, err = Inspect(encoded)
+	metadata, err = inspectEncoded(encoded)
 	if err != nil || metadata.Channels != channels || metadata.SampleRate != sampleRate || metadata.Frames != uint32(frames) {
 		return nil, Metadata{}, ErrInvalid
 	}
 
 	return encoded, metadata, nil
+}
+
+func qoaEncodedSize(frames uint64, channels uint8) uint64 {
+	fullFrames := frames / maxFrameSamples
+	remaining := frames % maxFrameSamples
+	fullFrameSize := uint64(frameHeaderSize+lmsBytesPerChannel*int(channels)) +
+		8*(maxFrameSamples/20)*uint64(channels)
+	size := uint64(qoaHeaderSize) + fullFrames*fullFrameSize
+	if remaining != 0 {
+		slices := (remaining + 19) / 20
+		size += uint64(frameHeaderSize+lmsBytesPerChannel*int(channels)) + 8*slices*uint64(channels)
+	}
+	return size
 }
 
 func unusedSamplesAreZero(encoded []byte, frameOffset uint64, channels uint8, samples uint32, slices uint64) bool {

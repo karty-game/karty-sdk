@@ -22,22 +22,26 @@ const (
 type Capability string
 
 const (
-	CapabilityTextureQOIv1 Capability = "texture/qoi@1"
-	CapabilitySoundQOAv1   Capability = "sound/qoa@1"
+	CapabilityTextureQOIv1     Capability = "texture/qoi@1"
+	CapabilitySoundQOAv1       Capability = "sound/qoa@1"
+	CapabilityAudioStreamQOAv1 Capability = "audio-stream/qoa@1"
+	CapabilityVideoMPEG1v1     Capability = "video/mpeg1@1"
 )
 
 const (
-	MaxSourceAssetBytes        = 64 * 1024 * 1024
-	MaxSourceImageDimension    = 16_384
-	MaxSourceImagePixels       = 64 * 1024 * 1024
-	MaxTextureDimension        = 8_192
-	MaxTexturePixels           = 16 * 1024 * 1024
-	MaxDecodedTextureBytes     = 64 * 1024 * 1024
-	MaxDecodedTextures         = 256 * 1024 * 1024
-	MaxSoundDurationSeconds    = 30
-	MaxDecodedSoundBytes       = 6 * 1024 * 1024
-	MaxDecodedSounds           = 64 * 1024 * 1024
-	MaxSimultaneousSoundVoices = 32
+	MaxSourceAssetBytes           = 64 * 1024 * 1024
+	MaxSourceImageDimension       = 16_384
+	MaxSourceImagePixels          = 64 * 1024 * 1024
+	MaxTextureDimension           = 8_192
+	MaxTexturePixels              = 16 * 1024 * 1024
+	MaxDecodedTextureBytes        = 64 * 1024 * 1024
+	MaxDecodedTextures            = 256 * 1024 * 1024
+	MaxSoundDurationSeconds       = 30
+	MaxDecodedSoundBytes          = 6 * 1024 * 1024
+	MaxDecodedSounds              = 64 * 1024 * 1024
+	MaxSimultaneousSoundVoices    = 32
+	MaxAudioStreamDurationSeconds = 4 * 60 * 60
+	MaxEncodedAudioStreamBytes    = 512 * 1024 * 1024
 )
 
 var ErrContract = errors.New("asset processing contract is invalid")
@@ -53,7 +57,7 @@ func (capabilities Capabilities) Validate() error {
 	if err := validateCanonical(capabilities.Processors, []Processor{ProcessorCopyPNGv1, ProcessorQOAv1, ProcessorQOIv1}); err != nil {
 		return fmt.Errorf("processors: %w", err)
 	}
-	if err := validateCanonical(capabilities.Runtime, []Capability{CapabilitySoundQOAv1, CapabilityTextureQOIv1}); err != nil {
+	if err := validateCanonical(capabilities.Runtime, []Capability{CapabilityAudioStreamQOAv1, CapabilitySoundQOAv1, CapabilityTextureQOIv1, CapabilityVideoMPEG1v1}); err != nil {
 		return fmt.Errorf("runtime capabilities: %w", err)
 	}
 

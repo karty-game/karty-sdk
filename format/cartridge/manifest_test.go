@@ -56,7 +56,12 @@ func TestManifestV2FeaturesRoundTrip(t *testing.T) {
 
 	want := cartridge.Manifest{
 		ProjectName: "sounds", Compiler: "tinygo", Width: 640, Height: 360,
-		Features: []string{cartridge.FeatureSoundQOAv1, cartridge.FeatureTextureQOIv1},
+		Features: []string{
+			cartridge.FeatureAudioStreamQOAv1,
+			cartridge.FeatureSoundQOAv1,
+			cartridge.FeatureTextureQOIv1,
+			cartridge.FeatureVideoMPEG1v1,
+		},
 	}
 	encoded, err := cartridge.EncodeManifest(want)
 	if err != nil {

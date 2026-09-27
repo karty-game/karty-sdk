@@ -31,3 +31,19 @@ The MIT license covers this repository’s source. Official engine runtime binar
 are covered by the separate [Karty Runtime License](RUNTIME_LICENSE.md), allowing
 distribution with free and commercial games. Exported SDK bindings and templates
 are MIT-licensed; private engine implementation source remains proprietary.
+
+`karty.videos.v1` and `video/mpeg1@1` describe separate MPEG-1 files. Catalogs
+contain name-sorted IDs, bounded sizes, a file digest and 128 KiB chunk digests.
+Consumers derive `content/<sha256>.kvid`, verify each stored chunk, and unwrap the
+streaming Karty media envelope before decoding. The video bytes are not embedded
+in WASM or compressed level envelopes.
+
+`karty.audio-streams.v1` and `audio-stream/qoa@1` describe long-form music and
+environment audio stored outside the cartridge. Music entries precede
+environment entries; IDs and names are canonical within each kind. Consumers
+derive `content/<sha256>.kaud`, verify each 64 KiB stored chunk, and unwrap the
+streaming Karty media envelope before incremental QOA decoding. Streaming audio
+is limited to four hours and 512 MiB of QOA payload per entry. The
+`codec/qoa` package exposes `EncodeStream`, `InspectStream`, and `StreamDecoder`
+for packaging and bounded playback; the existing `Encode` and `Inspect` APIs
+retain the smaller one-shot sound limits.

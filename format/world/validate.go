@@ -1,0 +1,209 @@
+package world
+
+import (
+	"fmt"
+	"math"
+	"unicode/utf8"
+)
+
+// Validate checks a complete compiled document before a host prepares private
+// indexes or publishes a mounted resource.
+func Validate(document *Document) error {
+	if document == nil {
+		return ErrSyntax
+	}
+	if document.Version != Version {
+		return ErrVersion
+	}
+	if len(document.Sectors) == 0 || len(document.Sectors) > MaxSectors || len(document.Contents) > MaxContents {
+		return ErrBounds
+	}
+
+	identities := make(map[string]struct{}, len(document.Sectors))
+	walls := 0
+	for sectorIndex := range document.Sectors {
+		sector := &document.Sectors[sectorIndex]
+		if err := validateSector(sectorIndex, sector, identities); err != nil {
+			return err
+		}
+		walls += len(sector.Walls)
+		if walls > MaxWalls {
+			return ErrBounds
+		}
+	}
+	if err := validatePortals(document.Sectors); err != nil {
+		return err
+	}
+
+	contentIdentities := make(map[string]struct{}, len(document.Contents))
+	for index := range document.Contents {
+		if err := validateContent(index, &document.Contents[index], document.Sectors, contentIdentities); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateSector(index int, sector *Sector, identities map[string]struct{}) error {
+	if !validIdentifier(sector.ID) || !validIdentifier(sector.SourceRoom) ||
+		sector.Instance != "" && !validIdentifier(sector.Instance) {
+		return fmt.Errorf("sector %d: %w", index, ErrIdentity)
+	}
+	if _, exists := identities[sector.ID]; exists {
+		return fmt.Errorf("sector %q: %w", sector.ID, ErrIdentity)
+	}
+	identities[sector.ID] = struct{}{}
+
+	if len(sector.Walls) < 3 || len(sector.Walls) > MaxWallsPerSector ||
+		!validPlane(sector.Floor) || !validPlane(sector.Ceiling) {
+		return fmt.Errorf("sector %q: %w", sector.ID, ErrGeometry)
+	}
+	for wallIndex, wall := range sector.Walls {
+		next := sector.Walls[(wallIndex+1)%len(sector.Walls)]
+		if !validVec2(wall.Start) || !validVec2(wall.End) || wall.End != next.Start ||
+			wall.SourceEdge != "" && !validIdentifier(wall.SourceEdge) ||
+			distanceSquared(wall.Start, wall.End) < MinEdgeLength*MinEdgeLength {
+			return fmt.Errorf("sector %q wall %d: %w", sector.ID, wallIndex, ErrGeometry)
+		}
+		if wall.Portal < -1 {
+			return fmt.Errorf("sector %q wall %d: %w", sector.ID, wallIndex, ErrPortal)
+		}
+		for pointIndex, pointWall := range sector.Walls {
+			if pointIndex == wallIndex || pointIndex == (wallIndex+1)%len(sector.Walls) {
+				continue
+			}
+			if orientedDistance(wall.Start, wall.End, pointWall.Start) <= geometryEpsilon {
+				return fmt.Errorf("sector %q is not strictly convex CCW: %w", sector.ID, ErrGeometry)
+			}
+		}
+		floor, ceiling := planeHeight(sector.Floor, wall.Start), planeHeight(sector.Ceiling, wall.Start)
+		if !finiteBounded(floor) || !finiteBounded(ceiling) || ceiling-floor < MinClearance {
+			return fmt.Errorf("sector %q has no clearance: %w", sector.ID, ErrGeometry)
+		}
+	}
+
+	return nil
+}
+
+func validatePortals(sectors []Sector) error {
+	for sectorIndex := range sectors {
+		sector := &sectors[sectorIndex]
+		for wallIndex, wall := range sector.Walls {
+			if wall.Portal < 0 {
+				continue
+			}
+			neighborIndex := int(wall.Portal)
+			if neighborIndex == sectorIndex || neighborIndex >= len(sectors) {
+				return fmt.Errorf("sector %q wall %d: %w", sector.ID, wallIndex, ErrPortal)
+			}
+			neighbor := &sectors[neighborIndex]
+			reverse := -1
+			for candidateIndex, candidate := range neighbor.Walls {
+				if int(candidate.Portal) == sectorIndex && candidate.Start == wall.End && candidate.End == wall.Start {
+					if reverse >= 0 {
+						return fmt.Errorf("sector %q wall %d has duplicate reverse: %w", sector.ID, wallIndex, ErrPortal)
+					}
+					reverse = candidateIndex
+				}
+			}
+			if reverse < 0 || !portalHasClearance(sector, neighbor, wall.Start) ||
+				!portalHasClearance(sector, neighbor, wall.End) || planesCrossOnEdge(sector.Floor, neighbor.Floor, wall) ||
+				planesCrossOnEdge(sector.Ceiling, neighbor.Ceiling, wall) {
+				return fmt.Errorf("sector %q wall %d: %w", sector.ID, wallIndex, ErrPortal)
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateContent(index int, content *Content, sectors []Sector, identities map[string]struct{}) error {
+	if !validIdentifier(content.ID) || !validIdentifier(content.SourceID) || !validKind(content.Kind) ||
+		content.Instance != "" && !validIdentifier(content.Instance) || content.Sector >= uint32(len(sectors)) ||
+		!validVec3(content.Position) {
+		return fmt.Errorf("content %d: %w", index, ErrContent)
+	}
+	if _, exists := identities[content.ID]; exists {
+		return fmt.Errorf("content %q: %w", content.ID, ErrIdentity)
+	}
+	identities[content.ID] = struct{}{}
+
+	sector := &sectors[content.Sector]
+	point := Vec2{X: content.Position.X, Y: content.Position.Y}
+	if !containsPoint(sector, point) || content.Position.Z < planeHeight(sector.Floor, point) ||
+		content.Position.Z > planeHeight(sector.Ceiling, point) {
+		return fmt.Errorf("content %q: %w", content.ID, ErrContent)
+	}
+
+	return nil
+}
+
+func validIdentifier(value string) bool {
+	return len(value) > 0 && len(value) <= MaxIdentifierBytes && utf8.ValidString(value)
+}
+
+func validKind(value string) bool {
+	return len(value) > 0 && len(value) <= MaxKindBytes && utf8.ValidString(value)
+}
+
+func validVec2(value Vec2) bool {
+	return finiteBounded(value.X) && finiteBounded(value.Y)
+}
+
+func validVec3(value Vec3) bool {
+	return finiteBounded(value.X) && finiteBounded(value.Y) && finiteBounded(value.Z)
+}
+
+func validPlane(value Plane) bool {
+	return finiteBounded(value.A) && finiteBounded(value.B) && finiteBounded(value.C)
+}
+
+func finiteBounded(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && math.Abs(value) <= MaxCoordinate
+}
+
+func distanceSquared(left, right Vec2) float64 {
+	dx, dy := right.X-left.X, right.Y-left.Y
+
+	return dx*dx + dy*dy
+}
+
+func orientedDistance(start, end, point Vec2) float64 {
+	dx, dy := end.X-start.X, end.Y-start.Y
+	cross := dx*(point.Y-start.Y) - dy*(point.X-start.X)
+	length := math.Hypot(dx, dy)
+	if length == 0 {
+		return 0
+	}
+
+	return cross / length
+}
+
+func planeHeight(plane Plane, point Vec2) float64 {
+	return plane.A*point.X + plane.B*point.Y + plane.C
+}
+
+func portalHasClearance(left, right *Sector, point Vec2) bool {
+	floor := max(planeHeight(left.Floor, point), planeHeight(right.Floor, point))
+	ceiling := min(planeHeight(left.Ceiling, point), planeHeight(right.Ceiling, point))
+
+	return ceiling-floor >= MinClearance
+}
+
+func planesCrossOnEdge(left, right Plane, wall Wall) bool {
+	start := planeHeight(left, wall.Start) - planeHeight(right, wall.Start)
+	end := planeHeight(left, wall.End) - planeHeight(right, wall.End)
+
+	return start < -geometryEpsilon && end > geometryEpsilon || start > geometryEpsilon && end < -geometryEpsilon
+}
+
+func containsPoint(sector *Sector, point Vec2) bool {
+	for _, wall := range sector.Walls {
+		if orientedDistance(wall.Start, wall.End, point) < -geometryEpsilon {
+			return false
+		}
+	}
+
+	return true
+}

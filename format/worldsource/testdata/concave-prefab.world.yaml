@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "rooms": [{
+    "id": "hall",
+    "boundary": [
+      {"id":"south","start":{"x":0,"y":0},"end":{"x":6,"y":0},"material":"stone"},
+      {"id":"door","start":{"x":6,"y":0},"end":{"x":6,"y":2},"material":"stone"},
+      {"id":"inset-south","start":{"x":6,"y":2},"end":{"x":2,"y":2},"material":"stone"},
+      {"id":"inset-east","start":{"x":2,"y":2},"end":{"x":2,"y":6},"material":"stone"},
+      {"id":"north","start":{"x":2,"y":6},"end":{"x":0,"y":6},"material":"stone"},
+      {"id":"west","start":{"x":0,"y":6},"end":{"x":0,"y":0},"material":"stone"}
+    ],
+    "floor":{"a":0.01,"b":0,"c":0},
+    "ceiling":{"a":0,"b":-0.01,"c":4},
+    "floor_material":"floor",
+    "ceiling_material":"ceiling",
+    "contents":[{"id":"spawn","kind":"spawn","position":{"x":1,"y":1,"z":1}}]
+  }],
+  "prefabs": [{
+    "id":"alcove",
+    "rooms":[{
+      "id":"alcove",
+      "boundary":[
+        {"id":"south","start":{"x":0,"y":0},"end":{"x":2,"y":0},"material":"stone"},
+        {"id":"east","start":{"x":2,"y":0},"end":{"x":2,"y":2},"material":"stone"},
+        {"id":"north","start":{"x":2,"y":2},"end":{"x":0,"y":2},"material":"stone"},
+        {"id":"entrance","start":{"x":0,"y":2},"end":{"x":0,"y":0},"material":"stone"}
+      ],
+      "floor":{"a":0,"b":0,"c":0},
+      "ceiling":{"a":0,"b":0,"c":4},
+      "floor_material":"floor",
+      "ceiling_material":"ceiling",
+      "contents":[]
+    }],
+    "instances":[],
+    "connections":[],
+    "ports":[{"id":"entrance","endpoint":{"room":"alcove","edge":"entrance","instance":"","port":""}}]
+  }],
+  "instances":[{
+    "id":"alcove-1",
+    "prefab":"alcove",
+    "transform":{"translation":{"x":6,"y":0,"z":0},"yaw_degrees":0,"scale":1},
+    "materials":[]
+  }],
+  "connections":[{
+    "id":"hall-to-alcove",
+    "a":{"room":"hall","edge":"door","instance":"","port":""},
+    "b":{"room":"","edge":"","instance":"alcove-1","port":"entrance"}
+  }]
+}

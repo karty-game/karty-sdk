@@ -7,6 +7,9 @@ and the private engine. Neither needs to import source from the other.
 
 - `format/cartridge`: game metadata, embedded assets, and Wasm custom sections.
 - `format/level`: versioned level envelopes and modules.
+- `format/world`: canonical compiled convex-sector worlds stored as level data.
+- `format/worldsource`: separately versioned room, prefab, port, and content
+  authoring semantics for public compilers.
 - **Releases**: SDK bundles, native hosts, browser Wasm, checksums, and signatures
   produced and validated by the private engine workflow.
 
@@ -22,8 +25,17 @@ Go module tags (`vVERSION`) version the format packages. Engine artifact tags
 (`sdk-vVERSION`) version downloadable SDKs and hosts independently. The engine
 publishes assets here; this repository does not build private engine source.
 
-The initial public module tag `v0.0.1` still needs to be published. No remote
-repository, commits, tags, or releases were created by this local extraction.
+Tagged Go module releases provide immutable public format dependencies. Engine
+artifact releases remain separately versioned and published by the private
+engine workflow.
+
+Compiled worlds use the `world/sectors@1` cartridge capability and the
+`@world/main` level entry. `format/world` accepts only its canonical encoding and
+validates all sectors, planes, reciprocal portals, identities, provenance, and
+content placement before a host prepares runtime indexes. `format/worldsource`
+does not parse YAML itself; its YAML tags and validation define the high-level
+schema while keeping this module dependency-free. The CLI owns decoding,
+diagnostics, prefab expansion, convex decomposition, and post-expansion limits.
 
 [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE.md)
 

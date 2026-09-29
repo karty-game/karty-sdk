@@ -32,7 +32,9 @@ engine workflow.
 Compiled worlds use the `world/sectors@1` cartridge capability and the
 `@world/main` level entry. `format/world` accepts only its canonical encoding and
 validates all sectors, planes, reciprocal portals, identities, provenance, and
-content placement before a host prepares runtime indexes. `format/worldsource`
+content placement before a host prepares runtime indexes. Format version 2 adds
+optional typed actor transforms, sprite modes, alpha policy and bounded exact
+tags while readers retain version 1 compatibility. `format/worldsource`
 does not parse YAML itself; its YAML tags and validation define the high-level
 schema while keeping this module dependency-free. The CLI owns decoding,
 diagnostics, prefab expansion, convex decomposition, and post-expansion limits.

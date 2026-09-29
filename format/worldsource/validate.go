@@ -23,7 +23,10 @@ func Validate(document *Document) error {
 	if document == nil {
 		return ErrReference
 	}
-	if document.Version != Version {
+	if document.Version != LegacyVersion && document.Version != Version {
+		return ErrVersion
+	}
+	if document.Version == LegacyVersion && usesActorFields(document) {
 		return ErrVersion
 	}
 	if len(document.Prefabs) > MaxPrefabs || len(document.Rooms)+len(document.Instances) == 0 {
@@ -67,6 +70,40 @@ func Validate(document *Document) error {
 	}
 
 	return nil
+}
+
+func usesActorFields(document *Document) bool {
+	usesRooms := func(rooms []Room) bool {
+		for _, room := range rooms {
+			for _, content := range room.Contents {
+				if content.Actor != nil {
+					return true
+				}
+			}
+		}
+
+		return false
+	}
+	if usesRooms(document.Rooms) {
+		return true
+	}
+	for _, instance := range document.Instances {
+		if len(instance.Tags) > 0 {
+			return true
+		}
+	}
+	for _, prefab := range document.Prefabs {
+		if usesRooms(prefab.Rooms) {
+			return true
+		}
+		for _, instance := range prefab.Instances {
+			if len(instance.Tags) > 0 {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func validateScope(
@@ -189,6 +226,9 @@ func validateRoom(scope string, room *Room, counts *totals) error {
 		if !validIdentifier(content.ID) || !validIdentifier(content.Kind) || !validVec3(content.Position) {
 			return fmt.Errorf("scope %q room %q content %d: %w", scope, room.ID, contentIndex, ErrContent)
 		}
+		if content.Actor != nil && !validActor(content.Actor) {
+			return fmt.Errorf("scope %q room %q content %q: %w", scope, room.ID, content.ID, ErrContent)
+		}
 		if _, exists := contentIDs[content.ID]; exists {
 			return fmt.Errorf("scope %q room %q content %q: %w", scope, room.ID, content.ID, ErrIdentity)
 		}
@@ -211,6 +251,9 @@ func validateInstance(scope string, instance *Instance, prefabs map[string]*Pref
 		len(instance.Materials) > MaxMaterialOverrides {
 		return fmt.Errorf("scope %q instance %q: %w", scope, instance.ID, ErrReference)
 	}
+	if !validTags(instance.Tags) {
+		return fmt.Errorf("scope %q instance %q tags: %w", scope, instance.ID, ErrReference)
+	}
 	overrides := make(map[string]struct{}, len(instance.Materials))
 	for _, override := range instance.Materials {
 		if !validIdentifier(override.From) || !validIdentifier(override.To) {
@@ -223,6 +266,35 @@ func validateInstance(scope string, instance *Instance, prefabs map[string]*Pref
 	}
 
 	return nil
+}
+
+func validActor(actor *Actor) bool {
+	if actor == nil || !finite(actor.YawDegrees) || !finite(actor.PitchDegrees) || !finite(actor.RollDegrees) ||
+		!validVec3(actor.Scale) || actor.Scale.X < 0 || actor.Scale.Y < 0 || actor.Scale.Z < 0 || !validTags(actor.Tags) {
+		return false
+	}
+	if actor.Sprite == nil {
+		return true
+	}
+	sprite := actor.Sprite
+	return validIdentifier(sprite.Texture) &&
+		(sprite.Facing == "camera-facing" || sprite.Facing == "upright" || sprite.Facing == "cross" || sprite.Facing == "fixed") &&
+		(sprite.Alpha == "cutout" || sprite.Alpha == "blend") && finite(sprite.Width) && sprite.Width > 0 &&
+		finite(sprite.Height) && sprite.Height > 0 && finite(sprite.OriginX) && sprite.OriginX >= 0 && sprite.OriginX <= 1 &&
+		finite(sprite.OriginY) && sprite.OriginY >= 0 && sprite.OriginY <= 1
+}
+
+func validTags(tags []string) bool {
+	if len(tags) > MaxTags {
+		return false
+	}
+	for _, tag := range tags {
+		if len(tag) == 0 || len(tag) > MaxTagBytes || !utf8.ValidString(tag) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func validatePorts(scope string, ports []Port, index *scopeIndex, prefabs map[string]*Prefab, counts *totals) error {

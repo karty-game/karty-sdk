@@ -51,7 +51,7 @@ func TestDecodeRejectsNonCanonicalAndMalformedPayloads(t *testing.T) {
 		"trailing":      append(slices.Clone(encoded), '\n'),
 		"leading space": append([]byte{' '}, encoded...),
 		"unknown field": bytes.Replace(encoded, []byte(`"version":1`), []byte(`"unknown":0,"version":1`), 1),
-		"wrong version": bytes.Replace(encoded, []byte(`"version":1`), []byte(`"version":2`), 1),
+		"wrong version": bytes.Replace(encoded, []byte(`"version":1`), []byte(`"version":3`), 1),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -112,7 +112,7 @@ func TestValidateRejectsInvalidCompiledWorlds(t *testing.T) {
 		mutate func(*world.Document)
 		want   error
 	}{
-		"version": {func(document *world.Document) { document.Version++ }, world.ErrVersion},
+		"version": {func(document *world.Document) { document.Version = world.Version + 1 }, world.ErrVersion},
 		"duplicate sector": {func(document *world.Document) {
 			document.Sectors[1].ID = document.Sectors[0].ID
 		}, world.ErrIdentity},
@@ -179,7 +179,7 @@ func FuzzDecode(f *testing.F) {
 
 func validWorld() world.Document {
 	return world.Document{
-		Version: world.Version,
+		Version: world.LegacyVersion,
 		Sectors: []world.Sector{
 			{
 				ID: "room-a/0", SourceRoom: "room-a",

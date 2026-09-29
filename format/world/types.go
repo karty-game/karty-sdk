@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	Version            = uint16(1)
+	LegacyVersion      = uint16(1)
+	Version            = uint16(2)
 	EntryName          = "@world/main"
 	Feature            = cartridge.FeatureWorldSectorsV1
 	MaxEncodedSize     = 8 * 1024 * 1024
@@ -19,6 +20,8 @@ const (
 	MaxContents        = 4096
 	MaxIdentifierBytes = 128
 	MaxKindBytes       = 128
+	MaxTags            = 8
+	MaxTagBytes        = 64
 	MaxCoordinate      = 1_000_000.0
 	MinEdgeLength      = 1e-6
 	MinClearance       = 1e-6
@@ -96,4 +99,43 @@ type Content struct {
 	Kind     string `json:"kind"`
 	Sector   uint32 `json:"sector"`
 	Position Vec3   `json:"position"`
+	Actor    *Actor `json:"actor,omitempty"`
+}
+
+// Actor is the optional typed ECS payload introduced by compiled-world v2.
+// Position remains on Content so actor and non-rendered gameplay contents share
+// the same stable identity and sector assignment.
+type Actor struct {
+	Yaw    float64  `json:"yaw"`
+	Pitch  float64  `json:"pitch"`
+	Roll   float64  `json:"roll"`
+	Scale  Vec3     `json:"scale"`
+	Sprite *Sprite  `json:"sprite,omitempty"`
+	Tags   []string `json:"tags,omitempty"`
+}
+
+type SpriteFacing string
+
+const (
+	SpriteCameraFacing SpriteFacing = "camera-facing"
+	SpriteUpright      SpriteFacing = "upright"
+	SpriteCross        SpriteFacing = "cross"
+	SpriteFixed        SpriteFacing = "fixed"
+)
+
+type SpriteAlpha string
+
+const (
+	SpriteCutout SpriteAlpha = "cutout"
+	SpriteBlend  SpriteAlpha = "blend"
+)
+
+type Sprite struct {
+	AssetID uint32       `json:"asset_id"`
+	Facing  SpriteFacing `json:"facing"`
+	Alpha   SpriteAlpha  `json:"alpha"`
+	Width   float64      `json:"width"`
+	Height  float64      `json:"height"`
+	OriginX float64      `json:"origin_x"`
+	OriginY float64      `json:"origin_y"`
 }

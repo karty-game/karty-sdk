@@ -12,7 +12,7 @@ func Validate(document *Document) error {
 	if document == nil {
 		return ErrSyntax
 	}
-	if document.Version != Version {
+	if document.Version != LegacyVersion && document.Version != Version {
 		return ErrVersion
 	}
 	if len(document.Sectors) == 0 || len(document.Sectors) > MaxSectors || len(document.Contents) > MaxContents {
@@ -37,7 +37,7 @@ func Validate(document *Document) error {
 
 	contentIdentities := make(map[string]struct{}, len(document.Contents))
 	for index := range document.Contents {
-		if err := validateContent(index, &document.Contents[index], document.Sectors, contentIdentities); err != nil {
+		if err := validateContent(index, &document.Contents[index], document.Sectors, contentIdentities, document.Version); err != nil {
 			return err
 		}
 	}
@@ -118,7 +118,7 @@ func validatePortals(sectors []Sector) error {
 	return nil
 }
 
-func validateContent(index int, content *Content, sectors []Sector, identities map[string]struct{}) error {
+func validateContent(index int, content *Content, sectors []Sector, identities map[string]struct{}, version uint16) error {
 	if !validIdentifier(content.ID) || !validIdentifier(content.SourceID) || !validKind(content.Kind) ||
 		content.Instance != "" && !validIdentifier(content.Instance) || content.Sector >= uint32(len(sectors)) ||
 		!validVec3(content.Position) {
@@ -128,12 +128,50 @@ func validateContent(index int, content *Content, sectors []Sector, identities m
 		return fmt.Errorf("content %q: %w", content.ID, ErrIdentity)
 	}
 	identities[content.ID] = struct{}{}
+	if version == LegacyVersion && content.Actor != nil {
+		return fmt.Errorf("content %q actor requires version %d: %w", content.ID, Version, ErrVersion)
+	}
+	if content.Actor != nil {
+		if err := validateActor(content.Actor); err != nil {
+			return fmt.Errorf("content %q actor: %w", content.ID, err)
+		}
+	}
 
 	sector := &sectors[content.Sector]
 	point := Vec2{X: content.Position.X, Y: content.Position.Y}
 	if !containsPoint(sector, point) || content.Position.Z < planeHeight(sector.Floor, point) ||
 		content.Position.Z > planeHeight(sector.Ceiling, point) {
 		return fmt.Errorf("content %q: %w", content.ID, ErrContent)
+	}
+
+	return nil
+}
+
+func validateActor(actor *Actor) error {
+	if !finiteBounded(actor.Yaw) || !finiteBounded(actor.Pitch) || !finiteBounded(actor.Roll) ||
+		!validVec3(actor.Scale) || actor.Scale.X <= 0 || actor.Scale.Y <= 0 || actor.Scale.Z <= 0 ||
+		len(actor.Tags) > MaxTags {
+		return ErrContent
+	}
+	previous := ""
+	for _, tag := range actor.Tags {
+		if len(tag) == 0 || len(tag) > MaxTagBytes || !utf8.ValidString(tag) || tag <= previous {
+			return ErrContent
+		}
+		previous = tag
+	}
+	if actor.Sprite == nil {
+		return nil
+	}
+	sprite := actor.Sprite
+	if sprite.AssetID == 0 ||
+		(sprite.Facing != SpriteCameraFacing && sprite.Facing != SpriteUpright &&
+			sprite.Facing != SpriteCross && sprite.Facing != SpriteFixed) ||
+		(sprite.Alpha != SpriteCutout && sprite.Alpha != SpriteBlend) ||
+		!finiteBounded(sprite.Width) || sprite.Width <= 0 || !finiteBounded(sprite.Height) || sprite.Height <= 0 ||
+		!finiteBounded(sprite.OriginX) || sprite.OriginX < 0 || sprite.OriginX > 1 ||
+		!finiteBounded(sprite.OriginY) || sprite.OriginY < 0 || sprite.OriginY > 1 {
+		return ErrContent
 	}
 
 	return nil

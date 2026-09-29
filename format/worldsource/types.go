@@ -6,7 +6,8 @@ package worldsource
 import "errors"
 
 const (
-	Version              = uint16(1)
+	LegacyVersion        = uint16(1)
+	Version              = uint16(2)
 	MaxRooms             = 1024
 	MaxPrefabs           = 256
 	MaxInstances         = 4096
@@ -17,6 +18,8 @@ const (
 	MaxContents          = 4096
 	MaxMaterialOverrides = 256
 	MaxIdentifierBytes   = 128
+	MaxTags              = 8
+	MaxTagBytes          = 64
 	MaxCoordinate        = 1_000_000.0
 	MinEdgeLength        = 1e-6
 	MinClearance         = 1e-6
@@ -84,6 +87,26 @@ type Content struct {
 	ID       string `json:"id" yaml:"id"`
 	Kind     string `json:"kind" yaml:"kind"`
 	Position Vec3   `json:"position" yaml:"position"`
+	Actor    *Actor `json:"actor,omitempty" yaml:"actor,omitempty"`
+}
+
+type Actor struct {
+	YawDegrees   float64  `json:"yaw_degrees" yaml:"yaw_degrees"`
+	PitchDegrees float64  `json:"pitch_degrees" yaml:"pitch_degrees"`
+	RollDegrees  float64  `json:"roll_degrees" yaml:"roll_degrees"`
+	Scale        Vec3     `json:"scale" yaml:"scale"`
+	Sprite       *Sprite  `json:"sprite,omitempty" yaml:"sprite,omitempty"`
+	Tags         []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+}
+
+type Sprite struct {
+	Texture string  `json:"texture" yaml:"texture"`
+	Facing  string  `json:"facing" yaml:"facing"`
+	Alpha   string  `json:"alpha" yaml:"alpha"`
+	Width   float64 `json:"width" yaml:"width"`
+	Height  float64 `json:"height" yaml:"height"`
+	OriginX float64 `json:"origin_x" yaml:"origin_x"`
+	OriginY float64 `json:"origin_y" yaml:"origin_y"`
 }
 
 type Prefab struct {
@@ -99,6 +122,9 @@ type Instance struct {
 	Prefab    string             `json:"prefab" yaml:"prefab"`
 	Transform Transform          `json:"transform" yaml:"transform"`
 	Materials []MaterialOverride `json:"materials" yaml:"materials"`
+	// Tags replaces the actor tags of every content in this prefab instance.
+	// An empty list preserves the prefab-authored tags.
+	Tags []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
 // Transform applies uniform scale, Z-axis yaw in degrees and translation.

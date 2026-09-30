@@ -175,3 +175,24 @@ func bowTieBoundary() []worldsource.Edge {
 		{ID: "d", Start: point(2, 0), End: point(0, 0), Material: "stone"},
 	}
 }
+
+func TestValidateDirectedConnectionsAndVersionGate(t *testing.T) {
+	document := validSource()
+	document.Connections[0].Direction = worldsource.PortalAToB
+	// An endpoint used as an incoming target may independently own an outgoing
+	// link. This pair expresses reciprocal travel as two directed graph edges.
+	document.Connections = append(document.Connections, worldsource.Connection{
+		ID:        "alcove-to-hall",
+		A:         worldsource.Endpoint{Instance: "alcove-1", Port: "entrance"},
+		B:         worldsource.Endpoint{Room: "hall", Edge: "door"},
+		Direction: worldsource.PortalAToB,
+	})
+	if err := worldsource.Validate(&document); err != nil {
+		t.Fatalf("directed graph: %v", err)
+	}
+
+	document.Version = worldsource.ActorVersion
+	if err := worldsource.Validate(&document); !errors.Is(err, worldsource.ErrVersion) {
+		t.Fatalf("legacy directed connection error = %v", err)
+	}
+}

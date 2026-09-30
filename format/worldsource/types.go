@@ -7,7 +7,8 @@ import "errors"
 
 const (
 	LegacyVersion        = uint16(1)
-	Version              = uint16(2)
+	ActorVersion         = uint16(2)
+	Version              = uint16(3)
 	MaxRooms             = 1024
 	MaxPrefabs           = 256
 	MaxInstances         = 4096
@@ -149,12 +150,24 @@ type Endpoint struct {
 	Port     string `json:"port" yaml:"port"`
 }
 
-// Connection joins two aperture endpoints once; reciprocal duplicate records
-// are neither needed nor accepted.
+type PortalDirection string
+
+const (
+	PortalBoth PortalDirection = "both"
+	PortalAToB PortalDirection = "a-to-b"
+	PortalBToA PortalDirection = "b-to-a"
+)
+
+// Connection links two aperture endpoints. Direction defaults to both for
+// compatibility. Each endpoint may own one outgoing link and may be the target
+// of any number of links. NonEuclidean permits equal-length edges at different
+// positions or orientations.
 type Connection struct {
-	ID string   `json:"id" yaml:"id"`
-	A  Endpoint `json:"a" yaml:"a"`
-	B  Endpoint `json:"b" yaml:"b"`
+	ID           string          `json:"id" yaml:"id"`
+	A            Endpoint        `json:"a" yaml:"a"`
+	B            Endpoint        `json:"b" yaml:"b"`
+	Direction    PortalDirection `json:"direction,omitempty" yaml:"direction,omitempty"`
+	NonEuclidean bool            `json:"non_euclidean,omitempty" yaml:"non_euclidean,omitempty"`
 }
 
 // Port exposes one otherwise unconnected prefab endpoint to its instances.

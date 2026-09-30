@@ -10,6 +10,8 @@ import (
 func TestActorPayloadRoundTripAndValidation(t *testing.T) {
 	document := validWorld()
 	document.Version = world.Version
+	document.Sectors[0].Walls[1].PortalWall = 4
+	document.Sectors[1].Walls[3].PortalWall = 2
 	document.Contents[0].Actor = &world.Actor{
 		Scale: world.Vec3{X: 1, Y: 1, Z: 1}, Tags: []string{"interactive", "tree"},
 		Sprite: &world.Sprite{
@@ -36,7 +38,33 @@ func TestActorPayloadRoundTripAndValidation(t *testing.T) {
 	}
 	document.Contents[0].Actor.Tags = []string{"interactive", "tree"}
 	document.Version = world.LegacyVersion
+	document.Sectors[0].Walls[1].PortalWall = 0
+	document.Sectors[1].Walls[3].PortalWall = 0
 	if err := world.Validate(&document); !errors.Is(err, world.ErrVersion) {
 		t.Fatalf("v1 actor error = %v", err)
+	}
+}
+
+func TestDirectedPortalTargetsAndIndependentOutgoingLinks(t *testing.T) {
+	document := validWorld()
+	document.Version = world.Version
+	// room-a door enters room-b's west wall. The destination wall is solid,
+	// making this explicitly one-way.
+	document.Sectors[0].Walls[1].PortalWall = 4
+	document.Sectors[1].Walls[3].Portal = -1
+	if err := world.Validate(&document); err != nil {
+		t.Fatalf("one-way portal: %v", err)
+	}
+
+	// The incoming destination may own a separate outgoing mapping.
+	document.Sectors[1].Walls[1].Portal = 0
+	document.Sectors[1].Walls[1].PortalWall = 4
+	if err := world.Validate(&document); err != nil {
+		t.Fatalf("independent outgoing portal: %v", err)
+	}
+
+	document.Sectors[1].Walls[1].PortalWall = 5
+	if err := world.Validate(&document); !errors.Is(err, world.ErrPortal) {
+		t.Fatalf("mismatched destination wall error = %v", err)
 	}
 }

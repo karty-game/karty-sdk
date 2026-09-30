@@ -10,7 +10,8 @@ import (
 
 const (
 	LegacyVersion      = uint16(1)
-	Version            = uint16(2)
+	ActorVersion       = uint16(2)
+	Version            = uint16(3)
 	EntryName          = "@world/main"
 	Feature            = cartridge.FeatureWorldSectorsV1
 	MaxEncodedSize     = 8 * 1024 * 1024
@@ -80,12 +81,16 @@ type Sector struct {
 }
 
 // Wall is one directed sector boundary. Portal is the adjacent sector index,
-// or -1 for an opaque wall. SourceEdge is empty only for compiler-generated
-// internal decomposition edges.
+// or -1 for an opaque wall. PortalWall is one plus the reciprocal wall index
+// in compiled-world v3; zero is reserved for v1/v2 coincident portals and
+// opaque walls. The paired directed edges define a rigid destination-to-source
+// portal transform. SourceEdge is empty only for compiler-generated internal
+// decomposition edges.
 type Wall struct {
 	Start      Vec2   `json:"start"`
 	End        Vec2   `json:"end"`
 	Portal     int32  `json:"portal"`
+	PortalWall uint16 `json:"portal_wall,omitempty"`
 	Material   uint32 `json:"material"`
 	SourceEdge string `json:"source_edge"`
 }

@@ -12,7 +12,7 @@ func Validate(document *Document) error {
 	if document == nil {
 		return ErrSyntax
 	}
-	if document.Version != LegacyVersion && document.Version != Version {
+	if document.Version < LegacyVersion || document.Version > Version {
 		return ErrVersion
 	}
 	if len(document.Sectors) == 0 || len(document.Sectors) > MaxSectors || len(document.Contents) > MaxContents {
@@ -31,7 +31,7 @@ func Validate(document *Document) error {
 			return ErrBounds
 		}
 	}
-	if err := validatePortals(document.Sectors); err != nil {
+	if err := validatePortals(document.Sectors, document.Version); err != nil {
 		return err
 	}
 
@@ -86,18 +86,31 @@ func validateSector(index int, sector *Sector, identities map[string]struct{}) e
 	return nil
 }
 
-func validatePortals(sectors []Sector) error {
+func validatePortals(sectors []Sector, version uint16) error {
 	for sectorIndex := range sectors {
 		sector := &sectors[sectorIndex]
 		for wallIndex, wall := range sector.Walls {
 			if wall.Portal < 0 {
+				if wall.PortalWall != 0 {
+					return fmt.Errorf("sector %q wall %d: %w", sector.ID, wallIndex, ErrPortal)
+				}
 				continue
 			}
 			neighborIndex := int(wall.Portal)
-			if neighborIndex == sectorIndex || neighborIndex >= len(sectors) {
+			if neighborIndex >= len(sectors) || version < Version && neighborIndex == sectorIndex {
 				return fmt.Errorf("sector %q wall %d: %w", sector.ID, wallIndex, ErrPortal)
 			}
 			neighbor := &sectors[neighborIndex]
+			if version >= Version {
+				if wall.PortalWall == 0 || int(wall.PortalWall) > len(neighbor.Walls) ||
+					!equalPortalLength(wall, neighbor.Walls[int(wall.PortalWall)-1]) {
+					return fmt.Errorf("sector %q wall %d: %w", sector.ID, wallIndex, ErrPortal)
+				}
+				continue
+			}
+			if wall.PortalWall != 0 {
+				return fmt.Errorf("sector %q wall %d: %w", sector.ID, wallIndex, ErrPortal)
+			}
 			reverse := -1
 			for candidateIndex, candidate := range neighbor.Walls {
 				if int(candidate.Portal) == sectorIndex && candidate.Start == wall.End && candidate.End == wall.Start {
@@ -118,6 +131,14 @@ func validatePortals(sectors []Sector) error {
 	return nil
 }
 
+func equalPortalLength(left, right Wall) bool {
+	leftLength := distanceSquared(left.Start, left.End)
+	rightLength := distanceSquared(right.Start, right.End)
+	tolerance := geometryEpsilon * max(1, leftLength, rightLength)
+
+	return math.Abs(leftLength-rightLength) <= tolerance
+}
+
 func validateContent(index int, content *Content, sectors []Sector, identities map[string]struct{}, version uint16) error {
 	if !validIdentifier(content.ID) || !validIdentifier(content.SourceID) || !validKind(content.Kind) ||
 		content.Instance != "" && !validIdentifier(content.Instance) || content.Sector >= uint32(len(sectors)) ||
@@ -128,8 +149,8 @@ func validateContent(index int, content *Content, sectors []Sector, identities m
 		return fmt.Errorf("content %q: %w", content.ID, ErrIdentity)
 	}
 	identities[content.ID] = struct{}{}
-	if version == LegacyVersion && content.Actor != nil {
-		return fmt.Errorf("content %q actor requires version %d: %w", content.ID, Version, ErrVersion)
+	if version < ActorVersion && content.Actor != nil {
+		return fmt.Errorf("content %q actor requires version %d: %w", content.ID, ActorVersion, ErrVersion)
 	}
 	if content.Actor != nil {
 		if err := validateActor(content.Actor); err != nil {

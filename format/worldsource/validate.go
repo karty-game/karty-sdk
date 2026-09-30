@@ -23,10 +23,13 @@ func Validate(document *Document) error {
 	if document == nil {
 		return ErrReference
 	}
-	if document.Version != LegacyVersion && document.Version != Version {
+	if document.Version < LegacyVersion || document.Version > Version {
 		return ErrVersion
 	}
-	if document.Version == LegacyVersion && usesActorFields(document) {
+	if document.Version < ActorVersion && usesActorFields(document) {
+		return ErrVersion
+	}
+	if document.Version < Version && usesNonEuclideanConnections(document) {
 		return ErrVersion
 	}
 	if len(document.Prefabs) > MaxPrefabs || len(document.Rooms)+len(document.Instances) == 0 {
@@ -106,6 +109,23 @@ func usesActorFields(document *Document) bool {
 	return false
 }
 
+func usesNonEuclideanConnections(document *Document) bool {
+	for _, connection := range document.Connections {
+		if connection.NonEuclidean || connection.Direction != "" && connection.Direction != PortalBoth {
+			return true
+		}
+	}
+	for _, prefab := range document.Prefabs {
+		for _, connection := range prefab.Connections {
+			if connection.NonEuclidean || connection.Direction != "" && connection.Direction != PortalBoth {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func validateScope(
 	name string,
 	rooms []Room,
@@ -167,23 +187,32 @@ func validateScope(
 		if err != nil {
 			return nil, fmt.Errorf("connection %q endpoint b: %w", connection.ID, err)
 		}
-		if left == right {
+		if left == right || connection.Direction != "" && connection.Direction != PortalBoth &&
+			connection.Direction != PortalAToB && connection.Direction != PortalBToA {
 			return nil, fmt.Errorf("connection %q: %w", connection.ID, ErrConnection)
 		}
-		if _, exists := index.used[left]; exists {
-			return nil, fmt.Errorf("connection %q reuses endpoint: %w", connection.ID, ErrConnection)
+		outgoingA := connection.Direction == "" || connection.Direction == PortalBoth || connection.Direction == PortalAToB
+		outgoingB := connection.Direction == "" || connection.Direction == PortalBoth || connection.Direction == PortalBToA
+		if _, exists := index.used[left]; outgoingA && exists {
+			return nil, fmt.Errorf("connection %q reuses outgoing endpoint: %w", connection.ID, ErrConnection)
 		}
-		if _, exists := index.used[right]; exists {
-			return nil, fmt.Errorf("connection %q reuses endpoint: %w", connection.ID, ErrConnection)
+		if _, exists := index.used[right]; outgoingB && exists {
+			return nil, fmt.Errorf("connection %q reuses outgoing endpoint: %w", connection.ID, ErrConnection)
 		}
-		if leftEdge != nil && rightEdge != nil && (leftEdge.Start != rightEdge.End || leftEdge.End != rightEdge.Start) {
+		if !connection.NonEuclidean && leftEdge != nil && rightEdge != nil &&
+			(leftEdge.Start != rightEdge.End || leftEdge.End != rightEdge.Start) {
 			return nil, fmt.Errorf("connection %q edges do not coincide: %w", connection.ID, ErrConnection)
 		}
-		if leftEdge != nil && rightEdge != nil &&
+		if !connection.NonEuclidean && leftEdge != nil && rightEdge != nil &&
 			!directConnectionHasClearance(index.rooms[connection.A.Room], index.rooms[connection.B.Room], leftEdge) {
 			return nil, fmt.Errorf("connection %q has no aperture: %w", connection.ID, ErrConnection)
 		}
-		index.used[left], index.used[right] = struct{}{}, struct{}{}
+		if outgoingA {
+			index.used[left] = struct{}{}
+		}
+		if outgoingB {
+			index.used[right] = struct{}{}
+		}
 	}
 	counts.connections += len(connections)
 

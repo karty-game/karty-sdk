@@ -64,6 +64,8 @@ func TextureAssetID(name string) (uint32, bool) {
 }
 
 // SourceEntry is an authoring-time named payload passed to Encode.
+// Texture entries must have distinct nonzero numeric IDs, even when logical
+// names use different hexadecimal case.
 type SourceEntry struct {
 	Name string
 	Kind EntryKind
@@ -145,15 +147,24 @@ func encodedLengths(entries []SourceEntry) (int, int, error) {
 	tableLength := 0
 	payloadLength := 0
 	previous := ""
+	textureIDs := make(map[uint32]bool)
 
 	for index, entry := range entries {
-		if (entry.Kind != EntryData && entry.Kind != EntryTexture) || len(entry.Name) == 0 || len(entry.Name) > MaxEntryNameSize ||
-			!utf8.ValidString(entry.Name) || len(entry.Data) == 0 || len(entry.Data) > MaxEntrySize {
+		if !validEntryKind(entry.Kind) || len(entry.Name) == 0 || len(entry.Name) > MaxEntryNameSize ||
+			!utf8.ValidString(entry.Name) || !validEntryName(entry.Name, entry.Kind) || len(entry.Data) == 0 || len(entry.Data) > MaxEntrySize {
 			return 0, 0, fmt.Errorf("entry %q: %w", entry.Name, ErrEntry)
 		}
 
 		if index > 0 && entry.Name == previous {
 			return 0, 0, fmt.Errorf("duplicate entry %q: %w", entry.Name, ErrEntry)
+		}
+
+		if entry.Kind == EntryTexture {
+			id, _ := TextureAssetID(entry.Name) // Already checked by validEntryName.
+			if textureIDs[id] {
+				return 0, 0, fmt.Errorf("duplicate texture ID %d: %w", id, ErrEntry)
+			}
+			textureIDs[id] = true
 		}
 
 		previous = entry.Name
@@ -187,17 +198,20 @@ func Decode(encoded []byte) (Envelope, error) {
 		return Envelope{}, ErrHeader
 	}
 
-	metadataLength := int(binary.LittleEndian.Uint32(encoded[8:12]))
-	entryCount := int(binary.LittleEndian.Uint32(encoded[12:16]))
-	tableLength := int(binary.LittleEndian.Uint32(encoded[16:20]))
-	payloadLength := int(binary.LittleEndian.Uint32(encoded[20:24]))
-
-	totalLength := int(binary.LittleEndian.Uint32(encoded[24:28]))
-	if metadataLength > MaxMetadataSize || entryCount > MaxEntryCount || totalLength != len(encoded) ||
-		metadataLength > len(encoded)-HeaderSize || tableLength > len(encoded)-HeaderSize-metadataLength ||
-		payloadLength != len(encoded)-HeaderSize-metadataLength-tableLength {
+	// Validate wire lengths before narrowing to int: hosts may be 32-bit.
+	metadataSize := uint64(binary.LittleEndian.Uint32(encoded[8:12]))
+	entryCountValue := uint64(binary.LittleEndian.Uint32(encoded[12:16]))
+	tableSize := uint64(binary.LittleEndian.Uint32(encoded[16:20]))
+	payloadSize := uint64(binary.LittleEndian.Uint32(encoded[20:24]))
+	totalSize := uint64(binary.LittleEndian.Uint32(encoded[24:28]))
+	available := uint64(len(encoded) - HeaderSize)
+	if metadataSize > MaxMetadataSize || entryCountValue > MaxEntryCount || totalSize != uint64(len(encoded)) ||
+		metadataSize > available || tableSize > available-metadataSize ||
+		payloadSize != available-metadataSize-tableSize {
 		return Envelope{}, ErrEnvelopeSize
 	}
+	metadataLength, entryCount := int(metadataSize), int(entryCountValue)
+	tableLength, payloadLength := int(tableSize), int(payloadSize)
 
 	metadata := encoded[HeaderSize : HeaderSize+metadataLength]
 	if err := validateMetadata(metadata); err != nil {
@@ -220,6 +234,7 @@ func decodeEntries(table []byte, payloadLength, count int) ([]Entry, error) {
 	offset := 0
 	expectedPayloadOffset := 0
 	previous := ""
+	textureIDs := make(map[uint32]bool)
 
 	for index := range count {
 		if len(table)-offset < EntryHeaderSize {
@@ -229,8 +244,8 @@ func decodeEntries(table []byte, payloadLength, count int) ([]Entry, error) {
 		kind := EntryKind(table[offset])
 		reserved := table[offset+1]
 		nameLength := int(binary.LittleEndian.Uint16(table[offset+2 : offset+4]))
-		dataOffset := int(binary.LittleEndian.Uint32(table[offset+4 : offset+8]))
-		dataLength := int(binary.LittleEndian.Uint32(table[offset+8 : offset+12]))
+		dataOffset := binary.LittleEndian.Uint32(table[offset+4 : offset+8])
+		dataLength := binary.LittleEndian.Uint32(table[offset+8 : offset+12])
 
 		offset += EntryHeaderSize
 		if !validEntryKind(kind) || reserved != 0 || nameLength == 0 || nameLength > MaxEntryNameSize ||
@@ -244,11 +259,7 @@ func decodeEntries(table []byte, payloadLength, count int) ([]Entry, error) {
 		}
 
 		name := string(nameBytes)
-		if kind == EntryTexture {
-			if _, valid := TextureAssetID(name); !valid {
-				return nil, ErrEntry
-			}
-		} else if strings.HasPrefix(name, textureEntryPrefix) {
+		if !validEntryName(name, kind) {
 			return nil, ErrEntry
 		}
 
@@ -256,13 +267,21 @@ func decodeEntries(table []byte, payloadLength, count int) ([]Entry, error) {
 			return nil, ErrEntryOrder
 		}
 
-		if dataOffset != expectedPayloadOffset || dataLength > payloadLength-dataOffset {
+		if kind == EntryTexture {
+			id, _ := TextureAssetID(name) // Already checked by validEntryName.
+			if textureIDs[id] {
+				return nil, ErrEntry
+			}
+			textureIDs[id] = true
+		}
+
+		if dataOffset != uint32(expectedPayloadOffset) || dataLength > uint32(payloadLength)-dataOffset {
 			return nil, ErrEntryRange
 		}
 
-		entries = append(entries, Entry{Name: name, Kind: kind, Offset: uint32(dataOffset), Length: uint32(dataLength)})
+		entries = append(entries, Entry{Name: name, Kind: kind, Offset: dataOffset, Length: dataLength})
 		previous = name
-		expectedPayloadOffset += dataLength
+		expectedPayloadOffset += int(dataLength)
 		offset += nameLength
 	}
 
@@ -275,6 +294,17 @@ func decodeEntries(table []byte, payloadLength, count int) ([]Entry, error) {
 
 func validEntryKind(kind EntryKind) bool {
 	return kind == EntryData || kind == EntryTexture
+}
+
+// validEntryName keeps the reserved texture namespace identical on both paths.
+func validEntryName(name string, kind EntryKind) bool {
+	if kind == EntryTexture {
+		_, valid := TextureAssetID(name)
+
+		return valid
+	}
+
+	return !strings.HasPrefix(name, textureEntryPrefix)
 }
 
 func validateMetadata(metadata []byte) error {

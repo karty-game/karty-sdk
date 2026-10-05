@@ -3,12 +3,20 @@
 // YAML implementation dependency; tags describe the stable field vocabulary.
 package worldsource
 
-import "errors"
+import (
+	"errors"
+
+	sdkworld "github.com/karty-game/karty-sdk/format/world"
+)
 
 const (
 	LegacyVersion        = uint16(1)
 	ActorVersion         = uint16(2)
-	Version              = uint16(3)
+	PortalVersion        = uint16(3)
+	LightingVersion      = uint16(4)
+	MappingVersion       = uint16(5)
+	SolidsVersion        = uint16(6)
+	Version              = SolidsVersion
 	MaxRooms             = 1024
 	MaxPrefabs           = 256
 	MaxInstances         = 4096
@@ -17,6 +25,8 @@ const (
 	MaxEdges             = 8192
 	MaxEdgesPerRoom      = 256
 	MaxContents          = 4096
+	MaxLights            = sdkworld.MaxLights
+	MinLightRadius       = sdkworld.MinLightRadius
 	MaxMaterialOverrides = 256
 	MaxIdentifierBytes   = 128
 	MaxTags              = 8
@@ -35,6 +45,8 @@ var (
 	ErrReference   = errors.New("world source reference is invalid")
 	ErrConnection  = errors.New("world source connection is invalid")
 	ErrContent     = errors.New("world source content is invalid")
+	ErrUVMapping   = errors.New("world source UV mapping is invalid")
+	ErrLighting    = errors.New("world source lighting is invalid")
 	ErrPrefabCycle = errors.New("world source prefab cycle is invalid")
 )
 
@@ -62,26 +74,36 @@ type Document struct {
 	Prefabs     []Prefab     `json:"prefabs" yaml:"prefabs"`
 	Instances   []Instance   `json:"instances" yaml:"instances"`
 	Connections []Connection `json:"connections" yaml:"connections"`
+	// Lighting is available in source v4 and later, in global world coordinates.
+	// It is not part of any room, prefab or instance transform.
+	Lighting *Lighting   `json:"lighting,omitempty" yaml:"lighting,omitempty"`
+	UV       *UVSettings `json:"uv,omitempty" yaml:"uv,omitempty"`
+	Solids   []Solid     `json:"solids,omitempty" yaml:"solids,omitempty"`
+	Contents []Content   `json:"contents,omitempty" yaml:"contents,omitempty"`
 }
 
 // Room may be concave. The compiler decomposes it into convex sectors after
 // prefab expansion and connection resolution.
 type Room struct {
-	ID              string    `json:"id" yaml:"id"`
-	Boundary        []Edge    `json:"boundary" yaml:"boundary"`
-	Floor           Plane     `json:"floor" yaml:"floor"`
-	Ceiling         Plane     `json:"ceiling" yaml:"ceiling"`
-	FloorMaterial   string    `json:"floor_material" yaml:"floor_material"`
-	CeilingMaterial string    `json:"ceiling_material" yaml:"ceiling_material"`
-	Contents        []Content `json:"contents" yaml:"contents"`
+	ID              string      `json:"id" yaml:"id"`
+	Boundary        []Edge      `json:"boundary" yaml:"boundary"`
+	Floor           Plane       `json:"floor" yaml:"floor"`
+	Ceiling         Plane       `json:"ceiling" yaml:"ceiling"`
+	FloorMaterial   string      `json:"floor_material" yaml:"floor_material"`
+	CeilingMaterial string      `json:"ceiling_material" yaml:"ceiling_material"`
+	Contents        []Content   `json:"contents" yaml:"contents"`
+	FloorUV         *UVSettings `json:"floor_uv,omitempty" yaml:"floor_uv,omitempty"`
+	CeilingUV       *UVSettings `json:"ceiling_uv,omitempty" yaml:"ceiling_uv,omitempty"`
+	WallUV          *UVSettings `json:"wall_uv,omitempty" yaml:"wall_uv,omitempty"`
 }
 
 // Edge is one named, directed CCW boundary edge.
 type Edge struct {
-	ID       string `json:"id" yaml:"id"`
-	Start    Vec2   `json:"start" yaml:"start"`
-	End      Vec2   `json:"end" yaml:"end"`
-	Material string `json:"material" yaml:"material"`
+	ID       string      `json:"id" yaml:"id"`
+	Start    Vec2        `json:"start" yaml:"start"`
+	End      Vec2        `json:"end" yaml:"end"`
+	Material string      `json:"material" yaml:"material"`
+	UV       *UVSettings `json:"uv,omitempty" yaml:"uv,omitempty"`
 }
 
 type Content struct {
@@ -116,6 +138,8 @@ type Prefab struct {
 	Instances   []Instance   `json:"instances" yaml:"instances"`
 	Connections []Connection `json:"connections" yaml:"connections"`
 	Ports       []Port       `json:"ports" yaml:"ports"`
+	Solids      []Solid      `json:"solids,omitempty" yaml:"solids,omitempty"`
+	Contents    []Content    `json:"contents,omitempty" yaml:"contents,omitempty"`
 }
 
 type Instance struct {

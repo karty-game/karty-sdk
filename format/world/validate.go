@@ -15,8 +15,23 @@ func Validate(document *Document) error {
 	if document.Version < LegacyVersion || document.Version > Version {
 		return ErrVersion
 	}
+	if document.Lighting != nil {
+		if document.Version != Version {
+			return fmt.Errorf("lighting requires compiled world version %d: %w", Version, ErrVersion)
+		}
+		if err := ValidateLighting(document.Lighting); err != nil {
+			return err
+		}
+	}
+	if err := validateDocumentSolids(document); err != nil {
+		return err
+	}
 	if len(document.Sectors) == 0 || len(document.Sectors) > MaxSectors || len(document.Contents) > MaxContents {
 		return ErrBounds
+	}
+
+	if err := validateDocumentMapping(document); err != nil {
+		return err
 	}
 
 	identities := make(map[string]struct{}, len(document.Sectors))

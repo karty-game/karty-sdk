@@ -22,10 +22,16 @@ const (
 type Capability string
 
 const (
-	CapabilityTextureQOIv1     Capability = "texture/qoi@1"
-	CapabilitySoundQOAv1       Capability = "sound/qoa@1"
-	CapabilityAudioStreamQOAv1 Capability = "audio-stream/qoa@1"
-	CapabilityVideoMPEG1v1     Capability = "video/mpeg1@1"
+	CapabilityTextureQOIv1             Capability = "texture/qoi@1"
+	CapabilitySoundQOAv1               Capability = "sound/qoa@1"
+	CapabilityAudioStreamQOAv1         Capability = "audio-stream/qoa@1"
+	CapabilityVideoMPEG1v1             Capability = "video/mpeg1@1"
+	CapabilityWorldLightingV1          Capability = "world/lighting@1"
+	CapabilityWorldLightmapsV1         Capability = "world/lightmaps@1"
+	CapabilityWorldLightmapsPrebakedV1 Capability = "world/lightmaps-prebaked@1"
+	CapabilityWorldMaterialMappingV1   Capability = "world/material-mapping@1"
+	CapabilityWorldStaticSolidsV1      Capability = "world/static-solids@1"
+	CapabilityWorldMaterialAtlasV1     Capability = "world/material-atlas@1"
 )
 
 const (
@@ -57,7 +63,7 @@ func (capabilities Capabilities) Validate() error {
 	if err := validateCanonical(capabilities.Processors, []Processor{ProcessorCopyPNGv1, ProcessorQOAv1, ProcessorQOIv1}); err != nil {
 		return fmt.Errorf("processors: %w", err)
 	}
-	if err := validateCanonical(capabilities.Runtime, []Capability{CapabilityAudioStreamQOAv1, CapabilitySoundQOAv1, CapabilityTextureQOIv1, CapabilityVideoMPEG1v1}); err != nil {
+	if err := validateCanonical(capabilities.Runtime, []Capability{CapabilityAudioStreamQOAv1, CapabilitySoundQOAv1, CapabilityTextureQOIv1, CapabilityVideoMPEG1v1, CapabilityWorldLightingV1, CapabilityWorldLightmapsV1, CapabilityWorldLightmapsPrebakedV1, CapabilityWorldMaterialAtlasV1, CapabilityWorldMaterialMappingV1, CapabilityWorldStaticSolidsV1}); err != nil {
 		return fmt.Errorf("runtime capabilities: %w", err)
 	}
 

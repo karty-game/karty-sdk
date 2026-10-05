@@ -1,6 +1,8 @@
 package cartridge_test
 
 import (
+	"bytes"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -29,6 +31,9 @@ func TestManifestRoundTripInsideGameCartridge(t *testing.T) {
 	encoded, err := cartridge.EncodeManifest(want)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if version := uint16(encoded[4]) | uint16(encoded[5])<<8; version != 1 {
+		t.Fatalf("legacy manifest version = %d, want 1", version)
 	}
 
 	wasm, err := cartridge.EmbedSection([]byte("\x00asm\x01\x00\x00\x00"), cartridge.ManifestSectionName, encoded)
@@ -61,6 +66,9 @@ func TestManifestV2FeaturesRoundTrip(t *testing.T) {
 			cartridge.FeatureSoundQOAv1,
 			cartridge.FeatureTextureQOIv1,
 			cartridge.FeatureVideoMPEG1v1,
+			cartridge.FeatureWorldMaterialAtlasV1,
+			cartridge.FeatureWorldMaterialMappingV1,
+			cartridge.FeatureWorldSectorsV1,
 		},
 	}
 	encoded, err := cartridge.EncodeManifest(want)
@@ -104,6 +112,14 @@ func TestManifestRejectsMalformedData(t *testing.T) {
 			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
 			Features: []string{cartridge.FeatureTextureQOIv1, cartridge.FeatureSoundQOAv1},
 		},
+		"duplicate atlas": {
+			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			Features: []string{cartridge.FeatureWorldMaterialAtlasV1, cartridge.FeatureWorldMaterialAtlasV1},
+		},
+		"unknown atlas version": {
+			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			Features: []string{"world/material-atlas@2"},
+		},
 	} {
 		if _, err := cartridge.EncodeManifest(manifest); err == nil {
 			t.Errorf("EncodeManifest() accepted %s", name)
@@ -112,5 +128,35 @@ func TestManifestRejectsMalformedData(t *testing.T) {
 
 	if _, err := cartridge.DecodeManifest([]byte("not a manifest")); err == nil {
 		t.Fatal("DecodeManifest() accepted malformed bytes")
+	}
+}
+
+func TestManifestDecoderRejectsMalformedAtlasFeatures(t *testing.T) {
+	t.Parallel()
+	manifest := cartridge.Manifest{
+		ProjectName: "world", Compiler: "tinygo", Width: 640, Height: 360,
+		Features: []string{cartridge.FeatureWorldMaterialAtlasV1},
+	}
+	encoded, err := cartridge.EncodeManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unknown := bytes.Replace(encoded, []byte(cartridge.FeatureWorldMaterialAtlasV1), []byte("world/material-atlas@2"), 1)
+	if _, err := cartridge.DecodeManifest(unknown); !errors.Is(err, cartridge.ErrManifest) {
+		t.Fatal("decoded unsupported atlas capability")
+	}
+	// Keep the existing two-feature count while replacing the feature body
+	// with two identical complete length-prefixed atlas features.
+	manifest.Features = []string{cartridge.FeatureWorldMaterialAtlasV1, cartridge.FeatureWorldSectorsV1}
+	encoded, err = cartridge.EncodeManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := 24 + len(manifest.ProjectName) + len(manifest.Compiler)
+	feature := encoded[start : start+2+len(cartridge.FeatureWorldMaterialAtlasV1)]
+	duplicate := append(bytes.Clone(encoded[:start]), feature...)
+	duplicate = append(duplicate, feature...)
+	if _, err := cartridge.DecodeManifest(duplicate); !errors.Is(err, cartridge.ErrManifest) {
+		t.Fatal("decoded duplicate atlas capabilities")
 	}
 }

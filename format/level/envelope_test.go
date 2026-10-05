@@ -77,6 +77,49 @@ func TestEnvelopeEncodeRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
+func TestEnvelopeEntryNamesAndKindsAgree(t *testing.T) {
+	t.Parallel()
+
+	for name, entry := range map[string]level.SourceEntry{
+		"texture as data":        {Name: level.TextureEntryName(1), Kind: level.EntryData, Data: []byte{1}},
+		"zero texture ID":        {Name: level.TextureEntryName(0), Kind: level.EntryTexture, Data: []byte{1}},
+		"invalid texture ID":     {Name: "@texture/not-an-id", Kind: level.EntryTexture, Data: []byte{1}},
+		"reserved data name":     {Name: "@texture/not-an-id", Kind: level.EntryData, Data: []byte{1}},
+		"arbitrary texture name": {Name: "texture", Kind: level.EntryTexture, Data: []byte{1}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := level.Encode([]byte(`{}`), []level.SourceEntry{entry}); !errors.Is(err, level.ErrEntry) {
+				t.Fatalf("Encode() error = %v, want ErrEntry", err)
+			}
+		})
+	}
+
+	for _, entry := range []level.SourceEntry{
+		{Name: "data", Kind: level.EntryData, Data: []byte{1}},
+		{Name: level.TextureEntryName(1), Kind: level.EntryTexture, Data: []byte{1}},
+		{Name: level.TextureEntryName(^uint32(0)), Kind: level.EntryTexture, Data: []byte{1}},
+	} {
+		encoded, err := level.Encode([]byte(`{}`), []level.SourceEntry{entry})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := level.Decode(encoded); err != nil {
+			t.Fatal(err)
+		}
+		// The wire decoder must reject the same name/kind mismatches.
+		kindOffset := level.HeaderSize + 2
+		if entry.Kind == level.EntryData {
+			encoded[kindOffset] = byte(level.EntryTexture)
+		} else {
+			encoded[kindOffset] = byte(level.EntryData)
+		}
+		if _, err := level.Decode(encoded); !errors.Is(err, level.ErrEntry) {
+			t.Fatalf("Decode() error = %v, want ErrEntry", err)
+		}
+	}
+}
+
 func TestEnvelopeDecodeRejectsEveryTruncation(t *testing.T) {
 	t.Parallel()
 
@@ -115,6 +158,35 @@ func TestEnvelopeDecodeRejectsMalformedHeadersAndEntries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEnvelopeDecodeRejectsOverflowingLengths(t *testing.T) {
+	t.Parallel()
+
+	for name, offset := range map[string]int{
+		"metadata": 8, "entry count": 12, "table": 16, "payload": 20, "total": 24,
+		"entry offset": level.HeaderSize + 2 + 4,
+		"entry length": level.HeaderSize + 2 + 8,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			for _, value := range []uint32{0x80000000, 0xfffffffe, 0xffffffff} {
+				encoded := validEnvelope(t)
+				binary.LittleEndian.PutUint32(encoded[offset:offset+4], value)
+				if _, err := level.Decode(encoded); err == nil {
+					t.Fatalf("Decode() accepted %s = %x", name, value)
+				}
+			}
+		})
+	}
+	t.Run("negative table with compensating payload", func(t *testing.T) {
+		encoded := validEnvelope(t)
+		binary.LittleEndian.PutUint32(encoded[16:20], 0xffffffff)
+		binary.LittleEndian.PutUint32(encoded[20:24], uint32(len(encoded)-level.HeaderSize-2+1))
+		if _, err := level.Decode(encoded); err == nil {
+			t.Fatal("Decode() accepted wrapped table/payload arithmetic")
+		}
+	})
 }
 
 func FuzzEnvelopeDecode(f *testing.F) {

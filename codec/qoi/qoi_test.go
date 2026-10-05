@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"image"
 	"image/color"
 	"testing"
@@ -107,6 +108,80 @@ func TestDecodeRejectsMalformedAndUnsafeData(t *testing.T) {
 	}
 }
 
+func TestMalformedStreamsRejectBeforePixelAllocation(t *testing.T) {
+	golden, err := hex.DecodeString(referenceGolden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, operation := range map[string][]byte{
+		"missing pixel":  {},
+		"run overflow":   {0xfd},
+		"extra pixel":    {0xc0, 0xc0},
+		"truncated RGB":  {0xfe, 255, 0},
+		"truncated RGBA": {0xff, 128, 128, 73},
+		"truncated luma": {0x80},
+	} {
+		t.Run(name, func(t *testing.T) {
+			encoded := append(bytes.Clone(golden[:14]), operation...)
+			encoded = append(encoded, golden[len(golden)-8:]...)
+			if _, err := qoi.Inspect(encoded); err != nil {
+				t.Fatalf("fixture should pass header-only inspection: %v", err)
+			}
+			_, decoded, err := qoi.Decode(encoded)
+			if !errors.Is(err, qoi.ErrInvalid) || decoded != nil {
+				t.Fatalf("Decode() = %v, %v", decoded, err)
+			}
+			// In particular, an oversized run must not grow a dependency buffer
+			// beyond the allocation budget declared by the QOI header.
+			if allocations := testing.AllocsPerRun(1, func() { _, _, _ = qoi.Decode(encoded) }); allocations != 0 {
+				t.Fatalf("malformed stream allocated %g times before rejection", allocations)
+			}
+		})
+	}
+}
+
+func TestReferenceStreamOperationsPreserveStraightData(t *testing.T) {
+	t.Parallel()
+
+	// A reference stream, not produced by the pinned encoder: maximum RUN,
+	// INDEX (including the initial RUN's hash), RGBA, DIFF, LUMA and RGB.
+	// Alpha zero must not discard or premultiply the material data channels.
+	encoded := make([]byte, 14)
+	copy(encoded, qoi.Magic)
+	binary.BigEndian.PutUint32(encoded[4:8], 69)
+	binary.BigEndian.PutUint32(encoded[8:12], 1)
+	encoded[12], encoded[13] = qoi.ChannelsRGBA, qoi.ColorspaceLinear
+	encoded = append(encoded,
+		0xfd, 53,
+		0xff, 128, 255, 73, 0, 58,
+		0x79, 0xa1, 0x97,
+		0xfe, 128, 128, 73,
+		0xff, 192, 192, 192, 255,
+		0, 0, 0, 0, 0, 0, 0, 1,
+	)
+	metadata, decoded, err := qoi.Decode(encoded)
+	if err != nil || metadata.DecodedBytes != 69*4 {
+		t.Fatalf("reference stream decode: %+v, %v", metadata, err)
+	}
+	for x := range 63 {
+		if got := decoded.NRGBAAt(x, 0); got != (color.NRGBA{A: 255}) {
+			t.Fatalf("initial RUN/INDEX pixel %d = %+v", x, got)
+		}
+	}
+	for i, want := range []color.NRGBA{
+		{R: 128, G: 255, B: 73},
+		{R: 128, G: 255, B: 73},
+		{R: 129, G: 255, B: 72},
+		{R: 131, G: 0, B: 72},
+		{R: 128, G: 128, B: 73},
+		{R: 192, G: 192, B: 192, A: 255},
+	} {
+		if got := decoded.NRGBAAt(63+i, 0); got != want {
+			t.Fatalf("reference data pixel %d = %+v, want %+v", i, got, want)
+		}
+	}
+}
+
 func TestEncodeRejectsInvalidInputsAndContainsPanics(t *testing.T) {
 	t.Parallel()
 
@@ -189,4 +264,29 @@ func (source imageWithBounds) At(_, _ int) color.Color {
 	}
 
 	return color.NRGBA{A: 255}
+}
+
+func TestValidateCompleteStreamWithoutAllocation(t *testing.T) {
+	encoded, err := hex.DecodeString(referenceGolden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := qoi.Validate(encoded)
+	if err != nil || metadata.DecodedBytes != 4 {
+		t.Fatalf("complete preflight: %v", err)
+	}
+	if allocations := testing.AllocsPerRun(100, func() { _, _ = qoi.Validate(encoded) }); allocations != 0 {
+		t.Fatalf("valid stream preflight allocated %g times", allocations)
+	}
+	malformed := append(bytes.Clone(encoded[:14]), 0xfd)
+	malformed = append(malformed, encoded[len(encoded)-8:]...)
+	if _, err := qoi.Inspect(malformed); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := qoi.Validate(malformed); err == nil {
+		t.Fatal("header-valid overlong run accepted")
+	}
+	if allocations := testing.AllocsPerRun(100, func() { _, _ = qoi.Validate(malformed) }); allocations != 0 {
+		t.Fatalf("malformed stream preflight allocated %g times", allocations)
+	}
 }

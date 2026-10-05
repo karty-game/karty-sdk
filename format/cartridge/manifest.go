@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
 	"unicode/utf8"
 )
 
@@ -22,10 +23,16 @@ const (
 )
 
 const (
-	FeatureTextureQOIv1     = "texture/qoi@1"
-	FeatureSoundQOAv1       = "sound/qoa@1"
-	FeatureAudioStreamQOAv1 = "audio-stream/qoa@1"
-	FeatureWorldSectorsV1   = "world/sectors@1"
+	FeatureTextureQOIv1             = "texture/qoi@1"
+	FeatureSoundQOAv1               = "sound/qoa@1"
+	FeatureAudioStreamQOAv1         = "audio-stream/qoa@1"
+	FeatureWorldSectorsV1           = "world/sectors@1"
+	FeatureWorldLightingV1          = "world/lighting@1"
+	FeatureWorldLightmapsV1         = "world/lightmaps@1"
+	FeatureWorldLightmapsPrebakedV1 = "world/lightmaps-prebaked@1"
+	FeatureWorldMaterialMappingV1   = "world/material-mapping@1"
+	FeatureWorldStaticSolidsV1      = "world/static-solids@1"
+	FeatureWorldMaterialAtlasV1     = "world/material-atlas@1"
 )
 
 var ErrManifest = errors.New("game cartridge manifest is invalid")
@@ -296,6 +303,11 @@ func validManifestString(value string) bool {
 }
 
 func validManifestFeatures(features []string) bool {
+	if slices.Contains(features, FeatureWorldLightmapsPrebakedV1) &&
+		(!slices.Contains(features, FeatureWorldLightmapsV1) || !slices.Contains(features, FeatureWorldLightingV1) ||
+			!slices.Contains(features, FeatureWorldSectorsV1)) {
+		return false
+	}
 	previous := ""
 	for _, feature := range features {
 		if !validManifestFeature(feature) || feature <= previous {
@@ -309,5 +321,6 @@ func validManifestFeatures(features []string) bool {
 
 func validManifestFeature(feature string) bool {
 	return feature == FeatureAudioStreamQOAv1 || feature == FeatureSoundQOAv1 || feature == FeatureTextureQOIv1 ||
-		feature == FeatureVideoMPEG1v1 || feature == FeatureWorldSectorsV1
+		feature == FeatureVideoMPEG1v1 || feature == FeatureWorldSectorsV1 || feature == FeatureWorldLightingV1 ||
+		feature == FeatureWorldLightmapsV1 || feature == FeatureWorldLightmapsPrebakedV1 || feature == FeatureWorldMaterialAtlasV1 || feature == FeatureWorldMaterialMappingV1 || feature == FeatureWorldStaticSolidsV1
 }

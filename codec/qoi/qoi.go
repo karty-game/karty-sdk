@@ -77,9 +77,19 @@ func Inspect(encoded []byte) (Metadata, error) {
 	return metadata, nil
 }
 
-// Decode returns straight-alpha NRGBA pixels only after bounded preflight and
-// complete dependency decoding. Panics from malformed dependency input are
-// contained and reported as ErrInvalid.
+// Validate checks header bounds and the complete stream without allocating
+// decoded pixels. Its metadata can be used to preflight a shared image budget.
+func Validate(encoded []byte) (Metadata, error) {
+	metadata, err := Inspect(encoded)
+	if err != nil || !validStream(encoded, metadata.DecodedBytes/decodedBytesPerPixel) {
+		return Metadata{}, ErrInvalid
+	}
+	return metadata, nil
+}
+
+// Decode returns straight-alpha NRGBA pixels only after bounded preflight,
+// allocation-free stream validation and complete dependency decoding. Panics
+// from malformed dependency input are contained and reported as ErrInvalid.
 func Decode(encoded []byte) (metadata Metadata, decoded *image.NRGBA, err error) {
 	defer func() {
 		if recover() != nil {
@@ -87,11 +97,10 @@ func Decode(encoded []byte) (metadata Metadata, decoded *image.NRGBA, err error)
 		}
 	}()
 
-	metadata, err = Inspect(encoded)
+	metadata, err = Validate(encoded)
 	if err != nil {
 		return Metadata{}, nil, err
 	}
-
 	imageValue, decodeErr := hchargois.DecodeBytes(encoded)
 	if decodeErr != nil {
 		return Metadata{}, nil, ErrInvalid
@@ -104,6 +113,37 @@ func Decode(encoded []byte) (metadata Metadata, decoded *image.NRGBA, err error)
 	}
 
 	return metadata, decoded, nil
+}
+
+// validStream checks operation boundaries and the exact output pixel count
+// before the dependency can allocate. In particular, an overlong final run
+// would otherwise grow its buffer beyond the inspected decoded-byte budget.
+// Inspect has already checked the header and end marker; marker bytes must
+// never satisfy a truncated operation's payload.
+func validStream(encoded []byte, pixels uint64) bool {
+	stream := encoded[headerSize : len(encoded)-endMarkerSize]
+	var decoded uint64
+	for len(stream) != 0 {
+		op := stream[0]
+		length, count := 1, uint64(1)
+		switch {
+		case op == 0xfe: // QOI_OP_RGB
+			length = 4
+		case op == 0xff: // QOI_OP_RGBA
+			length = 5
+		case op&0xc0 == 0x80: // QOI_OP_LUMA
+			length = 2
+		case op&0xc0 == 0xc0: // QOI_OP_RUN (RGB/RGBA handled above)
+			count = uint64(op&0x3f) + 1
+		}
+		if len(stream) < length || count > pixels-decoded {
+			return false
+		}
+		decoded += count
+		stream = stream[length:]
+	}
+
+	return decoded == pixels
 }
 
 // Encode converts a bounded image into deterministic QOI and validates the

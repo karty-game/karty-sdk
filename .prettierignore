@@ -10,3 +10,5 @@
 **/*.generated.*
 # This YAML fixture intentionally retains a JSON-compatible body for Go's JSON decoder.
 format/worldsource/testdata/concave-prefab.world.yaml
+# Compiled world fixtures require canonical wire bytes, rather than editor layout.
+**/*.world.json

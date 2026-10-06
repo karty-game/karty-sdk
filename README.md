@@ -50,7 +50,8 @@ and applies formatting fixes while preserving unstaged work. `fmt` applies all
 formatters through hk without staging; `check-fmt` reports differences without
 writing files. `lint` runs all format and lint checks; `check` also runs tests
 and build. Generated Go and `*.generated.*` snapshots, derived output and local
-contributor directories are excluded from formatting. The JSON-compatible YAML
+contributor directories and canonical `*.world.json` fixtures are excluded from
+formatting. The JSON-compatible YAML
 fixture retains its decoder input format; yamllint still checks it.
 
 After changing `format/actions/schema.json`, regenerate consumer snapshots with

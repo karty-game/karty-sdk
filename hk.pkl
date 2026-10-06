@@ -26,6 +26,6 @@ steps {
   ["taplo-format"] = Builtins.taplo_format
   ["prettier"] = (Builtins.prettier) {
     glob = List("**/*.{json,jsonc,md,mdx,yaml,yml,js,cjs,mjs,ts,tsx,css,scss,html}")
-    exclude = List("**/*.generated.*")
+    exclude = List("**/*.generated.*", "**/*.world.json")
   }
 }

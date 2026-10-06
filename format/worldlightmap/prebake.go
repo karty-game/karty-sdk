@@ -104,8 +104,12 @@ func (pair PrebakePair) Validate(layout Layout, document *world.Document) error 
 	var expected PrebakePair
 	var err error
 	if pair.Manifest.Algorithm == OfflinePrebakeAlgorithm {
+		mode, modeErr := OfflineDenoiseMode(pair.Manifest.Producer)
+		if modeErr != nil {
+			return modeErr
+		}
 		expected, err = NewOfflinePrebake(layout, document, pair.Image, OfflineBakeInputs{
-			Samples: pair.Manifest.Samples, Bounces: pair.Manifest.Bounces, Seed: pair.Manifest.Seed,
+			Denoise: mode, Samples: pair.Manifest.Samples, Bounces: pair.Manifest.Bounces, Seed: pair.Manifest.Seed,
 			ReflectanceSHA256: pair.Manifest.ReflectanceSHA256, RGBMRange: pair.Manifest.RGBMRange,
 		})
 	} else {

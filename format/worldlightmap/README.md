@@ -1,11 +1,11 @@
 # Build-generated world lightmap layout
 
-`world/lightmaps@1` is an unreleased SDK 0.0.8 capability. The public CLI
+`world/lightmaps@1` is a capability available in SDK 0.0.8. The public CLI
 generates `@world/lightmaps/layout` as an `EntryData` entry in the existing KLD
 envelope. Metadata contains `kartyWorldLightmaps: "karty.world-lightmaps@1"`.
 Cartridges require this feature together with `world/sectors@1`. Existing world,
 level-envelope and cartridge versions are unchanged; absent layouts preserve
-existing packaging. Released SDK manifests do not gain this capability.
+existing packaging. Older SDK manifests remain unchanged.
 
 The canonical JSON `Layout` has schema `karty.world-lightmaps@1`, algorithm 1,
 a lower-case SHA-256 geometry digest, requested texels per world unit, padding,
@@ -128,11 +128,11 @@ identities with these bindings and evaluates the affine planes per vertex.
 
 ## Optional completed prebake, version 1
 
-The SDK 0.0.8 candidate also defines `world/lightmaps-prebaked@1`, requiring
+SDK 0.0.8 also defines `world/lightmaps-prebaked@1`, requiring
 `world/lightmaps@1`, `world/lighting@1` and `world/sectors@1`. This additive
 extension preserves all existing layout and runtime-recipe bytes. It packages
 one completed three-tile RNM atlas without rebaking it during startup. The
-existing algorithm 1 stores direct lighting only. Unreleased algorithm 2 adds
+existing algorithm 1 stores direct lighting only. Algorithm 2 adds
 the explicit offline diffuse-bounce producer described below, while retaining
 the same `direct-rnm3@1` coefficient encoding and image layout. No released
 schema or algorithm-1 canonical spelling changes.
@@ -225,9 +225,9 @@ combined direct and indirect light. Live front-facing rim, actor lighting,
 ambient cube and material AO retain their existing runtime behavior. The
 combined atlas has no per-light rim visibility, moving shadows, spatial actor
 probes or transformed-portal transport. The first CPU producer has hard point
-shadows and finite-sample noise; it does not yet supply soft area-light sampling
-or denoising. If no completed bake is packaged, the original runtime direct
-recipe remains available. Malformed or stale packaged prebakes are errors,
+shadows and finite-sample noise; it does not supply soft area-light sampling.
+The optional denoised producers below reduce indirect grain. If no completed
+bake is packaged, the original runtime direct recipe remains available. Malformed or stale packaged prebakes are errors,
 rather than permission to silently use an unrelated fallback atlas.
 
 The public `codec/qoi.Validate` utility returns bounded metadata after header
@@ -235,3 +235,16 @@ and complete stream validation without allocating decoded pixels. `Inspect`
 remains header/end-marker inspection; `Decode` reuses `Validate` before its
 pixel allocation. This permits preflight of a complete shared image budget
 without decoding images twice.
+
+### Versioned decision: indirect denoising producers v1
+
+For the next Go module and host release after v0.0.8, algorithm 2 also accepts
+`cpu-rnm3-pathtrace-atrous-low@1` and
+`cpu-rnm3-pathtrace-atrous-medium@1`. The producer string commits the complete
+filter recipe and preset; it participates in BakeSHA256. No JSON fields,
+RNM encoding, coefficient count or runtime composition semantics change.
+`OfflineBakeInputs.Denoise` selects the producer; empty/off preserves the
+original `cpu-rnm3-pathtrace@1` manifest and pixel contracts. Unknown producers
+are still rejected. Older hosts reject these new producers and require an
+updated host; they must not silently reinterpret a denoised artifact as @1.
+See the baker package for the filtering and memory contract.

@@ -48,11 +48,14 @@ func Compile(document world.Document, options Options) (Layout, error) {
 	if err != nil {
 		return Layout{}, err
 	}
-	surfaces, err := Surfaces(&document)
+	if err := world.Validate(&document); err != nil {
+		return Layout{}, err
+	}
+	surfaces, err := surfacesValidated(&document)
 	if err != nil {
 		return Layout{}, err
 	}
-	digest, err := GeometryDigest(&document)
+	digest, err := geometryDigestValidated(&document)
 	if err != nil {
 		return Layout{}, err
 	}
@@ -124,7 +127,7 @@ func Compile(document world.Document, options Options) (Layout, error) {
 	if err := pack(&layout, points, options); err != nil {
 		return Layout{}, err
 	}
-	if err := Validate(&layout, &document); err != nil {
+	if err := validatePrepared(&layout, &document, digest, surfaces); err != nil {
 		return Layout{}, err
 	}
 	return layout, nil

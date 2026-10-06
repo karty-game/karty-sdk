@@ -124,6 +124,10 @@ func GeometryDigest(document *world.Document) (string, error) {
 	if err := world.Validate(document); err != nil {
 		return "", err
 	}
+	return geometryDigestValidated(document)
+}
+
+func geometryDigestValidated(document *world.Document) (string, error) {
 	type wallGeometry struct {
 		Start, End world.Vec2
 		Portal     int32

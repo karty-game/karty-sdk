@@ -21,6 +21,11 @@ func Surfaces(document *world.Document) ([]Surface, error) {
 	if err := world.Validate(document); err != nil {
 		return nil, err
 	}
+	return surfacesValidated(document)
+}
+
+// Call only after complete world validation; public entry points retain bounds.
+func surfacesValidated(document *world.Document) ([]Surface, error) {
 	result := make([]Surface, 0, len(document.Sectors)*6)
 	for i, s := range document.Sectors {
 		points := make([]world.Vec2, len(s.Walls))

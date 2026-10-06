@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://karty.game/contracts/actions@1",
+  "title": "Karty authored actions v1",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "sequences": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/sequence"
+      }
+    },
+    "$schema": {
+      "type": "string",
+      "maxLength": 1024
+    }
+  },
+  "required": [
+    "version",
+    "sequences"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "value": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "maxLength": 1024
+        },
+        {
+          "type": "object",
+          "properties": {
+            "actor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          "required": [
+            "actor"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "sequence": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]*$"
+        },
+        "onRepeat": {
+          "enum": [
+            "ignore",
+            "restart",
+            "parallel"
+          ]
+        },
+        "steps": {
+          "$ref": "#/$defs/steps"
+        }
+      },
+      "required": [
+        "name",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]*$"
+            },
+            "args": {
+              "type": "object",
+              "maxProperties": 16,
+              "additionalProperties": {
+                "$ref": "#/$defs/value"
+              }
+            },
+            "onFailure": {
+              "$ref": "#/$defs/steps"
+            }
+          },
+          "required": [
+            "action",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "condition": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]*$"
+            },
+            "args": {
+              "type": "object",
+              "maxProperties": 16,
+              "additionalProperties": {
+                "$ref": "#/$defs/value"
+              }
+            },
+            "then": {
+              "$ref": "#/$defs/steps"
+            },
+            "else": {
+              "$ref": "#/$defs/steps"
+            },
+            "onFailure": {
+              "$ref": "#/$defs/steps"
+            }
+          },
+          "required": [
+            "condition",
+            "args",
+            "then"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "waitFrames": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000000
+            }
+          },
+          "required": [
+            "waitFrames"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

@@ -1,6 +1,7 @@
 package worldlightmapbake
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -17,7 +18,9 @@ import (
 
 // Material is the original sRGB albedo texture. Normal, height and AO textures
 // do not alter diffuse reflectance. Inputs remain owned by the caller and must
-// not change until Bake or ReflectanceDigest returns.
+// not change until Bake or ReflectanceDigest returns. ID zero is the default
+// material: omission supplies opaque sRGB (192,192,192); an explicit image
+// represents a caller-provided default atlas albedo.
 type Material struct {
 	ID     uint32
 	Albedo image.Image
@@ -26,10 +29,34 @@ type Material struct {
 const maxMaterialPixels = 16 * 1024 * 1024
 
 type reflectance struct {
-	image           image.Image
+	image           *image.NRGBA
+	width, height   float64
 	mapping         *world.SurfaceUV
 	origin, tangent vec
 	cap             bool
+}
+
+// Keep original source pixels for digest identity; normalize only sampled
+// images once, without filtering, rescaling or changing colour conversion.
+func prepareAlbedo(ctx context.Context, source image.Image) (*image.NRGBA, error) {
+	if pixels, ok := source.(*image.NRGBA); ok {
+		return pixels, nil
+	}
+	pixels := image.NewNRGBA(source.Bounds())
+	b := pixels.Rect
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if (x-b.Min.X)%1024 == 0 {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+			}
+			c := albedoPixel(source, x, y)
+			i := pixels.PixOffset(x, y)
+			pixels.Pix[i], pixels.Pix[i+1], pixels.Pix[i+2], pixels.Pix[i+3] = c.R, c.G, c.B, c.A
+		}
+	}
+	return pixels, nil
 }
 
 func materialOf(d *world.Document, b worldlightmap.Binding) (uint32, *world.SurfaceUV, vec, vec, bool) {
@@ -62,7 +89,7 @@ func materialImages(materials []Material) (map[uint32]image.Image, error) {
 	result := make(map[uint32]image.Image, len(materials))
 	pixels := int64(0)
 	for _, m := range materials {
-		if m.ID == 0 || m.Albedo == nil {
+		if m.Albedo == nil {
 			return nil, fmt.Errorf("invalid albedo material %d", m.ID)
 		}
 		if _, ok := result[m.ID]; ok {
@@ -75,6 +102,10 @@ func materialImages(materials []Material) (map[uint32]image.Image, error) {
 		}
 		pixels += w * h
 		result[m.ID] = m.Albedo
+	}
+	if result[0] == nil {
+		// Match the CLI's opaque default atlas material, without a source asset.
+		result[0] = &image.NRGBA{Pix: []byte{192, 192, 192, 255}, Stride: 4, Rect: image.Rect(0, 0, 1, 1)}
 	}
 	return result, nil
 }
@@ -91,6 +122,10 @@ func ReflectanceDigest(document world.Document, materials []Material) (string, e
 	if err != nil {
 		return "", err
 	}
+	return reflectanceDigest(context.Background(), &document, surfaces, images)
+}
+
+func reflectanceDigest(ctx context.Context, document *world.Document, surfaces []worldlightmap.Surface, images map[uint32]image.Image) (string, error) {
 	type assignment struct {
 		Binding  worldlightmap.Binding
 		Material uint32
@@ -102,7 +137,7 @@ func ReflectanceDigest(document world.Document, materials []Material) (string, e
 		if len(s.Polygons) == 0 {
 			continue
 		}
-		id, uv, _, _, _ := materialOf(&document, s.Binding)
+		id, uv, _, _, _ := materialOf(document, s.Binding)
 		if images[id] == nil {
 			return "", fmt.Errorf("missing albedo material %d", id)
 		}
@@ -133,6 +168,11 @@ func ReflectanceDigest(document world.Document, materials []Material) (string, e
 		filled := 0
 		for y := b.Min.Y; y < b.Max.Y; y++ {
 			for x := b.Min.X; x < b.Max.X; x++ {
+				if (x-b.Min.X)%1024 == 0 {
+					if err := ctx.Err(); err != nil {
+						return "", err
+					}
+				}
 				c := albedoPixel(im, x, y)
 				pixels[filled], pixels[filled+1], pixels[filled+2], pixels[filled+3] = c.R, c.G, c.B, c.A
 				filled += 4
@@ -175,7 +215,26 @@ func albedoPixel(im image.Image, x, y int) color.NRGBA {
 		return color.NRGBAModel.Convert(im.At(x, y)).(color.NRGBA)
 	}
 }
-func linear(byteValue uint8) float64 {
+
+var linearBytes = func() [256]float64 {
+	var values [256]float64
+	for i := range values {
+		values[i] = linearValue(uint8(i))
+	}
+	return values
+}()
+
+func linear(byteValue uint8) float64 { return linearBytes[byteValue] }
+
+var diffuseBytes = func() [256]float64 {
+	values := linearBytes
+	for i := range values {
+		values[i] = math.Min(worldlightmap.MaxDiffuseReflectance, values[i])
+	}
+	return values
+}()
+
+func linearValue(byteValue uint8) float64 {
 	v := float64(byteValue) / 255
 	if v <= .04045 {
 		return v / 12.92
@@ -183,11 +242,11 @@ func linear(byteValue uint8) float64 {
 	return math.Pow((v+.055)/1.055, 2.4)
 }
 func (r reflectance) texel(u, v float64) vec {
-	b := r.image.Bounds()
-	x := b.Min.X + int(math.Floor((u-math.Floor(u))*float64(b.Dx())))
-	y := b.Min.Y + int(math.Floor((v-math.Floor(v))*float64(b.Dy())))
-	c := albedoPixel(r.image, x, y)
-	return vec{X: math.Min(worldlightmap.MaxDiffuseReflectance, linear(c.R)), Y: math.Min(worldlightmap.MaxDiffuseReflectance, linear(c.G)), Z: math.Min(worldlightmap.MaxDiffuseReflectance, linear(c.B))}
+	b := r.image.Rect
+	x := b.Min.X + int(math.Floor((u-math.Floor(u))*r.width))
+	y := b.Min.Y + int(math.Floor((v-math.Floor(v))*r.height))
+	c := r.image.NRGBAAt(x, y)
+	return vec{X: diffuseBytes[c.R], Y: diffuseBytes[c.G], Z: diffuseBytes[c.B]}
 }
 func uvValue(p world.UVPlane, v vec) float64 { return p.X*v.X + p.Y*v.Y + p.Z*v.Z + p.Offset }
 func (r reflectance) sample(p vec) vec {

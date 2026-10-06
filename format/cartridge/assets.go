@@ -35,12 +35,11 @@ type Asset struct {
 }
 
 func EncodeAssets(source []Asset) ([]byte, error) {
-	assets := slices.Clone(source)
-	slices.SortFunc(assets, func(left, right Asset) int { return strings.Compare(left.Name, right.Name) })
-
-	if len(assets) > MaxAssetCount {
+	if len(source) > MaxAssetCount {
 		return nil, ErrAssets
 	}
+	assets := slices.Clone(source)
+	slices.SortFunc(assets, func(left, right Asset) int { return strings.Compare(left.Name, right.Name) })
 
 	total := assetHeaderSize
 	previous := ""
@@ -86,10 +85,11 @@ func DecodeAssets(encoded []byte) ([]Asset, error) {
 		return nil, ErrAssets
 	}
 
-	count := int(binary.LittleEndian.Uint32(encoded[8:12]))
-	if count > MaxAssetCount {
+	wireCount := binary.LittleEndian.Uint32(encoded[8:12])
+	if wireCount > MaxAssetCount || uint64(wireCount)*assetEntryHeader > uint64(len(encoded)-assetHeaderSize) {
 		return nil, ErrAssets
 	}
+	count := int(wireCount)
 
 	result := make([]Asset, 0, count)
 	offset := assetHeaderSize
@@ -187,10 +187,11 @@ func ExtractSection(wasm []byte, wanted string) ([]byte, error) {
 		identifier := wasm[offset]
 		offset++
 
-		length, valid := readULEB(wasm, &offset)
-		if !valid || length > len(wasm)-offset {
+		wireLength, valid := readULEB(wasm, &offset)
+		if !valid || uint64(wireLength) > uint64(len(wasm)-offset) {
 			return nil, ErrSection
 		}
+		length := int(wireLength)
 
 		section := wasm[offset : offset+length]
 		offset += length
@@ -201,10 +202,11 @@ func ExtractSection(wasm []byte, wanted string) ([]byte, error) {
 
 		nameOffset := 0
 
-		nameLength, valid := readULEB(section, &nameOffset)
-		if !valid || nameLength > len(section)-nameOffset {
+		wireNameLength, valid := readULEB(section, &nameOffset)
+		if !valid || uint64(wireNameLength) > uint64(len(section)-nameOffset) {
 			return nil, ErrSection
 		}
+		nameLength := int(wireNameLength)
 
 		if string(section[nameOffset:nameOffset+nameLength]) == wanted {
 			if bundle != nil {
@@ -231,13 +233,18 @@ func appendULEB(destination []byte, value int) []byte {
 	return append(destination, byte(value))
 }
 
-func readULEB(source []byte, offset *int) (int, bool) {
-	value := 0
+// Wasm section and name lengths are u32, including when int is only 32 bits.
+// Padded encodings are legal, but the fifth byte cannot carry bits above u32.
+func readULEB(source []byte, offset *int) (uint32, bool) {
+	value := uint32(0)
 
 	for shift := 0; shift < 35 && *offset < len(source); shift += 7 {
 		current := source[*offset]
 		*offset++
-		value |= int(current&0x7f) << shift
+		if shift == 28 && current > 0x0f {
+			return 0, false
+		}
+		value |= uint32(current&0x7f) << shift
 
 		if current&0x80 == 0 {
 			return value, true

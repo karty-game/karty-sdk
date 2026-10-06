@@ -14,7 +14,7 @@ import (
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
 )
 
-func room(t *testing.T, barrierHeight float64) (world.Document, worldlightmap.Layout, []Material) {
+func room(t testing.TB, barrierHeight float64) (world.Document, worldlightmap.Layout, []Material) {
 	t.Helper()
 	points := []world.Vec2{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 4}, {X: 0, Y: 4}}
 	walls := make([]world.Wall, 4)

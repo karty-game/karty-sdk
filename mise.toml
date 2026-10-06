@@ -1,11 +1,60 @@
 [tools]
 go = "1.27.1"
+node = "26.10.0"
+
+# Go 1.27 portable SIMD; remove this gate when SIMD is enabled by default.
+[env]
+GOEXPERIMENT = "simd"
 
 [tasks.test]
-run = "go test ./..."
+run = "go test -timeout=9s ./..."
 
 [tasks.build]
 run = "go build ./..."
 
 [tasks.fmt]
-run = "gofmt -w format"
+run = "gofmt -w codec format bake"
+
+[tasks.check-fmt]
+run = "test -z \"$(gofmt -l codec format bake)\""
+
+[tasks.test-race]
+run = "go test -timeout=9s -race ./..."
+
+[tasks.test-simd-emulated]
+env = { GODEBUG = "simd=0" }
+run = "go test -timeout=9s ./bake/worldlightmap"
+
+[tasks.test-32]
+env = { GOARCH = "386", CGO_ENABLED = "0" }
+run = "go test -timeout=9s ./..."
+
+# Execute Go's Wasm binaries with the official runner, rather than only building.
+[tasks.test-wasm]
+env = { GOOS = "js", GOARCH = "wasm" }
+run = 'go test -timeout=9s -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./...'
+
+[tasks.bench]
+run = "go test -timeout=9s ./codec/... ./format/worldmaterial ./format/worldlightmap ./bake/worldlightmap -run=^$ -bench=. -benchmem"
+
+# Each target gets a bounded exploration budget in addition to ordinary seed
+# coverage. Cap workers to keep malformed-input memory use predictable in CI.
+[tasks.fuzz]
+env = { GOMAXPROCS = "2" }
+run = [
+  "go test -timeout=9s ./codec/qoi -run=^$ -fuzz=^FuzzInspectAndDecode$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./codec/qoa -run=^$ -fuzz=^FuzzInspectAndDecode$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./codec/qoa -run=^$ -fuzz=^FuzzStreamDecoder$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/cartridge -run=^$ -fuzz=^FuzzDecodeAssets$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/cartridge -run=^$ -fuzz=^FuzzExtractSection$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/cartridge -run=^$ -fuzz=^FuzzSoundsDecode$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/cartridge -run=^$ -fuzz=^FuzzDecodeAudioStreams$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/cartridge -run=^$ -fuzz=^FuzzMediaEnvelopeReader$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/level -run=^$ -fuzz=^FuzzEnvelopeDecode$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/actions -run=^$ -fuzz=^FuzzDecode$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/world -run=^$ -fuzz=^FuzzDecode$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/world -run=^$ -fuzz=^FuzzDecodeLighting$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/worldmaterial -run=^$ -fuzz=^FuzzDecodeLayout$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/worldlightmap -run=^$ -fuzz=^FuzzDecodeLayout$ -fuzztime=5s -parallel=2",
+  "go test -timeout=9s ./format/worldlightmap -run=^$ -fuzz=^FuzzDecodePrebake$ -fuzztime=5s -parallel=2",
+]

@@ -12,5 +12,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
+      - run: mise run check-fmt
       - run: mise run test
       - run: mise run build
+      - run: mise run test-race
+      - run: mise run test-simd-emulated
+      - run: mise run test-32
+  fuzz:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+      - run: mise run fuzz
+  wasm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+      - run: mise run test-wasm

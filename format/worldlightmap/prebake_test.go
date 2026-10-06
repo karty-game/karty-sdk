@@ -11,7 +11,7 @@ import (
 	"github.com/karty-game/karty-sdk/format/world"
 )
 
-func prebakeFixture(t *testing.T) (world.Document, Layout, PrebakePair) {
+func prebakeFixture(t testing.TB) (world.Document, Layout, PrebakePair) {
 	t.Helper()
 	document := directFixture(t)
 	layout, err := Compile(document, Options{PageSize: 512, Lights: []string{"blue", "red"}, ShadowSize: 128})

@@ -160,7 +160,8 @@ type Pair struct {
 	MipTail []byte
 }
 
-// Validate preflights every allocation before completely decoding any QOI.
+// Validate preflights every allocation and completely validates every QOI.
+// Only albedo-bearing images require decoded pixels for opacity checks.
 func (p Pair) Validate() error {
 	if p.Layout.Validate() != nil || (len(p.Layout.Mips) != 0) != (len(p.MipTail) != 0) {
 		return ErrAtlas
@@ -190,6 +191,12 @@ func (p Pair) Validate() error {
 		total += m.DecodedBytes
 	}
 	for i, encoded := range images[:count] {
+		if i == 1 {
+			if _, err := qoi.Validate(encoded); err != nil {
+				return ErrAtlas
+			}
+			continue
+		}
 		_, pixels, err := qoi.Decode(encoded)
 		if err != nil {
 			return ErrAtlas

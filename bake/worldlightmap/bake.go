@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"math"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -22,11 +21,15 @@ import (
 type Options struct {
 	Samples, Bounces, Workers int
 	Seed                      uint64
+	Denoise                   string // empty/off preserves original pixels; low or medium filters indirect only
 }
 type Stats struct {
 	ReceiverTexels, Triangles, Workers, Samples, Bounces int
 	Rays, ShadowRays, BounceRays                         uint64
 	Duration                                             time.Duration
+	DenoiseDuration                                      time.Duration
+	DenoiseRays                                          uint64
+	Denoise                                              string
 }
 type Result struct {
 	Image             *image.NRGBA
@@ -34,17 +37,6 @@ type Result struct {
 	ReflectanceSHA256 string
 	Stats             Stats
 }
-type receiver struct {
-	position vec
-	surface  int32
-}
-type scene struct {
-	surfaces  []worldlightmap.Surface
-	materials []reflectance
-	accel     accelerator
-	lights    []world.PointLight
-}
-type counters struct{ shadow, bounce uint64 }
 
 // Bake returns a complete straight-alpha RGBM atlas with three horizontal
 // coefficient tiles. Geometric direct lighting retains the existing neutral
@@ -68,18 +60,14 @@ func Bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 	if options.Samples < 1 || options.Samples > worldlightmap.MaxOfflineSamples || options.Workers < 1 || options.Workers > 64 || options.Bounces < 0 || options.Bounces > worldlightmap.MaxOfflineBounces {
 		return Result{}, fmt.Errorf("offline bake requires samples 1..256, workers 1..64 and bounces 0..4")
 	}
-	if err := worldlightmap.Validate(&layout, &document); err != nil {
+	if _, err := worldlightmap.OfflineDenoiseProducer(options.Denoise); err != nil {
 		return Result{}, err
 	}
-	if layout.RuntimeBake == nil || layout.RuntimeBake.Encoding != worldlightmap.DirectRNMEncoding {
-		return Result{}, fmt.Errorf("offline baking requires a direct-rnm3 runtime recipe")
-	}
-	digest, err := ReflectanceDigest(document, materials)
+	// This public boundary validates the complete world/layout, direct recipe and
+	// encoded-size bound once, before allocating bake scratch.
+	rangeValue, err := worldlightmap.OfflineRGBMRange(layout, &document, options.Bounces)
 	if err != nil {
-		return Result{}, err
-	}
-	if err := ctx.Err(); err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("offline bake layout: %w", err)
 	}
 	images, err := materialImages(materials)
 	if err != nil {
@@ -89,26 +77,52 @@ func Bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 	if err != nil {
 		return Result{}, err
 	}
+	digest, err := reflectanceDigest(ctx, &document, surfaces, images)
+	if err != nil {
+		return Result{}, err
+	}
 	s := scene{surfaces: surfaces, materials: make([]reflectance, len(surfaces))}
+	if options.Bounces > 0 {
+		s.samples = initialSamples(options.Samples)
+		s.surfaceFrames = make([]sampleFrame, len(surfaces))
+		for i, surface := range surfaces {
+			s.surfaceFrames[i] = newSampleFrame(surface.Normal)
+		}
+		s.chartFrames = make([]sampleFrame, len(layout.Charts))
+		for i, chart := range layout.Charts {
+			s.chartFrames[i] = newSampleFrame(chart.Normal)
+		}
+	}
 	for _, id := range layout.RuntimeBake.LightIDs {
 		for _, light := range document.Lighting.Lights {
 			if light.ID == id {
-				s.lights = append(s.lights, light)
+				s.lights = append(s.lights, preparedLight{light, light.Radius * light.Radius})
 				break
 			}
 		}
 	}
 	w, h := layout.Pages[0].Width, layout.Pages[0].Height
-	receivers := make([]receiver, w*h)
-	for i := range receivers {
-		receivers[i].surface = -1
-	}
+	grids, rows := receiverGrids(layout.Charts)
+	albedos := make(map[uint32]*image.NRGBA)
 	for i, surface := range surfaces {
 		if err := ctx.Err(); err != nil {
 			return Result{}, err
 		}
 		id, uv, origin, tangent, cap := materialOf(&document, surface.Binding)
-		s.materials[i] = reflectance{images[id], uv, origin, tangent, cap}
+		r := reflectance{mapping: uv, origin: origin, tangent: tangent, cap: cap}
+		if options.Bounces > 0 && len(surface.Polygons) > 0 {
+			pixels, ok := albedos[id]
+			if !ok {
+				pixels, err = prepareAlbedo(ctx, images[id])
+				if err != nil {
+					return Result{}, err
+				}
+				albedos[id] = pixels
+			}
+			r.image = pixels
+			r.width, r.height = float64(pixels.Rect.Dx()), float64(pixels.Rect.Dy())
+		}
+		s.materials[i] = r
 		chartID := layout.Bindings[i].Chart
 		for _, polygon := range surface.Polygons {
 			for j := 1; j+1 < len(polygon); j++ {
@@ -119,27 +133,36 @@ func Bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 				t.bounds = emptyBox().point(t.a).point(t.b).point(t.c)
 				s.accel.triangles = append(s.accel.triangles, t)
 				if chartID >= 0 {
-					raster(receivers, w, h, layout.Charts[chartID], t)
+					raster(grids[chartID], w, h, layout.Charts[chartID], t)
 				}
 			}
 		}
 	}
-	if len(s.accel.triangles) > 0 {
-		s.accel.build(0, len(s.accel.triangles))
-	}
+	triangleCount := len(s.accel.triangles)
+	s.accel.prepare()
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	rangeValue, err := worldlightmap.OfflineRGBMRange(layout, &document, options.Bounces)
-	if err != nil {
-		return Result{}, err
-	}
 	output := image.NewNRGBA(image.Rect(0, 0, 3*w, h))
-	stats := Stats{Triangles: len(s.accel.triangles), Workers: options.Workers, Samples: options.Samples, Bounces: options.Bounces}
-	for _, r := range receivers {
-		if r.surface >= 0 {
-			stats.ReceiverTexels++
+	stats := Stats{Triangles: triangleCount, Workers: options.Workers, Samples: options.Samples, Bounces: options.Bounces}
+	for _, grid := range grids {
+		for _, r := range grid.pixels {
+			if r.surface >= 0 {
+				stats.ReceiverTexels++
+			}
 		}
+	}
+	filtering := options.Bounces > 0 && options.Denoise != "" && options.Denoise != "off"
+	var lighting [][]filterPixel
+	if filtering {
+		lighting = make([][]filterPixel, len(grids))
+		for i, grid := range grids {
+			lighting[i] = make([]filterPixel, len(grid.pixels))
+		}
+	}
+	stats.Denoise = options.Denoise
+	if stats.Denoise == "" {
+		stats.Denoise = "off"
 	}
 	var next atomic.Int64
 	var group sync.WaitGroup
@@ -150,23 +173,32 @@ func Bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 			defer group.Done()
 			c := &counts[worker]
 			for {
-				y := int(next.Add(1) - 1)
-				if y >= h || ctx.Err() != nil {
+				rowIndex := int(next.Add(1) - 1)
+				if rowIndex >= len(rows) || ctx.Err() != nil {
 					return
 				}
-				for x := range w {
+				row := rows[rowIndex]
+				grid := grids[row.chart]
+				y := row.y
+				chart := layout.Charts[row.chart]
+				for x := grid.rect[0]; x < grid.rect[2]; x++ {
 					index := y*w + x
-					r := receivers[index]
+					r := grid.pixels[grid.offset(x, y)]
 					if r.surface < 0 {
 						continue
 					}
 					if x%16 == 0 && ctx.Err() != nil {
 						return
 					}
-					chart := layout.Charts[layout.Bindings[r.surface].Chart]
 					coeff := s.direct(r.position, chart, c)
+					if filtering {
+						var indirect [3]vec
+						variance := s.indirect(ctx, r.position, chart, s.chartFrames[row.chart], index, options, c, &indirect)
+						lighting[row.chart][grid.offset(x, y)] = filterPixel{direct: packCoefficients(coeff), indirect: packCoefficients(indirect), variance: variance}
+						continue
+					}
 					if options.Bounces > 0 {
-						s.indirect(ctx, r.position, chart, index, options, c, &coeff)
+						s.indirect(ctx, r.position, chart, s.chartFrames[row.chart], index, options, c, &coeff)
 					}
 					for basis := range 3 {
 						encodeRGBM(output, x+basis*w, y, coeff[basis], rangeValue)
@@ -183,188 +215,19 @@ func Bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 		stats.ShadowRays += c.shadow
 		stats.BounceRays += c.bounce
 	}
-	stats.Rays = stats.ShadowRays + stats.BounceRays
-	if err := dilate(ctx, output, w, h, layout); err != nil {
+	if filtering {
+		filterStart := time.Now()
+		rays, err := s.denoise(ctx, grids, layout, lighting, output, rangeValue, options)
+		if err != nil {
+			return Result{}, err
+		}
+		stats.DenoiseRays = rays
+		stats.DenoiseDuration = time.Since(filterStart)
+	}
+	stats.Rays = stats.ShadowRays + stats.BounceRays + stats.DenoiseRays
+	if err := dilate(ctx, output, w, layout); err != nil {
 		return Result{}, err
 	}
 	stats.Duration = time.Since(start)
 	return Result{Image: output, RGBMRange: rangeValue, ReflectanceSHA256: digest, Stats: stats}, nil
-}
-
-func raster(receivers []receiver, w, h int, chart worldlightmap.Chart, t triangle) {
-	uv := func(p vec) world.Vec2 {
-		return world.Vec2{X: float64(w) * (chart.UPlane[0]*p.X + chart.UPlane[1]*p.Y + chart.UPlane[2]*p.Z + chart.UPlane[3]), Y: float64(h) * (chart.VPlane[0]*p.X + chart.VPlane[1]*p.Y + chart.VPlane[2]*p.Z + chart.VPlane[3])}
-	}
-	a, b, c := uv(t.a), uv(t.b), uv(t.c)
-	den := (b.Y-c.Y)*(a.X-c.X) + (c.X-b.X)*(a.Y-c.Y)
-	if math.Abs(den) < 1e-15 {
-		return
-	}
-	r := chart.ReceiverRect
-	// Chart vertices intentionally lie on texel centres. Include their boundary
-	// samples despite tiny affine evaluation roundoff; barycentrics still test
-	// actual polygon coverage and the receiver rectangle remains authoritative.
-	x0, x1 := max(r[0], int(math.Ceil(math.Min(a.X, math.Min(b.X, c.X))-.5-1e-8))), min(r[2]-1, int(math.Floor(math.Max(a.X, math.Max(b.X, c.X))-.5+1e-8)))
-	y0, y1 := max(r[1], int(math.Ceil(math.Min(a.Y, math.Min(b.Y, c.Y))-.5-1e-8))), min(r[3]-1, int(math.Floor(math.Max(a.Y, math.Max(b.Y, c.Y))-.5+1e-8)))
-	for y := y0; y <= y1; y++ {
-		for x := x0; x <= x1; x++ {
-			u := ((b.Y-c.Y)*(float64(x)+.5-c.X) + (c.X-b.X)*(float64(y)+.5-c.Y)) / den
-			v := ((c.Y-a.Y)*(float64(x)+.5-c.X) + (a.X-c.X)*(float64(y)+.5-c.Y)) / den
-			if u < -1e-9 || v < -1e-9 || u+v > 1+1e-9 {
-				continue
-			}
-			index := y*w + x
-			if receivers[index].surface >= 0 {
-				continue
-			}
-			receivers[index] = receiver{add(add(scale(t.a, u), scale(t.b, v)), scale(t.c, 1-u-v)), int32(t.surface)}
-		}
-	}
-}
-
-func (s *scene) visible(p, n, d vec, distance float64, c *counters) bool {
-	c.shadow++
-	e := epsilon(p)
-	hit, _ := s.accel.hit(add(p, scale(n, e)), d, distance-e)
-	return hit < 0
-}
-func (s *scene) direct(p vec, chart worldlightmap.Chart, c *counters) [3]vec {
-	var result [3]vec
-	for _, l := range s.lights {
-		delta := sub(l.Position, p)
-		distance := math.Sqrt(dot(delta, delta))
-		if distance < epsilon(p) || distance >= l.Radius {
-			continue
-		}
-		d := scale(delta, 1/distance)
-		cosine := dot(chart.Normal, d)
-		if cosine <= 0 || !s.visible(p, chart.Normal, d, distance, c) {
-			continue
-		}
-		local := vec{X: dot(chart.Tangent, d), Y: dot(chart.Bitangent, d), Z: cosine}
-		var weights [3]float64
-		sum := 0.0
-		for i, basis := range rnmBasis {
-			weights[i] = halfLambert(dot(basis, local))
-			sum += weights[i]
-		}
-		attenuation := math.Pow(1-distance*distance/(l.Radius*l.Radius), 2) * 3 * halfLambert(cosine)
-		for i := range 3 {
-			result[i] = add(result[i], scale(l.Color, attenuation*weights[i]/sum))
-		}
-	}
-	return result
-}
-func (s *scene) lambertDirect(p, n vec, c *counters) vec {
-	result := vec{}
-	for _, l := range s.lights {
-		delta := sub(l.Position, p)
-		distance := math.Sqrt(dot(delta, delta))
-		if distance < epsilon(p) || distance >= l.Radius {
-			continue
-		}
-		d := scale(delta, 1/distance)
-		cosine := dot(n, d)
-		if cosine <= 0 || !s.visible(p, n, d, distance, c) {
-			continue
-		}
-		result = add(result, scale(l.Color, math.Pow(1-distance*distance/(l.Radius*l.Radius), 2)*cosine))
-	}
-	return result
-}
-func (s *scene) indirect(ctx context.Context, p vec, chart worldlightmap.Chart, index int, options Options, c *counters, result *[3]vec) {
-	rotation := random(options.Seed ^ uint64(index)*0xd6e8feb86659fd93)
-	angleOffset := rotation.next()
-	for sample := range options.Samples {
-		if sample%16 == 0 && ctx.Err() != nil {
-			return
-		}
-		rng := random(options.Seed ^ uint64(index)*0xd6e8feb86659fd93 ^ uint64(sample+1)*0xa0761d6478bd642f)
-		// Stratified polar radius plus a deterministic irrational-angle sequence.
-		d := hemisphere(chart.Normal, (float64(sample)+.5)/float64(options.Samples), math.Mod(angleOffset+float64(sample)*.6180339887498949, 1))
-		local := vec{X: dot(chart.Tangent, d), Y: dot(chart.Bitangent, d), Z: dot(chart.Normal, d)}
-		var weights [3]float64
-		sum := 0.0
-		for i, basis := range rnmBasis {
-			weights[i] = math.Pow(math.Max(0, dot(basis, local)), 2)
-			sum += weights[i]
-		}
-		origin := add(p, scale(chart.Normal, epsilon(p)))
-		throughput := vec{X: 1, Y: 1, Z: 1}
-		incoming := vec{}
-		for bounce := range options.Bounces {
-			c.bounce++
-			hit, distance := s.accel.hit(origin, d, math.Inf(1))
-			if hit < 0 {
-				break
-			}
-			n := s.surfaces[hit].Normal
-			if dot(n, d) >= 0 {
-				break
-			}
-			position := add(origin, scale(d, distance))
-			throughput = mul(throughput, s.materials[hit].sample(position))
-			incoming = add(incoming, mul(throughput, s.lambertDirect(position, n, c)))
-			if bounce+1 < options.Bounces {
-				d = hemisphere(n, rng.next(), rng.next())
-				origin = add(position, scale(n, epsilon(position)))
-			}
-		}
-		for i := range 3 {
-			result[i] = add(result[i], scale(incoming, 3*weights[i]/(sum*float64(options.Samples))))
-		}
-	}
-}
-func encodeRGBM(im *image.NRGBA, x, y int, value vec, rangeValue float64) {
-	m := math.Min(1, math.Max(1.0/255, math.Ceil(maximum(value)/rangeValue*255)/255))
-	index := im.PixOffset(x, y)
-	for channel, v := range [3]float64{value.X, value.Y, value.Z} {
-		im.Pix[index+channel] = uint8(math.Floor(math.Min(1, math.Max(0, v/(rangeValue*m)))*255 + .5))
-	}
-	im.Pix[index+3] = uint8(math.Round(m * 255))
-}
-func dilate(ctx context.Context, im *image.NRGBA, w, h int, layout worldlightmap.Layout) error {
-	distance := make([]uint8, w*h)
-	queue := make([]int, 0, w*h)
-	for _, chart := range layout.Charts {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		queue = queue[:0]
-		r := chart.Rect
-		for y := r[1]; y < r[3]; y++ {
-			for x := r[0]; x < r[2]; x++ {
-				index := y*w + x
-				distance[index] = 255
-				if im.Pix[im.PixOffset(x, y)+3] > 0 {
-					distance[index] = 0
-					queue = append(queue, index)
-				}
-			}
-		}
-		for cursor := 0; cursor < len(queue); cursor++ {
-			index := queue[cursor]
-			if int(distance[index]) >= layout.Padding {
-				continue
-			}
-			x, y := index%w, index/w
-			for _, offset := range [4][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
-				x1, y1 := x+offset[0], y+offset[1]
-				if x1 < r[0] || x1 >= r[2] || y1 < r[1] || y1 >= r[3] {
-					continue
-				}
-				other := y1*w + x1
-				if distance[other] != 255 {
-					continue
-				}
-				distance[other] = distance[index] + 1
-				queue = append(queue, other)
-				for basis := range 3 {
-					from, to := im.PixOffset(x+basis*w, y), im.PixOffset(x1+basis*w, y1)
-					copy(im.Pix[to:to+4], im.Pix[from:from+4])
-				}
-			}
-		}
-	}
-	return nil
 }

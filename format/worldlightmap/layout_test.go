@@ -11,7 +11,7 @@ import (
 	"github.com/karty-game/karty-sdk/format/world"
 )
 
-func fixture(t *testing.T) world.Document {
+func fixture(t testing.TB) world.Document {
 	t.Helper()
 	encoded, err := os.ReadFile("../world/testdata/two-room.world.json")
 	if err != nil {

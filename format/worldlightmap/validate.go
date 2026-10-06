@@ -17,24 +17,34 @@ func Validate(layout *Layout, document *world.Document) error {
 	if page.Width != page.Height || (page.Width != 512 && page.Width != 1024) {
 		return ErrLayout
 	}
-	digest, err := GeometryDigest(document)
+	if err := world.Validate(document); err != nil {
+		return fmt.Errorf("geometry: %w", err)
+	}
+	digest, err := geometryDigestValidated(document)
 	if err != nil {
 		return fmt.Errorf("geometry: %w", err)
 	}
+	surfaces, err := surfacesValidated(document)
+	if err != nil {
+		return err
+	}
+	return validatePrepared(layout, document, digest, surfaces)
+}
+
+// Compile has already bounded the document and built these immutable inputs.
+// Reusing them keeps complete layout validation without rediscovering geometry.
+func validatePrepared(layout *Layout, document *world.Document, digest string, surfaces []Surface) error {
+	page := layout.Pages[0]
 	if digest != layout.GeometrySHA256 {
 		return fmt.Errorf("geometry digest mismatch: %w", ErrLayout)
 	}
 	if err := validateBake(layout.RuntimeBake, document); err != nil {
 		return err
 	}
-	surfaces, err := Surfaces(document)
-	if err != nil {
-		return err
-	}
 	if len(layout.Bindings) != len(surfaces) {
 		return fmt.Errorf("incomplete semantic bindings: %w", ErrLayout)
 	}
-	occupied := make([]bool, page.Width*page.Height)
+	occupied := make([]uint64, (page.Width*page.Height+63)/64)
 	for i, chart := range layout.Charts {
 		if chart.ID != i || chart.Page != 0 || !validRect(chart.Rect, page) || !validRect(chart.ReceiverRect, page) {
 			return fmt.Errorf("chart %d bounds: %w", i, ErrLayout)
@@ -46,10 +56,11 @@ func Validate(layout *Layout, document *world.Document) error {
 		for y := chart.Rect[1]; y < chart.Rect[3]; y++ {
 			for x := chart.Rect[0]; x < chart.Rect[2]; x++ {
 				at := y*page.Width + x
-				if occupied[at] {
+				mask := uint64(1) << (at % 64)
+				if occupied[at/64]&mask != 0 {
 					return fmt.Errorf("overlapping chart rectangles: %w", ErrLayout)
 				}
-				occupied[at] = true
+				occupied[at/64] |= mask
 			}
 		}
 		for _, plane := range [2][4]float64{chart.UPlane, chart.VPlane} {
@@ -74,6 +85,7 @@ func Validate(layout *Layout, document *world.Document) error {
 	used := make([]bool, len(layout.Charts))
 	chartOrigin := make([]world.Vec3, len(layout.Charts))
 	chartSurface := make([]Binding, len(layout.Charts))
+	chartConnections := make([][]bool, len(layout.Charts))
 	for i, surface := range surfaces {
 		binding := layout.Bindings[i]
 		if binding.Kind != surface.Binding.Kind || binding.Index != surface.Binding.Index || binding.Edge != surface.Binding.Edge || binding.Chart < -1 || binding.Chart >= len(layout.Charts) {
@@ -102,7 +114,10 @@ func Validate(layout *Layout, document *world.Document) error {
 			if previous.Kind != binding.Kind || (binding.Kind != "sector-floor" && binding.Kind != "sector-ceiling") {
 				return fmt.Errorf("unrelated receivers share chart: %w", ErrLayout)
 			}
-			if !connectedCaps(document, previous.Index, binding.Index, binding.Kind) {
+			if chartConnections[binding.Chart] == nil {
+				chartConnections[binding.Chart] = connectedCaps(document, previous.Index, binding.Kind)
+			}
+			if !chartConnections[binding.Chart][binding.Index] {
 				return fmt.Errorf("disconnected receivers share chart: %w", ErrLayout)
 			}
 		}
@@ -191,7 +206,10 @@ func validBasis(chart Chart) bool {
 	return math.Abs(dot(chart.Normal, chart.Tangent)) < 1e-6 && math.Abs(dot(chart.Normal, chart.Bitangent)) < 1e-6 && dot(cross(chart.Tangent, chart.Bitangent), chart.Normal) > 1-1e-6
 }
 
-func connectedCaps(document *world.Document, start, end int, kind string) bool {
+// Each shared chart has one fixed origin sector and plane. Explore that origin's
+// reachable caps once, preserving its absolute coplanarity tolerance (not a
+// transitive union of pairwise near-equal planes).
+func connectedCaps(document *world.Document, start int, kind string) []bool {
 	visited := make([]bool, len(document.Sectors))
 	visited[start] = true
 	queue := []int{start}
@@ -201,9 +219,6 @@ func connectedCaps(document *world.Document, start, end int, kind string) bool {
 	}
 	for next := 0; next < len(queue); next++ {
 		i := queue[next]
-		if i == end {
-			return true
-		}
 		for edge, wall := range document.Sectors[i].Walls {
 			if wall.Portal < 0 || visited[wall.Portal] {
 				continue
@@ -222,5 +237,5 @@ func connectedCaps(document *world.Document, start, end int, kind string) bool {
 			queue = append(queue, int(wall.Portal))
 		}
 	}
-	return false
+	return visited
 }

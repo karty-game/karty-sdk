@@ -75,3 +75,34 @@ func TestOfflinePrebakeRejectsUnknownProducerAndTamperedInputs(t *testing.T) {
 		})
 	}
 }
+
+func TestDenoisedProducerIdentity(t *testing.T) {
+	document, layout, direct := prebakeFixture(t)
+	rangeBound, err := OfflineRGBMRange(layout, &document, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var previous string
+	for _, mode := range []string{"off", "low", "medium"} {
+		pair, err := NewOfflinePrebake(layout, &document, direct.Image, OfflineBakeInputs{Samples: 16, Bounces: 1, Seed: 1, ReflectanceSHA256: strings.Repeat("a", 64), RGBMRange: rangeBound, Denoise: mode})
+		if err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := EncodePrebake(pair, layout, &document)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := DecodePrebake(encoded, pair.Image, layout, &document); err != nil {
+			t.Fatal(err)
+		}
+		if pair.Manifest.BakeSHA256 == previous {
+			t.Fatal("preset omitted from identity")
+		}
+		previous = pair.Manifest.BakeSHA256
+		changed := pair
+		changed.Manifest.Producer = OfflinePrebakeProducer
+		if mode != "off" && changed.Validate(layout, &document) == nil {
+			t.Fatal("producer edit accepted stale bake")
+		}
+	}
+}

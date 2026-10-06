@@ -9,7 +9,7 @@ import (
 	"github.com/karty-game/karty-sdk/format/world"
 )
 
-func directFixture(t *testing.T) world.Document {
+func directFixture(t testing.TB) world.Document {
 	t.Helper()
 	document := fixture(t)
 	document.Version = world.Version

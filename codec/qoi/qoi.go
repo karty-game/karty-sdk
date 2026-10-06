@@ -176,13 +176,14 @@ func Encode(source image.Image, options Options) (encoded []byte, metadata Metad
 	}
 
 	encoded = writer.buffer.Bytes()
-	metadata, decoded, decodeErr := Decode(encoded)
-	if decodeErr != nil || metadata.Width != width || metadata.Height != height ||
-		metadata.Channels != options.Channels || metadata.Colorspace != options.Colorspace || decoded == nil {
+	metadata, validateErr := Validate(encoded)
+	if validateErr != nil || metadata.Width != width || metadata.Height != height ||
+		metadata.Channels != options.Channels || metadata.Colorspace != options.Colorspace {
 		return nil, Metadata{}, ErrInvalid
 	}
 
-	return bytes.Clone(encoded), metadata, nil
+	// This local writer owns its buffer and is never reused after return.
+	return encoded, metadata, nil
 }
 
 func boundedDimensions(bounds image.Rectangle) (uint32, uint32, bool) {

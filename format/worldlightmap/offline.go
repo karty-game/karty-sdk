@@ -24,6 +24,34 @@ type OfflineBakeInputs struct {
 	Seed              uint64
 	ReflectanceSHA256 string
 	RGBMRange         float64
+	Denoise           string // empty/off, low or medium; encoded in the producer identity
+}
+
+// OfflineDenoiseProducer versions the complete filter, including its preset.
+// Empty and off preserve the original producer and its exact manifest bytes.
+func OfflineDenoiseProducer(mode string) (string, error) {
+	switch mode {
+	case "", "off":
+		return OfflinePrebakeProducer, nil
+	case "low", "medium":
+		return "cpu-rnm3-pathtrace-atrous-" + mode + "@1", nil
+	default:
+		return "", fmt.Errorf("denoise must be off, low or medium: %w", ErrLayout)
+	}
+}
+
+// OfflineDenoiseMode rejects unknown producer versions before image allocation.
+func OfflineDenoiseMode(producer string) (string, error) {
+	switch producer {
+	case OfflinePrebakeProducer:
+		return "off", nil
+	case "cpu-rnm3-pathtrace-atrous-low@1":
+		return "low", nil
+	case "cpu-rnm3-pathtrace-atrous-medium@1":
+		return "medium", nil
+	default:
+		return "", fmt.Errorf("unknown offline producer: %w", ErrLayout)
+	}
 }
 
 // OfflineSurfaceDigest binds material identities and authored projection data
@@ -53,6 +81,10 @@ func OfflineRGBMRange(layout Layout, document *world.Document, bounces int) (flo
 	if _, err := Encode(layout, document); err != nil || layout.RuntimeBake == nil || layout.RuntimeBake.Encoding != DirectRNMEncoding {
 		return 0, ErrLayout
 	}
+	return offlineRGBMRangeValidated(layout, document, bounces), nil
+}
+
+func offlineRGBMRangeValidated(layout Layout, document *world.Document, bounces int) float64 {
 	sum := 0.0
 	for _, id := range layout.RuntimeBake.LightIDs {
 		for _, light := range document.Lighting.Lights {
@@ -67,7 +99,7 @@ func OfflineRGBMRange(layout Layout, document *world.Document, bounces int) (flo
 		energy *= MaxDiffuseReflectance
 		factor += energy
 	}
-	return max(1, 3*sum*factor), nil
+	return max(1, 3*sum*factor)
 }
 
 // NewOfflinePrebake binds a combined direct/indirect image to transport inputs.
@@ -76,6 +108,10 @@ func OfflineRGBMRange(layout Layout, document *world.Document, bounces int) (flo
 // source before packaging. Hosts can verify surface identity, but do not possess
 // those original source images and cannot independently rehash their pixels.
 func NewOfflinePrebake(layout Layout, document *world.Document, image []byte, inputs OfflineBakeInputs) (PrebakePair, error) {
+	producer, err := OfflineDenoiseProducer(inputs.Denoise)
+	if err != nil {
+		return PrebakePair{}, err
+	}
 	if inputs.Samples < 1 || inputs.Samples > MaxOfflineSamples || inputs.Bounces < 0 || inputs.Bounces > MaxOfflineBounces ||
 		!lowerSHA256(inputs.ReflectanceSHA256) || math.IsNaN(inputs.RGBMRange) || math.IsInf(inputs.RGBMRange, 0) {
 		return PrebakePair{}, fmt.Errorf("offline bake inputs: %w", ErrLayout)
@@ -84,8 +120,9 @@ func NewOfflinePrebake(layout Layout, document *world.Document, image []byte, in
 	if err != nil {
 		return PrebakePair{}, err
 	}
-	rangeBound, err := OfflineRGBMRange(layout, document, inputs.Bounces)
-	if err != nil || inputs.RGBMRange != rangeBound {
+	// NewPrebake already checked the complete layout and its encoded size.
+	rangeBound := offlineRGBMRangeValidated(layout, document, inputs.Bounces)
+	if inputs.RGBMRange != rangeBound {
 		return PrebakePair{}, fmt.Errorf("offline bake range: %w", ErrLayout)
 	}
 	surfaceDigest, err := OfflineSurfaceDigest(document)
@@ -100,12 +137,12 @@ func NewOfflinePrebake(layout Layout, document *world.Document, image []byte, in
 		Samples           int    `json:"samples"`
 		Bounces           int    `json:"bounces"`
 		Seed              uint64 `json:"seed"`
-	}{OfflinePrebakeProducer, pair.Manifest.BakeSHA256, surfaceDigest, inputs.ReflectanceSHA256, inputs.Samples, inputs.Bounces, inputs.Seed})
+	}{producer, pair.Manifest.BakeSHA256, surfaceDigest, inputs.ReflectanceSHA256, inputs.Samples, inputs.Bounces, inputs.Seed})
 	if err != nil {
 		return PrebakePair{}, err
 	}
 	m := &pair.Manifest
-	m.Algorithm, m.Producer = OfflinePrebakeAlgorithm, OfflinePrebakeProducer
+	m.Algorithm, m.Producer = OfflinePrebakeAlgorithm, producer
 	m.Samples, m.Bounces, m.Seed = inputs.Samples, inputs.Bounces, inputs.Seed
 	m.ReflectanceSHA256, m.SurfaceSHA256 = inputs.ReflectanceSHA256, surfaceDigest
 	m.BakeSHA256, m.RGBMRange = digest(identity), rangeBound

@@ -15,6 +15,8 @@ type StreamDecoder struct {
 	metadata  Metadata
 	remaining uint64
 	pending   []byte
+	encoded   []byte
+	pcm       []byte
 	complete  bool
 }
 
@@ -101,7 +103,12 @@ func (decoder *StreamDecoder) nextFrame() error {
 	if decoder.remaining > uint64(frameSamples) && frameSamples != maxFrameSamples {
 		return ErrInvalid
 	}
-	frame := make([]byte, int(frameSize))
+	fileSize := qoaHeaderSize + int(frameSize)
+	if cap(decoder.encoded) < fileSize {
+		decoder.encoded = make([]byte, fileSize)
+	}
+	file := decoder.encoded[:fileSize]
+	frame := file[qoaHeaderSize:]
 	copy(frame, header[:])
 	if err := readStreamBytes(decoder.source, frame[frameHeaderSize:]); err != nil {
 		return err
@@ -109,10 +116,8 @@ func (decoder *StreamDecoder) nextFrame() error {
 	if !unusedSamplesAreZero(frame, 0, channels, frameSamples, slices) {
 		return ErrInvalid
 	}
-	file := make([]byte, qoaHeaderSize+len(frame))
 	copy(file, "qoaf")
 	binary.BigEndian.PutUint32(file[4:8], frameSamples)
-	copy(file[qoaHeaderSize:], frame)
 	description, samples, err := decodeStreamFrame(file)
 	if err != nil || description == nil || description.Channels != uint32(channels) || description.SampleRate != sampleRate ||
 		description.Samples != frameSamples || len(samples) != int(frameSamples)*int(channels) {
@@ -121,7 +126,10 @@ func (decoder *StreamDecoder) nextFrame() error {
 	if decoder.metadata.Channels == 0 {
 		decoder.metadata.Channels, decoder.metadata.SampleRate = channels, sampleRate
 	}
-	pcm := make([]byte, len(samples)*2)
+	if cap(decoder.pcm) < len(samples)*2 {
+		decoder.pcm = make([]byte, len(samples)*2)
+	}
+	pcm := decoder.pcm[:len(samples)*2]
 	for index, sample := range samples {
 		binary.LittleEndian.PutUint16(pcm[index*2:], uint16(sample))
 	}

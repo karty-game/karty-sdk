@@ -29,7 +29,8 @@ func maximum(a vec) float64 { return math.Max(a.X, math.Max(a.Y, a.Z)) }
 func epsilon(p vec) float64 {
 	return math.Max(1e-8, math.Max(math.Abs(p.X), math.Max(math.Abs(p.Y), math.Abs(p.Z)))*1e-12)
 }
-func halfLambert(c float64) float64 { return math.Pow(.5*c+.5, 2) }
+func square(v float64) float64      { return v * v }
+func halfLambert(c float64) float64 { return square(.5*c + .5) }
 func frame(n vec) (vec, vec) {
 	a := vec{Z: 1}
 	if math.Abs(n.Z) > .9 {
@@ -54,9 +55,35 @@ func (r *random) next() float64 {
 	z = (z ^ (z >> 27)) * 0x94d049bb133111eb
 	return float64((z^(z>>31))>>11) * (1.0 / (1 << 53))
 }
-func hemisphere(n vec, u, v float64) vec {
+
+// Frames depend only on the fixed geometric normal, not the ray sample.
+type sampleFrame struct{ tangent, bitangent vec }
+
+func newSampleFrame(n vec) sampleFrame {
 	t, b := frame(n)
-	radius := math.Sqrt(u)
+	return sampleFrame{t, b}
+}
+
+func (f sampleFrame) direction(n vec, radius, height, v float64) vec {
 	angle := 2 * math.Pi * v
-	return add(add(scale(t, radius*math.Cos(angle)), scale(b, radius*math.Sin(angle))), scale(n, math.Sqrt(1-u)))
+	return add(add(scale(f.tangent, radius*math.Cos(angle)), scale(f.bitangent, radius*math.Sin(angle))), scale(n, height))
+}
+
+func (f sampleFrame) hemisphere(n vec, u, v float64) vec {
+	return f.direction(n, math.Sqrt(u), math.Sqrt(1-u), v)
+}
+
+// A bounded per-bake table preserves the exact initial stratified samples.
+type initialSample struct {
+	radius, height, angle float64
+	seed                  uint64
+}
+
+func initialSamples(count int) []initialSample {
+	samples := make([]initialSample, count)
+	for i := range samples {
+		u := (float64(i) + .5) / float64(count)
+		samples[i] = initialSample{math.Sqrt(u), math.Sqrt(1 - u), float64(i) * .6180339887498949, uint64(i+1) * 0xa0761d6478bd642f}
+	}
+	return samples
 }

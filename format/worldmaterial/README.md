@@ -128,9 +128,11 @@ use linear averages; AO remains straight data even when zero. The complete
 Runtime loads these payloads/layout directly; it does not repack or regenerate
 material maps. Both images must have exactly the layout dimensions and RGBA
 headers with their respective colorspaces. `Pair.Validate` preflights every
-bounded QOI allocation, including the padded tail, before any full stream decoding and rejects nonopaque
+bounded QOI allocation, including the padded tail, before any pixel decoding and rejects nonopaque
 albedo pixels, including gutters, margins and unused slots; data alpha may take
-any byte value. QOI decoding checks operation boundaries and the exact pixel
+any byte value. The data atlas uses complete allocation-free stream validation;
+albedo and the combined tail are decoded only for their opacity checks.
+QOI decoding checks operation boundaries and the exact pixel
 count without allocation before invoking the codec, so malformed runs cannot
 grow pixel buffers beyond their declared bounds. The maximum decoded L0 pair is
 128 MiB; the maximum pair plus padded tail is 178,722,440 bytes. Consumers
@@ -151,6 +153,6 @@ validation cannot prove Materialize execution, correct extrusion or channel-map
 provenance, nor distinguish already-premultiplied data from valid channel bytes;
 those remain build-pipeline and upload responsibilities.
 
-These optional extensions belong to the unreleased SDK 0.0.8 candidate.
+These optional extensions are available in SDK 0.0.8.
 Subsequent incompatible layout/channel changes require a new schema and capability. Version 1
 does not modify released world, level-envelope, or cartridge wire versions.

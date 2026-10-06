@@ -1,3 +1,4 @@
+# $schema: ../../../.karty/schemas/worldsource.base.schema.json
 {
   "version": 1,
   "rooms": [{

@@ -52,10 +52,10 @@ run = "go test -timeout=9s ./bake/worldlightmap"
 env = { GOARCH = "386", CGO_ENABLED = "0" }
 run = "go test -timeout=9s ./..."
 
-# Execute Go's Wasm binaries with the official runner, rather than only building.
+# Execute packages one at a time to bound Node processes and Wasm memory use.
 [tasks.test-wasm]
 env = { GOOS = "js", GOARCH = "wasm" }
-run = 'go test -timeout=9s -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./...'
+run = 'go test -p=1 -timeout=9s -exec="$PWD/scripts/go-wasm-exec" ./...'
 
 [tasks.bench]
 run = "go test -timeout=9s ./codec/... ./format/worldmaterial ./format/worldlightmap ./bake/worldlightmap -run=^$ -bench=. -benchmem"

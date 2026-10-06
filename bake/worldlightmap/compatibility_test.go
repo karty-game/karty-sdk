@@ -53,7 +53,9 @@ func TestProducerCompatibility(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(fmt.Sprintf("barrier-%g-bounces-%d", test.barrier, test.bounces), func(t *testing.T) {
-			d, l, materials := room(t, test.barrier)
+			// Retain the original density and hashes; other behavior tests need
+			// fewer receiver texels to exercise the same transport properties.
+			d, l, materials := roomWithDensity(t, test.barrier, 4)
 			result, err := Bake(context.Background(), d, l, materials, Options{Samples: 16, Bounces: test.bounces, Workers: 1, Seed: 22})
 			if err != nil {
 				t.Fatal(err)

@@ -51,8 +51,8 @@ formatters through hk without staging; `check-fmt` reports differences without
 writing files. `lint` runs all format and lint checks; `check` also runs tests
 and build. Generated Go and `*.generated.*` snapshots, derived output and local
 contributor directories and canonical `*.world.json` fixtures are excluded from
-formatting. The JSON-compatible YAML
-fixture retains its decoder input format; yamllint still checks it.
+formatting. The JSON-compatible YAML fixture retains its decoder input format;
+yamllint still checks it.
 
 After changing `format/actions/schema.json`, regenerate consumer snapshots with
 their `mise run generate-action-contract` tasks; public SDK checks remain
@@ -66,7 +66,10 @@ fallback rather than a second production implementation.
 `test-32` executes native 386 tests on an x86 Linux host with 32-bit execution
 support. `fuzz` explores each target for a bounded budget; normal tests also run
 the seed corpus. `test-wasm` executes Go Wasm tests using the official Go runner
-and pinned Node; it does not exercise browser graphics.
+and pinned Node, running one package at a time to bound memory use. Its launcher
+passes a minimal environment to stay within Go's
+8 KiB argument/environment limit, preserving temporary paths and the `GODEBUG`
+and `GOMAXPROCS` runtime controls. It does not exercise browser graphics.
 Benchmarks report allocation totals and CPU time for fixed
 codec, material-atlas, connected-world and bake fixtures. See
 [CONTRIBUTING](CONTRIBUTING.md) for compatibility and review requirements.

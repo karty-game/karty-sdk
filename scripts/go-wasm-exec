@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Go's official runner shares an 8 KiB startup area between argv and env. Keep
+# CI/tool installation variables out of it while retaining runtime controls.
+runner="$(go env GOROOT)/lib/wasm/go_js_wasm_exec"
+node_bin="$(command -v node)"
+exec env -i \
+  PATH="$(dirname "$node_bin"):/usr/bin:/bin" \
+  TMPDIR="${TMPDIR:-/tmp}" \
+  GODEBUG="${GODEBUG:-}" \
+  GOMAXPROCS="${GOMAXPROCS:-}" \
+  "$runner" "$@"

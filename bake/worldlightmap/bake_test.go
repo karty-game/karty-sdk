@@ -16,6 +16,13 @@ import (
 
 func room(t testing.TB, barrierHeight float64) (world.Document, worldlightmap.Layout, []Material) {
 	t.Helper()
+	// A coarse receiver grid is sufficient for transport assertions; exact
+	// producer compatibility retains its original, denser fixture separately.
+	return roomWithDensity(t, barrierHeight, 2)
+}
+
+func roomWithDensity(t testing.TB, barrierHeight float64, density float64) (world.Document, worldlightmap.Layout, []Material) {
+	t.Helper()
 	points := []world.Vec2{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 4}, {X: 0, Y: 4}}
 	walls := make([]world.Wall, 4)
 	for i, p := range points {
@@ -57,7 +64,7 @@ func room(t testing.TB, barrierHeight float64) (world.Document, worldlightmap.La
 	}
 	l, err := worldlightmap.Compile(
 		d,
-		worldlightmap.Options{TexelsPerUnit: 4, PageSize: 512, Padding: 2, Lights: []string{"white"}, ShadowSize: 32},
+		worldlightmap.Options{TexelsPerUnit: density, PageSize: 512, Padding: 2, Lights: []string{"white"}, ShadowSize: 32},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -249,7 +256,7 @@ func TestPartialPortalBandsOccludeWhileDoorwayTransmits(t *testing.T) {
 	d.Lighting.Lights[0].Position.Z = .2
 	l, err := worldlightmap.Compile(
 		d,
-		worldlightmap.Options{TexelsPerUnit: 8, PageSize: 512, Padding: 2, Lights: []string{"white"}, ShadowSize: 32},
+		worldlightmap.Options{TexelsPerUnit: 2, PageSize: 512, Padding: 2, Lights: []string{"white"}, ShadowSize: 32},
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -26,8 +26,8 @@ func TestDenoiseReducesBounceErrorAndKeepsClosedShadow(t *testing.T) {
 		sum := 0.0
 		count := 0
 		// Evaluate inside the directly shadowed half, away from wall contacts.
-		for y := floor[1] + 3; y < floor[3]-3; y++ {
-			for x := floor[0] + 3; x < floor[2]-3; x++ {
+		for y := floor[1] + 2; y < floor[3]-2; y++ {
+			for x := floor[0] + 2; x < floor[2]-2; x++ {
 				if maximum(decoded(noisy, x, y)) > .5 {
 					continue
 				}

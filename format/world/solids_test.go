@@ -5,14 +5,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/karty-game/karty-sdk/format/world"
 	"math"
 	"reflect"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/format/world"
 )
 
 func validSolid() world.Solid {
-	return world.Solid{ID: "pillar", Footprint: []world.Vec2{{X: 1, Y: 1}, {X: 2, Y: 1}, {X: 2, Y: 2}, {X: 1, Y: 2}}, Top: world.Plane{C: 3}, SideMaterial: 2, TopMaterial: 3, BottomMaterial: 4}
+	return world.Solid{
+		ID:             "pillar",
+		Footprint:      []world.Vec2{{X: 1, Y: 1}, {X: 2, Y: 1}, {X: 2, Y: 2}, {X: 1, Y: 2}},
+		Top:            world.Plane{C: 3},
+		SideMaterial:   2,
+		TopMaterial:    3,
+		BottomMaterial: 4,
+	}
 }
 
 func solidBatch(count int) []world.Solid {
@@ -131,7 +139,10 @@ func TestStaticSolidsValidateCompleteBounds(t *testing.T) {
 	}
 	document := lightingWorld()
 	solid := validSolid()
-	solid.TopUV = &world.SurfaceUV{Projections: []world.UVProjection{{U: world.UVPlane{X: 1}, V: world.UVPlane{Y: 1}}}, Weights: []float64{1}}
+	solid.TopUV = &world.SurfaceUV{
+		Projections: []world.UVProjection{{U: world.UVPlane{X: 1}, V: world.UVPlane{Y: 1}}},
+		Weights:     []float64{1},
+	}
 	document.StaticSolids = &world.StaticSolids{Version: 1, Items: []world.Solid{solid}}
 	if err := world.Validate(&document); !errors.Is(err, world.ErrMaterialMapping) {
 		t.Fatalf("undeclared mapping accepted: %v", err)

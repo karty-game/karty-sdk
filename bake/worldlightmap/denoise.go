@@ -29,7 +29,15 @@ func (v coefficients) colour() [3]float64 {
 	return [3]float64{float64(v[0]+v[3]+v[6]) / 3, float64(v[1]+v[4]+v[7]) / 3, float64(v[2]+v[5]+v[8]) / 3}
 }
 
-func (s *scene) denoise(ctx context.Context, grids []receiverGrid, layout worldlightmap.Layout, pixels [][]filterPixel, output *image.NRGBA, rgbmRange float64, options Options) (uint64, error) {
+func (s *scene) denoise(
+	ctx context.Context,
+	grids []receiverGrid,
+	layout worldlightmap.Layout,
+	pixels [][]filterPixel,
+	output *image.NRGBA,
+	rgbmRange float64,
+	options Options,
+) (uint64, error) {
 	var next atomic.Int64
 	var rays atomic.Uint64
 	var group sync.WaitGroup
@@ -104,7 +112,8 @@ func (s *scene) denoise(ctx context.Context, grids []receiverGrid, layout worldl
 							for ky := -2; ky <= 2; ky++ {
 								for kx := -2; kx <= 2; kx++ {
 									nx, ny := x+kx*step, y+ky*step
-									if nx < 0 || nx >= width || ny < 0 || ny >= grid.rect[3]-grid.rect[1] || !connected(edges, width, x, y, nx, ny) {
+									if nx < 0 || nx >= width || ny < 0 || ny >= grid.rect[3]-grid.rect[1] ||
+										!connected(edges, width, x, y, nx, ny) {
 										continue
 									}
 									b := ny*width + nx
@@ -146,7 +155,11 @@ func (s *scene) denoise(ctx context.Context, grids []receiverGrid, layout worldl
 						}
 						for basis := range 3 {
 							i := basis * 3
-							value := vec{X: float64(data[a].direct[i]) + float64(data[a].indirect[i]), Y: float64(data[a].direct[i+1]) + float64(data[a].indirect[i+1]), Z: float64(data[a].direct[i+2]) + float64(data[a].indirect[i+2])}
+							value := vec{
+								X: float64(data[a].direct[i]) + float64(data[a].indirect[i]),
+								Y: float64(data[a].direct[i+1]) + float64(data[a].indirect[i+1]),
+								Z: float64(data[a].direct[i+2]) + float64(data[a].indirect[i+2]),
+							}
 							encodeRGBM(output, x+basis*w, y, value, rgbmRange)
 						}
 					}

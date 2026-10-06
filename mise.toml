@@ -1,4 +1,10 @@
 [tools]
+hk = "2.5.0"
+taplo = "0.10.0"
+uv = "0.12.23"
+yamllint = { version = "1.38.0", uvx = true }
+prettier = "3.9.9"
+golangci-lint = "2.14.0"
 go = "1.27.1"
 node = "26.10.0"
 
@@ -6,17 +12,34 @@ node = "26.10.0"
 [env]
 GOEXPERIMENT = "simd"
 
+[hooks]
+postinstall = "hk install --mise"
+
+[shell_alias]
+fmt = "mise run fmt"
+lint = "mise run lint"
+test = "mise run test"
+
 [tasks.test]
 run = "go test -timeout=9s ./..."
 
 [tasks.build]
 run = "go build ./..."
 
+[tasks.check]
+run = ["mise run check-fmt", "mise run lint", "mise run test", "mise run build"]
+
 [tasks.fmt]
-run = "gofmt -w codec format bake"
+run = "hk fix --all --profile format"
 
 [tasks.check-fmt]
-run = "test -z \"$(gofmt -l codec format bake)\""
+run = "hk check --all --profile format"
+
+[tasks.lint]
+run = "hk check --all"
+
+[tasks.lint-go]
+run = "golangci-lint run ./..."
 
 [tasks.test-race]
 run = "go test -timeout=9s -race ./..."
@@ -58,3 +81,7 @@ run = [
   "go test -timeout=9s ./format/worldlightmap -run=^$ -fuzz=^FuzzDecodeLayout$ -fuzztime=5s -parallel=2",
   "go test -timeout=9s ./format/worldlightmap -run=^$ -fuzz=^FuzzDecodePrebake$ -fuzztime=5s -parallel=2",
 ]
+
+[tasks.install-hooks]
+description = "Install repository hk hooks with the pinned mise environment"
+run = "hk install --mise"

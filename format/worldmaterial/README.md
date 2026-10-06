@@ -10,12 +10,12 @@ without this capability retain their released encodings and legacy loading.
 A world level carries three fixed logical `level.EntryData` payloads and, when
 `Layout.Mips` is present, one additional combined mip-tail payload:
 
-| Symbol | Entry | Content |
-| --- | --- | --- |
-| `LayoutEntry` | `@world/material-layout` | Canonical UTF-8 JSON placements |
-| `AlbedoEntry` | `@world/material-albedo` | Opaque RGBA QOI, sRGB colorspace (0) |
-| `DataEntry` | `@world/material-data` | Straight RGBA QOI, linear colorspace (1) |
-| `MipTailEntry` | `@world/material-mips` | Optional combined albedo/data QOI, raw linear storage (1) |
+| Symbol         | Entry                    | Content                                                   |
+| -------------- | ------------------------ | --------------------------------------------------------- |
+| `LayoutEntry`  | `@world/material-layout` | Canonical UTF-8 JSON placements                           |
+| `AlbedoEntry`  | `@world/material-albedo` | Opaque RGBA QOI, sRGB colorspace (0)                      |
+| `DataEntry`    | `@world/material-data`   | Straight RGBA QOI, linear colorspace (1)                  |
+| `MipTailEntry` | `@world/material-mips`   | Optional combined albedo/data QOI, raw linear storage (1) |
 
 Level metadata declares `"kartyWorldMaterialAtlas":"karty.world-material-atlas@1"`
 (`MetadataKey` and `Schema`). A host must reject missing/partial pairs, entries

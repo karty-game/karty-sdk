@@ -10,7 +10,14 @@ import (
 // Validate checks every record, rectangle, semantic binding and receiver before
 // a caller can allocate GPU resources. The geometry digest prevents stale UVs.
 func Validate(layout *Layout, document *world.Document) error {
-	if layout == nil || layout.Schema != Schema || layout.Algorithm != Algorithm || !finite(layout.TexelsPerUnit) || layout.TexelsPerUnit <= 0 || layout.TexelsPerUnit > 64 || layout.Padding < 1 || layout.Padding > 16 || len(layout.Pages) != 1 || len(layout.Charts) == 0 || len(layout.Charts) > MaxCharts {
+	if layout == nil || layout.Schema != Schema || layout.Algorithm != Algorithm || !finite(layout.TexelsPerUnit) ||
+		layout.TexelsPerUnit <= 0 ||
+		layout.TexelsPerUnit > 64 ||
+		layout.Padding < 1 ||
+		layout.Padding > 16 ||
+		len(layout.Pages) != 1 ||
+		len(layout.Charts) == 0 ||
+		len(layout.Charts) > MaxCharts {
 		return ErrLayout
 	}
 	page := layout.Pages[0]
@@ -49,7 +56,12 @@ func validatePrepared(layout *Layout, document *world.Document, digest string, s
 		if chart.ID != i || chart.Page != 0 || !validRect(chart.Rect, page) || !validRect(chart.ReceiverRect, page) {
 			return fmt.Errorf("chart %d bounds: %w", i, ErrLayout)
 		}
-		expected := [4]int{chart.Rect[0] + layout.Padding, chart.Rect[1] + layout.Padding, chart.Rect[2] - layout.Padding, chart.Rect[3] - layout.Padding}
+		expected := [4]int{
+			chart.Rect[0] + layout.Padding,
+			chart.Rect[1] + layout.Padding,
+			chart.Rect[2] - layout.Padding,
+			chart.Rect[3] - layout.Padding,
+		}
 		if chart.ReceiverRect != expected || expected[2]-expected[0] < 3 || expected[3]-expected[1] < 3 || !validBasis(chart) {
 			return fmt.Errorf("chart %d basis or gutter: %w", i, ErrLayout)
 		}
@@ -77,7 +89,8 @@ func validatePrepared(layout *Layout, document *world.Document, digest string, s
 				direction = chart.Bitangent
 			}
 			factor := dot(vector, direction)
-			if factor <= 0 || factor*float64(page.Width) < layout.TexelsPerUnit-1e-7 || dot(sub(vector, scale(direction, factor)), sub(vector, scale(direction, factor))) > 1e-16 {
+			if factor <= 0 || factor*float64(page.Width) < layout.TexelsPerUnit-1e-7 ||
+				dot(sub(vector, scale(direction, factor)), sub(vector, scale(direction, factor))) > 1e-16 {
 				return fmt.Errorf("chart %d affine density: %w", i, ErrLayout)
 			}
 		}
@@ -88,7 +101,9 @@ func validatePrepared(layout *Layout, document *world.Document, digest string, s
 	chartConnections := make([][]bool, len(layout.Charts))
 	for i, surface := range surfaces {
 		binding := layout.Bindings[i]
-		if binding.Kind != surface.Binding.Kind || binding.Index != surface.Binding.Index || binding.Edge != surface.Binding.Edge || binding.Chart < -1 || binding.Chart >= len(layout.Charts) {
+		if binding.Kind != surface.Binding.Kind || binding.Index != surface.Binding.Index || binding.Edge != surface.Binding.Edge ||
+			binding.Chart < -1 ||
+			binding.Chart >= len(layout.Charts) {
 			return fmt.Errorf("binding %d identity: %w", i, ErrLayout)
 		}
 		if len(surface.Polygons) == 0 {
@@ -128,7 +143,9 @@ func validatePrepared(layout *Layout, document *world.Document, digest string, s
 					return fmt.Errorf("nonplanar chart: %w", ErrLayout)
 				}
 				u, w := planeValue(chart.UPlane, v)*float64(page.Width), planeValue(chart.VPlane, v)*float64(page.Height)
-				if u < float64(chart.ReceiverRect[0])+.5-1e-7 || u > float64(chart.ReceiverRect[2])-.5+1e-7 || w < float64(chart.ReceiverRect[1])+.5-1e-7 || w > float64(chart.ReceiverRect[3])-.5+1e-7 {
+				if u < float64(chart.ReceiverRect[0])+.5-1e-7 || u > float64(chart.ReceiverRect[2])-.5+1e-7 ||
+					w < float64(chart.ReceiverRect[1])+.5-1e-7 ||
+					w > float64(chart.ReceiverRect[3])-.5+1e-7 {
 					return fmt.Errorf("receiver falls outside chart: %w", ErrLayout)
 				}
 			}
@@ -203,7 +220,8 @@ func validBasis(chart Chart) bool {
 			return false
 		}
 	}
-	return math.Abs(dot(chart.Normal, chart.Tangent)) < 1e-6 && math.Abs(dot(chart.Normal, chart.Bitangent)) < 1e-6 && dot(cross(chart.Tangent, chart.Bitangent), chart.Normal) > 1-1e-6
+	return math.Abs(dot(chart.Normal, chart.Tangent)) < 1e-6 && math.Abs(dot(chart.Normal, chart.Bitangent)) < 1e-6 &&
+		dot(cross(chart.Tangent, chart.Bitangent), chart.Normal) > 1-1e-6
 }
 
 // Each shared chart has one fixed origin sector and plane. Explore that origin's

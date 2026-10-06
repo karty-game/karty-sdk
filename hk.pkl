@@ -1,0 +1,31 @@
+amends "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Builtins.pkl"
+
+min_hk_version = "2.5.0"
+fail_fast = false
+jobs = 2
+exclude = List("dist", "tmp", "node_modules", ".karty", ".codex", ".agents", "vendor")
+
+steps {
+  ["golangci-lint-fmt"] = (Builtins.golangci_lint_fmt) {
+    // Generated Go files are excluded by .golangci.yml.
+  }
+  ["golangci-lint"] {
+    glob = List("**/*.go", "go.mod", "go.sum", ".golangci.yml")
+    profiles = List("!format")
+    check = new Command { argv = List("mise", "run", "lint-go") }
+  }
+  ["yamllint"] = (Builtins.yamllint) {
+    glob = List("**/*.yaml", "**/*.yml", ".yamllint.yml")
+    profiles = List("!format")
+  }
+  ["taplo"] = (Builtins.taplo) {
+    profiles = List("!format")
+    check = new Command { argv = List("taplo", "lint", "--no-schema", "{{files}}") }
+  }
+  ["taplo-format"] = Builtins.taplo_format
+  ["prettier"] = (Builtins.prettier) {
+    glob = List("**/*.{json,jsonc,md,mdx,yaml,yml,js,cjs,mjs,ts,tsx,css,scss,html}")
+    exclude = List("**/*.generated.*")
+  }
+}

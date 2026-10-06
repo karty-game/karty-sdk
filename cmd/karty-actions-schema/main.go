@@ -3,8 +3,9 @@ package main
 
 import (
 	"flag"
-	"github.com/karty-game/karty-sdk/format/actions"
 	"os"
+
+	"github.com/karty-game/karty-sdk/format/actions"
 )
 
 func main() {

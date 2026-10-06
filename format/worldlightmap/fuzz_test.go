@@ -43,7 +43,12 @@ func FuzzDecodePrebake(f *testing.F) {
 	if err != nil {
 		f.Fatal(err)
 	}
-	offline, err := NewOfflinePrebake(l, &d, pair.Image, OfflineBakeInputs{Samples: 16, Bounces: 2, RGBMRange: rangeValue, ReflectanceSHA256: digest([]byte("reflectance"))})
+	offline, err := NewOfflinePrebake(
+		l,
+		&d,
+		pair.Image,
+		OfflineBakeInputs{Samples: 16, Bounces: 2, RGBMRange: rangeValue, ReflectanceSHA256: digest([]byte("reflectance"))},
+	)
 	if err != nil {
 		f.Fatal(err)
 	}

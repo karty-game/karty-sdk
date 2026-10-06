@@ -12,8 +12,24 @@ func TestSoundsRoundTripInsideGameCartridge(t *testing.T) {
 	t.Parallel()
 
 	sounds := []cartridge.Sound{
-		{ID: 2, Name: "ui.open", Codec: cartridge.SoundCodecQOA, Channels: 2, SampleRate: 48_000, Frames: 20, Bytes: qoaFixture(2, 48_000, 20)},
-		{ID: 1, Name: "ball.hit", Codec: cartridge.SoundCodecQOA, Channels: 1, SampleRate: 24_000, Frames: 1, Bytes: qoaFixture(1, 24_000, 1)},
+		{
+			ID:         2,
+			Name:       "ui.open",
+			Codec:      cartridge.SoundCodecQOA,
+			Channels:   2,
+			SampleRate: 48_000,
+			Frames:     20,
+			Bytes:      qoaFixture(2, 48_000, 20),
+		},
+		{
+			ID:         1,
+			Name:       "ball.hit",
+			Codec:      cartridge.SoundCodecQOA,
+			Channels:   1,
+			SampleRate: 24_000,
+			Frames:     1,
+			Bytes:      qoaFixture(1, 24_000, 1),
+		},
 	}
 	bundle, err := cartridge.EncodeSounds(sounds)
 	if err != nil {

@@ -1,8 +1,9 @@
 package worldlightmapbake
 
 import (
-	"github.com/karty-game/karty-sdk/format/world"
 	"math"
+
+	"github.com/karty-game/karty-sdk/format/world"
 )
 
 type vec = world.Vec3

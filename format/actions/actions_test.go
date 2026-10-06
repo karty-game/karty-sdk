@@ -8,7 +8,9 @@ import (
 )
 
 func TestActionsRoundTripAndBounds(t *testing.T) {
-	encoded := []byte(`{"version":1,"sequences":[{"name":"enter","onRepeat":"restart","steps":[{"condition":"door.ready","args":{"key":true},"then":[{"action":"door.open","args":{"target":{"actor":"tower/door"},"speed":2.5},"onFailure":[{"waitFrames":1}]}],"else":[{"waitFrames":3}]}]}]}`)
+	encoded := []byte(
+		`{"version":1,"sequences":[{"name":"enter","onRepeat":"restart","steps":[{"condition":"door.ready","args":{"key":true},"then":[{"action":"door.open","args":{"target":{"actor":"tower/door"},"speed":2.5},"onFailure":[{"waitFrames":1}]}],"else":[{"waitFrames":3}]}]}]}`,
+	)
 	document, err := Decode(encoded)
 	if err != nil {
 		t.Fatal(err)

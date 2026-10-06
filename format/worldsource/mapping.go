@@ -26,10 +26,10 @@ const (
 // Scale uses world units per repeat; Offset uses texture repeats. Rotation's
 // pointer preserves an explicit zero override. Hosts receive only baked planes.
 type UVSettings struct {
-	Mode            UVMode   `json:"mode,omitempty" yaml:"mode,omitempty"`
-	Anchor          UVAnchor `json:"anchor,omitempty" yaml:"anchor,omitempty"`
-	Scale           *Vec2    `json:"scale,omitempty" yaml:"scale,omitempty"`
-	Offset          *Vec2    `json:"offset,omitempty" yaml:"offset,omitempty"`
+	Mode            UVMode   `json:"mode,omitempty"             yaml:"mode,omitempty"`
+	Anchor          UVAnchor `json:"anchor,omitempty"           yaml:"anchor,omitempty"`
+	Scale           *Vec2    `json:"scale,omitempty"            yaml:"scale,omitempty"`
+	Offset          *Vec2    `json:"offset,omitempty"           yaml:"offset,omitempty"`
 	RotationDegrees *float64 `json:"rotation_degrees,omitempty" yaml:"rotation_degrees,omitempty"`
 }
 

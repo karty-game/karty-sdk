@@ -182,7 +182,10 @@ func TestLightingRejectsInvalidPayloads(t *testing.T) {
 			[]float64{-world.MaxCoordinate - 1, world.MaxCoordinate + 1}},
 		"position z": {func(l *world.Lighting) *float64 { return &l.Lights[0].Position.Z },
 			[]float64{-world.MaxCoordinate - 1, world.MaxCoordinate + 1}},
-		"radius": {func(l *world.Lighting) *float64 { return &l.Lights[0].Radius }, []float64{0, -1, math.SmallestNonzeroFloat64, math.Nextafter(world.MinLightRadius, 0), world.MaxCoordinate + 1}},
+		"radius": {
+			func(l *world.Lighting) *float64 { return &l.Lights[0].Radius },
+			[]float64{0, -1, math.SmallestNonzeroFloat64, math.Nextafter(world.MinLightRadius, 0), world.MaxCoordinate + 1},
+		},
 	}
 	for name, field := range fields {
 		t.Run(name, func(t *testing.T) {
@@ -338,7 +341,14 @@ func TestLightingDirectionalAmbientAndActorsContract(t *testing.T) {
 	if err := world.ValidateLighting(lighting); err != nil {
 		t.Fatal(err)
 	}
-	faces := []*world.Vec3{&lighting.AmbientCube.PositiveX, &lighting.AmbientCube.NegativeX, &lighting.AmbientCube.PositiveY, &lighting.AmbientCube.NegativeY, &lighting.AmbientCube.PositiveZ, &lighting.AmbientCube.NegativeZ}
+	faces := []*world.Vec3{
+		&lighting.AmbientCube.PositiveX,
+		&lighting.AmbientCube.NegativeX,
+		&lighting.AmbientCube.PositiveY,
+		&lighting.AmbientCube.NegativeY,
+		&lighting.AmbientCube.PositiveZ,
+		&lighting.AmbientCube.NegativeZ,
+	}
 	for faceIndex, face := range faces {
 		for componentIndex, component := range []*float64{&face.X, &face.Y, &face.Z} {
 			original := *component

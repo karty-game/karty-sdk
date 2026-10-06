@@ -74,7 +74,7 @@ func inspect(encoded []byte, maxEncodedBytes int, maxDurationSeconds int, maxDec
 		channels := uint8(header >> 56)
 		sampleRate := uint32(header>>32) & 0x00ff_ffff
 		frameSamples := uint32(header>>16) & 0xffff
-		frameSize := uint64(header & 0xffff)
+		frameSize := header & 0xffff
 		if (channels != 1 && channels != 2) || !supportedRate(sampleRate) ||
 			frameSamples == 0 || frameSamples > maxFrameSamples {
 			return Metadata{}, ErrInvalid

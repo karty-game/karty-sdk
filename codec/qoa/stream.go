@@ -88,7 +88,7 @@ func (decoder *StreamDecoder) nextFrame() error {
 	channels := uint8(value >> 56)
 	sampleRate := uint32(value>>32) & 0x00ff_ffff
 	frameSamples := uint32(value>>16) & 0xffff
-	frameSize := uint64(value & 0xffff)
+	frameSize := value & 0xffff
 	if (channels != 1 && channels != 2) || !supportedRate(sampleRate) || frameSamples == 0 || frameSamples > maxFrameSamples {
 		return ErrInvalid
 	}

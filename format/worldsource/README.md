@@ -12,14 +12,14 @@ or from this repository root to generate the shared base referenced by the
 standalone source fixture. The generated `.karty/schemas` directory is ignored;
 format validation and builds do not require the CLI or a YAML parser here.
 
-| Source version | Added semantics |
-| --- | --- |
-| 1 | Rooms, prefabs and ordinary connections |
-| 2 | Typed actors and instance tags |
-| 3 | Directed and transformed connections |
-| 4 | Root authored lighting |
-| 5 | Material UV mapping |
-| 6 | Static solids, root/prefab contents and room-free prefabs |
+| Source version | Added semantics                                           |
+| -------------- | --------------------------------------------------------- |
+| 1              | Rooms, prefabs and ordinary connections                   |
+| 2              | Typed actors and instance tags                            |
+| 3              | Directed and transformed connections                      |
+| 4              | Root authored lighting                                    |
+| 5              | Material UV mapping                                       |
+| 6              | Static solids, root/prefab contents and room-free prefabs |
 
 Versions 1–6 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world

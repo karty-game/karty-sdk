@@ -128,11 +128,14 @@ func TestLightingSourceRejectsInvalidValues(t *testing.T) {
 		mutate func(*worldsource.Lighting)
 		want   error
 	}{
-		"zero version":     {func(l *worldsource.Lighting) { l.Version = 0 }, worldsource.ErrVersion},
-		"future version":   {func(l *worldsource.Lighting) { l.Version = 2 }, worldsource.ErrVersion},
-		"empty ID":         {func(l *worldsource.Lighting) { l.Lights[0].ID = "" }, worldsource.ErrIdentity},
-		"duplicate ID":     {func(l *worldsource.Lighting) { l.Lights = append(l.Lights, l.Lights[0]) }, worldsource.ErrIdentity},
-		"long ID":          {func(l *worldsource.Lighting) { l.Lights[0].ID = strings.Repeat("x", worldsource.MaxIdentifierBytes+1) }, worldsource.ErrIdentity},
+		"zero version":   {func(l *worldsource.Lighting) { l.Version = 0 }, worldsource.ErrVersion},
+		"future version": {func(l *worldsource.Lighting) { l.Version = 2 }, worldsource.ErrVersion},
+		"empty ID":       {func(l *worldsource.Lighting) { l.Lights[0].ID = "" }, worldsource.ErrIdentity},
+		"duplicate ID":   {func(l *worldsource.Lighting) { l.Lights = append(l.Lights, l.Lights[0]) }, worldsource.ErrIdentity},
+		"long ID": {
+			func(l *worldsource.Lighting) { l.Lights[0].ID = strings.Repeat("x", worldsource.MaxIdentifierBytes+1) },
+			worldsource.ErrIdentity,
+		},
 		"invalid UTF-8 ID": {func(l *worldsource.Lighting) { l.Lights[0].ID = string([]byte{0xff}) }, worldsource.ErrIdentity},
 	}
 	for name, test := range tests {
@@ -150,16 +153,28 @@ func TestLightingSourceRejectsInvalidValues(t *testing.T) {
 		value func(*worldsource.Lighting) *float64
 		bad   []float64
 	}{
-		"ambient x":  {func(l *worldsource.Lighting) *float64 { return &l.Ambient.X }, []float64{-0.01, 1.01}},
-		"ambient y":  {func(l *worldsource.Lighting) *float64 { return &l.Ambient.Y }, []float64{-0.01, 1.01}},
-		"ambient z":  {func(l *worldsource.Lighting) *float64 { return &l.Ambient.Z }, []float64{-0.01, 1.01}},
-		"color x":    {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Color.X }, []float64{-0.01, 1.01}},
-		"color y":    {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Color.Y }, []float64{-0.01, 1.01}},
-		"color z":    {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Color.Z }, []float64{-0.01, 1.01}},
-		"position x": {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Position.X }, []float64{-worldsource.MaxCoordinate - 1, worldsource.MaxCoordinate + 1}},
-		"position y": {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Position.Y }, []float64{-worldsource.MaxCoordinate - 1, worldsource.MaxCoordinate + 1}},
-		"position z": {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Position.Z }, []float64{-worldsource.MaxCoordinate - 1, worldsource.MaxCoordinate + 1}},
-		"radius":     {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Radius }, []float64{0, -1, math.SmallestNonzeroFloat64, math.Nextafter(worldsource.MinLightRadius, 0), worldsource.MaxCoordinate + 1}},
+		"ambient x": {func(l *worldsource.Lighting) *float64 { return &l.Ambient.X }, []float64{-0.01, 1.01}},
+		"ambient y": {func(l *worldsource.Lighting) *float64 { return &l.Ambient.Y }, []float64{-0.01, 1.01}},
+		"ambient z": {func(l *worldsource.Lighting) *float64 { return &l.Ambient.Z }, []float64{-0.01, 1.01}},
+		"color x":   {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Color.X }, []float64{-0.01, 1.01}},
+		"color y":   {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Color.Y }, []float64{-0.01, 1.01}},
+		"color z":   {func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Color.Z }, []float64{-0.01, 1.01}},
+		"position x": {
+			func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Position.X },
+			[]float64{-worldsource.MaxCoordinate - 1, worldsource.MaxCoordinate + 1},
+		},
+		"position y": {
+			func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Position.Y },
+			[]float64{-worldsource.MaxCoordinate - 1, worldsource.MaxCoordinate + 1},
+		},
+		"position z": {
+			func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Position.Z },
+			[]float64{-worldsource.MaxCoordinate - 1, worldsource.MaxCoordinate + 1},
+		},
+		"radius": {
+			func(l *worldsource.Lighting) *float64 { return &l.Lights[0].Radius },
+			[]float64{0, -1, math.SmallestNonzeroFloat64, math.Nextafter(worldsource.MinLightRadius, 0), worldsource.MaxCoordinate + 1},
+		},
 	}
 	for name, field := range fields {
 		t.Run(name, func(t *testing.T) {
@@ -193,8 +208,11 @@ func TestLightingSourceHasNoPrefabAuthoring(t *testing.T) {
 
 func validSourceLighting() *worldsource.Lighting {
 	return &worldsource.Lighting{
-		Version: world.LightingVersion, Ambient: worldsource.Vec3{X: .1, Y: .2, Z: .3},
-		Lights: []worldsource.PointLight{{ID: "lamp", Position: worldsource.Vec3{X: 2, Y: 3, Z: 4}, Color: worldsource.Vec3{X: 1, Y: .5}, Radius: 8}},
+		Version: world.LightingVersion,
+		Ambient: worldsource.Vec3{X: .1, Y: .2, Z: .3},
+		Lights: []worldsource.PointLight{
+			{ID: "lamp", Position: worldsource.Vec3{X: 2, Y: 3, Z: 4}, Color: worldsource.Vec3{X: 1, Y: .5}, Radius: 8},
+		},
 	}
 }
 
@@ -223,7 +241,14 @@ func TestLightingDirectionalAmbientAndActorsContract(t *testing.T) {
 	if err := worldsource.Validate(&document); err != nil {
 		t.Fatal(err)
 	}
-	faces := []*worldsource.Vec3{&lighting.AmbientCube.PositiveX, &lighting.AmbientCube.NegativeX, &lighting.AmbientCube.PositiveY, &lighting.AmbientCube.NegativeY, &lighting.AmbientCube.PositiveZ, &lighting.AmbientCube.NegativeZ}
+	faces := []*worldsource.Vec3{
+		&lighting.AmbientCube.PositiveX,
+		&lighting.AmbientCube.NegativeX,
+		&lighting.AmbientCube.PositiveY,
+		&lighting.AmbientCube.NegativeY,
+		&lighting.AmbientCube.PositiveZ,
+		&lighting.AmbientCube.NegativeZ,
+	}
 	for faceIndex, face := range faces {
 		for componentIndex, component := range []*float64{&face.X, &face.Y, &face.Z} {
 			original := *component

@@ -2,8 +2,9 @@ package worldlightmapbake
 
 import (
 	"math"
-	"simd"
 	"sort"
+
+	"simd"
 )
 
 type triangle struct {

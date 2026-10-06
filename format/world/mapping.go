@@ -47,7 +47,8 @@ type UVPlane struct {
 
 // ValidateSurfaceUV validates complete bounded projection and weight lists.
 func ValidateSurfaceUV(mapping *SurfaceUV) error {
-	if mapping == nil || (len(mapping.Projections) != 1 && len(mapping.Projections) != 3) || len(mapping.Weights) != len(mapping.Projections) {
+	if mapping == nil || (len(mapping.Projections) != 1 && len(mapping.Projections) != 3) ||
+		len(mapping.Weights) != len(mapping.Projections) {
 		return ErrMaterialMapping
 	}
 	sum := 0.0

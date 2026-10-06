@@ -1,9 +1,10 @@
 package qoi_test
 
 import (
-	"github.com/karty-game/karty-sdk/codec/qoi"
 	"image"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/codec/qoi"
 )
 
 func BenchmarkQOI(b *testing.B) {

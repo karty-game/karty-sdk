@@ -3,12 +3,20 @@ package worldsource_test
 import (
 	"errors"
 	"fmt"
-	"github.com/karty-game/karty-sdk/format/worldsource"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/format/worldsource"
 )
 
 func sourceSolid() worldsource.Solid {
-	return worldsource.Solid{ID: "pillar", Footprint: []worldsource.Vec2{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}}, Top: worldsource.Plane{C: 2}, SideMaterial: "marble", TopMaterial: "marble", BottomMaterial: "marble"}
+	return worldsource.Solid{
+		ID:             "pillar",
+		Footprint:      []worldsource.Vec2{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
+		Top:            worldsource.Plane{C: 2},
+		SideMaterial:   "marble",
+		TopMaterial:    "marble",
+		BottomMaterial: "marble",
+	}
 }
 
 func sourceSolidBatch(count int) []worldsource.Solid {
@@ -59,7 +67,16 @@ func TestSourceDetailOnlyPrefabsVersioned(t *testing.T) {
 			if kind == "solid" {
 				prefab.Solids = []worldsource.Solid{sourceSolid()}
 			} else {
-				prefab.Contents = []worldsource.Content{{ID: "sprite", Kind: "decoration", Position: worldsource.Vec3{}, Actor: &worldsource.Actor{Sprite: &worldsource.Sprite{Texture: "art", Facing: "upright", Alpha: "cutout", Width: 1, Height: 2}}}}
+				prefab.Contents = []worldsource.Content{
+					{
+						ID:       "sprite",
+						Kind:     "decoration",
+						Position: worldsource.Vec3{},
+						Actor: &worldsource.Actor{
+							Sprite: &worldsource.Sprite{Texture: "art", Facing: "upright", Alpha: "cutout", Width: 1, Height: 2},
+						},
+					},
+				}
 			}
 			document.Prefabs = append(document.Prefabs, prefab)
 			if err := worldsource.Validate(&document); err != nil {

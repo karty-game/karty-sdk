@@ -150,7 +150,7 @@ func (s *Step) UnmarshalJSON(data []byte) error {
 	if err := decode(data, &w); err != nil {
 		return err
 	}
-	*s = Step{w.Action, w.Condition, w.Args, w.WaitFrames, w.Then, w.Else, w.OnFailure}
+	*s = Step(w)
 	return nil
 }
 func (s Step) MarshalJSON() ([]byte, error) {
@@ -253,7 +253,8 @@ func Encode(document Document) ([]byte, error) {
 	return data, err
 }
 func Validate(document Document) error {
-	if document.Version != Version || document.Sequences == nil || len(document.Sequences) > MaxSequences || len(document.Schema) > 1024 || !utf8.ValidString(document.Schema) {
+	if document.Version != Version || document.Sequences == nil || len(document.Sequences) > MaxSequences || len(document.Schema) > 1024 ||
+		!utf8.ValidString(document.Schema) {
 		return fmt.Errorf("unsupported actions version or sequence limit")
 	}
 	seen := map[string]bool{}
@@ -297,7 +298,9 @@ func validateSteps(steps []Step, depth int, count *int) error {
 		if operations != 1 || (step.Action != "" && !ValidName(step.Action)) || (step.Condition != "" && !ValidName(step.Condition)) {
 			return fmt.Errorf("step %d must specify one valid action, condition or wait", index)
 		}
-		if step.WaitFrames > 1000000000 || (step.WaitFrames != 0 && (step.Args != nil || len(step.Then)+len(step.Else)+len(step.OnFailure) != 0)) || (step.Action != "" && len(step.Then)+len(step.Else) != 0) {
+		if step.WaitFrames > 1000000000 ||
+			(step.WaitFrames != 0 && (step.Args != nil || len(step.Then)+len(step.Else)+len(step.OnFailure) != 0)) ||
+			(step.Action != "" && len(step.Then)+len(step.Else) != 0) {
 			return fmt.Errorf("invalid fields on step %d", index)
 		}
 		if (step.Action != "" || step.Condition != "") && step.Args == nil {

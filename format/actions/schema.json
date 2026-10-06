@@ -19,10 +19,7 @@
       "maxLength": 1024
     }
   },
-  "required": [
-    "version",
-    "sequences"
-  ],
+  "required": ["version", "sequences"],
   "additionalProperties": false,
   "$defs": {
     "value": {
@@ -46,9 +43,7 @@
               "maxLength": 1024
             }
           },
-          "required": [
-            "actor"
-          ],
+          "required": ["actor"],
           "additionalProperties": false
         }
       ]
@@ -70,20 +65,13 @@
           "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]*$"
         },
         "onRepeat": {
-          "enum": [
-            "ignore",
-            "restart",
-            "parallel"
-          ]
+          "enum": ["ignore", "restart", "parallel"]
         },
         "steps": {
           "$ref": "#/$defs/steps"
         }
       },
-      "required": [
-        "name",
-        "steps"
-      ],
+      "required": ["name", "steps"],
       "additionalProperties": false
     },
     "step": {
@@ -108,10 +96,7 @@
               "$ref": "#/$defs/steps"
             }
           },
-          "required": [
-            "action",
-            "args"
-          ],
+          "required": ["action", "args"],
           "additionalProperties": false
         },
         {
@@ -140,11 +125,7 @@
               "$ref": "#/$defs/steps"
             }
           },
-          "required": [
-            "condition",
-            "args",
-            "then"
-          ],
+          "required": ["condition", "args", "then"],
           "additionalProperties": false
         },
         {
@@ -156,9 +137,7 @@
               "maximum": 1000000000
             }
           },
-          "required": [
-            "waitFrames"
-          ],
+          "required": ["waitFrames"],
           "additionalProperties": false
         }
       ]

@@ -48,6 +48,7 @@ type Page struct {
 	Height int `json:"height"`
 }
 
+// Chart describes a receiver's atlas placement and basis.
 // Rectangles are [minimumX,minimumY,maximumX,maximumY] in page pixels,
 // maximums exclusive. Plane values are normalized page coordinates.
 type Chart struct {
@@ -62,6 +63,7 @@ type Chart struct {
 	VPlane       [4]float64 `json:"v_plane"`
 }
 
+// Binding associates a world surface with its receiver chart.
 // Index addresses the world sector or solid array. Edge is -1 for caps, and
 // addresses the directed wall or footprint edge otherwise. Chart -1 explicitly
 // marks a wall with no opaque receiver. Array order is semantic discovery order.

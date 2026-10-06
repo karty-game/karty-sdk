@@ -12,11 +12,11 @@ import (
 // Ambient and Color use linear RGB intensities in [0,1]. Lights retain authored
 // order and global positions; prefab-local lights are not supported.
 type Lighting struct {
-	Version     uint32       `json:"version" yaml:"version"`
-	Ambient     Vec3         `json:"ambient" yaml:"ambient"`
-	Lights      []PointLight `json:"lights" yaml:"lights"`
+	Version     uint32       `json:"version"                yaml:"version"`
+	Ambient     Vec3         `json:"ambient"                yaml:"ambient"`
+	Lights      []PointLight `json:"lights"                 yaml:"lights"`
 	AmbientCube *AmbientCube `json:"ambient_cube,omitempty" yaml:"ambient_cube,omitempty"`
-	Actors      bool         `json:"actors,omitempty" yaml:"actors,omitempty"`
+	Actors      bool         `json:"actors,omitempty"       yaml:"actors,omitempty"`
 }
 
 // AmbientCube supplies six world-space directional ambient colors. It replaces
@@ -33,17 +33,17 @@ type AmbientCube struct {
 
 // PointLight has the same bounds and semantics as sdkworld.PointLight.
 type PointLight struct {
-	ID       string       `json:"id" yaml:"id"`
-	Position Vec3         `json:"position" yaml:"position"`
-	Color    Vec3         `json:"color" yaml:"color"`
-	Radius   float64      `json:"radius" yaml:"radius"`
+	ID       string       `json:"id"               yaml:"id"`
+	Position Vec3         `json:"position"         yaml:"position"`
+	Color    Vec3         `json:"color"            yaml:"color"`
+	Radius   float64      `json:"radius"           yaml:"radius"`
 	Motion   *LightMotion `json:"motion,omitempty" yaml:"motion,omitempty"`
 }
 
 // LightMotion authors the bounded version-1 runtime light path.
 type LightMotion struct {
-	Version       uint32  `json:"version" yaml:"version"`
-	Offset        Vec3    `json:"offset" yaml:"offset"`
+	Version       uint32  `json:"version"        yaml:"version"`
+	Offset        Vec3    `json:"offset"         yaml:"offset"`
 	PeriodSeconds float64 `json:"period_seconds" yaml:"period_seconds"`
 }
 
@@ -64,7 +64,11 @@ func validateLighting(lighting *Lighting) error {
 			Color: sdkworld.Vec3(light.Color), Radius: light.Radius,
 		}
 		if light.Motion != nil {
-			motions[index] = sdkworld.LightMotion{Version: light.Motion.Version, Offset: sdkworld.Vec3(light.Motion.Offset), PeriodSeconds: light.Motion.PeriodSeconds}
+			motions[index] = sdkworld.LightMotion{
+				Version:       light.Motion.Version,
+				Offset:        sdkworld.Vec3(light.Motion.Offset),
+				PeriodSeconds: light.Motion.PeriodSeconds,
+			}
 			lights[index].Motion = &motions[index]
 		}
 	}
@@ -84,8 +88,10 @@ func validateLighting(lighting *Lighting) error {
 	}
 	if err := sdkworld.ValidateLighting(&compiled); err != nil {
 		if errors.Is(err, sdkworld.ErrIdentity) {
+			//nolint:errorlint // Wrap the source sentinel, retaining the compiled error as text.
 			return fmt.Errorf("lighting: %v: %w", err, ErrIdentity)
 		}
+		//nolint:errorlint // Wrap the source sentinel, retaining the compiled error as text.
 		return fmt.Errorf("lighting: %v: %w", err, ErrLighting)
 	}
 

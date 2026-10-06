@@ -287,7 +287,8 @@ func TestPairDataPreservesStraightChannelsAndOwnership(t *testing.T) {
 		t.Fatal("straight material channels changed")
 	}
 	layoutAfter, err := worldmaterial.EncodeLayout(pair.Layout)
-	if err != nil || !bytes.Equal(layoutBefore, layoutAfter) || !bytes.Equal(albedoBefore, pair.Albedo) || !bytes.Equal(dataBefore, pair.Data) {
+	if err != nil || !bytes.Equal(layoutBefore, layoutAfter) || !bytes.Equal(albedoBefore, pair.Albedo) ||
+		!bytes.Equal(dataBefore, pair.Data) {
 		t.Fatal("validation modified caller-owned pair")
 	}
 }
@@ -425,6 +426,8 @@ func TestPairLevelEnvelopeIntegration(t *testing.T) {
 
 // Encode a uniform reference QOI directly so the maximum-boundary test does not
 // need an additional 64 MiB source image or an encoder/decoder round trip.
+//
+//nolint:makezero // The initialized QOI header precedes the appended pixel operations.
 func solidQOI(width, height int, pixel [4]byte, colorspace uint8) []byte {
 	encoded := make([]byte, 14)
 	copy(encoded, qoi.Magic)

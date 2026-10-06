@@ -63,9 +63,22 @@ func TestPreparedAlbedoPreservesPixels(t *testing.T) {
 }
 
 func TestPreparedRayBoxIntervals(t *testing.T) {
-	boxes := []box{{vec{X: -1, Y: -1, Z: -1}, vec{X: 1, Y: 1, Z: 1}}, {vec{}, vec{X: 1, Y: 1}}, {vec{X: 1e100, Y: -1, Z: -1}, vec{X: 1e100, Y: 1, Z: 1}}}
+	boxes := []box{
+		{vec{X: -1, Y: -1, Z: -1}, vec{X: 1, Y: 1, Z: 1}},
+		{vec{}, vec{X: 1, Y: 1}},
+		{vec{X: 1e100, Y: -1, Z: -1}, vec{X: 1e100, Y: 1, Z: 1}},
+	}
 	origins := []vec{{}, {X: 1}, {X: -1}, {X: 1, Y: 1, Z: 1}, {X: 2}, {X: 1e100}, {X: -1e100}}
-	directions := []vec{{X: 1}, {X: -1}, {Y: 1}, {Z: 1}, {X: 1, Y: 1, Z: 1}, {X: 1e-16, Y: 1}, {X: 1e-15, Y: 1}, {X: math.Copysign(0, -1), Y: 1}}
+	directions := []vec{
+		{X: 1},
+		{X: -1},
+		{Y: 1},
+		{Z: 1},
+		{X: 1, Y: 1, Z: 1},
+		{X: 1e-16, Y: 1},
+		{X: 1e-15, Y: 1},
+		{X: math.Copysign(0, -1), Y: 1},
+	}
 	for _, bounds := range boxes {
 		for _, o := range origins {
 			for _, d := range directions {

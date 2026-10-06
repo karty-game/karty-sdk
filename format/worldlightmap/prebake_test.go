@@ -49,7 +49,10 @@ func TestPrebakeRoundTripAndIdentity(t *testing.T) {
 	}
 	// Unselected and non-baked lighting state does not invalidate the image.
 	document.Lighting.Ambient.X = .2
-	document.Lighting.Lights = append(document.Lighting.Lights, world.PointLight{ID: "other", Position: world.Vec3{X: 100}, Color: world.Vec3{Y: 1}, Radius: 10})
+	document.Lighting.Lights = append(
+		document.Lighting.Lights,
+		world.PointLight{ID: "other", Position: world.Vec3{X: 100}, Color: world.Vec3{Y: 1}, Radius: 10},
+	)
 	if err := pair.Validate(layout, &document); err != nil {
 		t.Fatalf("nonbaked state invalidated atlas: %v", err)
 	}
@@ -59,10 +62,10 @@ func TestPrebakeRoundTripAndIdentity(t *testing.T) {
 		"radius":   func(l *world.PointLight) { l.Radius += 1 },
 	} {
 		t.Run(name, func(t *testing.T) {
-			copy := document
-			copy.Lighting = &world.Lighting{Version: 1, Lights: append([]world.PointLight(nil), document.Lighting.Lights...)}
-			change(&copy.Lighting.Lights[0])
-			if err := pair.Validate(layout, &copy); err == nil {
+			mutated := document
+			mutated.Lighting = &world.Lighting{Version: 1, Lights: append([]world.PointLight(nil), document.Lighting.Lights...)}
+			change(&mutated.Lighting.Lights[0])
+			if err := pair.Validate(layout, &mutated); err == nil {
 				t.Fatal("stale selected light accepted")
 			}
 		})
@@ -95,9 +98,9 @@ func TestPrebakeRejectsMalformedManifestAndImage(t *testing.T) {
 		"range":       func(m *PrebakeManifest) { m.RGBMRange++ },
 	} {
 		t.Run(name, func(t *testing.T) {
-			copy := pair
-			mutate(&copy.Manifest)
-			if err := copy.Validate(layout, &document); err == nil {
+			mutated := pair
+			mutate(&mutated.Manifest)
+			if err := mutated.Validate(layout, &document); err == nil {
 				t.Fatal("malformed manifest accepted")
 			}
 		})

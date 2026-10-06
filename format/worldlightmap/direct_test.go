@@ -135,7 +135,10 @@ func TestDirectRecipeCanonicalFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, extra := range []string{`,"light_ids":null`, `,"light_ids":[]`, `,"light_ids":["blue"]`} {
-		if _, err := Decode(bytes.Replace(encoded, []byte(`"light_id":"red"`), []byte(`"light_id":"red"`+extra), 1), &document); err == nil {
+		if _, err := Decode(
+			bytes.Replace(encoded, []byte(`"light_id":"red"`), []byte(`"light_id":"red"`+extra), 1),
+			&document,
+		); err == nil {
 			t.Fatal("visibility recipe accepted directional selector")
 		}
 	}

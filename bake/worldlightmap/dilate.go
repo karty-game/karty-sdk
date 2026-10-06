@@ -2,8 +2,9 @@ package worldlightmapbake
 
 import (
 	"context"
-	"github.com/karty-game/karty-sdk/format/worldlightmap"
 	"image"
+
+	"github.com/karty-game/karty-sdk/format/worldlightmap"
 )
 
 func dilate(ctx context.Context, im *image.NRGBA, w int, layout worldlightmap.Layout) error {

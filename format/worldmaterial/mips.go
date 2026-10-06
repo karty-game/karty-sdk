@@ -72,8 +72,8 @@ func NewMipLayout(l Layout) (Layout, error) {
 	l.Materials = append([]Rect(nil), l.Materials...)
 	for index := range l.Materials {
 		if s := l.Materials[index].Strengths; s != nil {
-			copy := *s
-			l.Materials[index].Strengths = &copy
+			strengths := *s
+			l.Materials[index].Strengths = &strengths
 		}
 	}
 	records, _, _ := canonicalMips(len(l.Materials))

@@ -168,10 +168,10 @@ An old/new/new/old CLI comparison used the same public `world-camera` sample,
 karty bake --workers 8 --samples 32 --bounces 2 --denoise medium
 ```
 
-| Implementation | Bake durations | Mean |
-| --- | --- | --- |
+| Implementation                     | Bake durations     | Mean     |
+| ---------------------------------- | ------------------ | -------- |
 | Previous scalar nearest-hit kernel | 21.433 s, 21.803 s | 21.618 s |
-| SIMD with early-exit visibility | 16.488 s, 16.499 s | 16.494 s |
+| SIMD with early-exit visibility    | 16.488 s, 16.499 s | 16.494 s |
 
 This is a 23.7% reduction in complete CPU bake time, including denoising and
 output. Both implementations issued 57,263,456 rays and produced identical
@@ -227,10 +227,10 @@ interval endpoints cannot change its Boolean result.
 
 Fresh paired measurements of the combined setup and ray-box improvements:
 
-| Roman-room bake | Before | After | Bake-time reduction |
-| --- | --- | --- | --- |
-| 4 samples, 1 bounce | 1.699 / 1.675 s | 1.455 / 1.429 s | 14.5% |
-| 32 samples, 2 bounces | 16.308 / 16.732 s | 13.890 / 14.089 s | 15.3% |
+| Roman-room bake       | Before            | After             | Bake-time reduction |
+| --------------------- | ----------------- | ----------------- | ------------------- |
+| 4 samples, 1 bounce   | 1.699 / 1.675 s   | 1.455 / 1.429 s   | 14.5%               |
+| 32 samples, 2 bounces | 16.308 / 16.732 s | 13.890 / 14.089 s | 15.3%               |
 
 For the 32-sample case, average end-to-end throughput rises from 3.466 to 4.093
 million rays/second, about 18.1%. Both perform 57,263,456 rays and produce the

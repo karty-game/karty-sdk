@@ -15,7 +15,10 @@ import (
 func validSurfaceUV(count int) *world.SurfaceUV {
 	mapping := &world.SurfaceUV{Projections: make([]world.UVProjection, count), Weights: make([]float64, count)}
 	for index := range count {
-		mapping.Projections[index] = world.UVProjection{U: world.UVPlane{X: 1, Offset: float64(index)}, V: world.UVPlane{Y: 1, Offset: -float64(index)}}
+		mapping.Projections[index] = world.UVProjection{
+			U: world.UVPlane{X: 1, Offset: float64(index)},
+			V: world.UVPlane{Y: 1, Offset: -float64(index)},
+		}
 		mapping.Weights[index] = 1 / float64(count)
 	}
 	return mapping
@@ -41,7 +44,8 @@ func TestMaterialMappingCanonicalRoundTripAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(encoded, []byte(`"material_mapping":{"version":1}`)) || !bytes.Contains(encoded, []byte(`"floor_uv":{"projections":[{"u":{"x":1,"y":0,"z":0,"offset":0}`)) {
+	if !bytes.Contains(encoded, []byte(`"material_mapping":{"version":1}`)) ||
+		!bytes.Contains(encoded, []byte(`"floor_uv":{"projections":[{"u":{"x":1,"y":0,"z":0,"offset":0}`)) {
 		t.Fatalf("canonical mapping fields missing: %s", encoded)
 	}
 	decoded, err := world.Decode(encoded)
@@ -70,7 +74,8 @@ func TestMaterialMappingLegacyWireAndVersionGates(t *testing.T) {
 				t.Fatal(err)
 			}
 			encoded, err := world.Encode(document)
-			if err != nil || !bytes.Equal(encoded, before) || bytes.Contains(encoded, []byte(`"material_mapping"`)) || bytes.Contains(encoded, []byte(`"_uv"`)) {
+			if err != nil || !bytes.Equal(encoded, before) || bytes.Contains(encoded, []byte(`"material_mapping"`)) ||
+				bytes.Contains(encoded, []byte(`"_uv"`)) {
 				t.Fatalf("legacy wire changed %v", err)
 			}
 			decoded, err := world.Decode(encoded)

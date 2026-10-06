@@ -1,0 +1,12 @@
+# Derived output, third-party dependencies and local contributor state.
+**/dist/**
+**/tmp/**
+**/node_modules/**
+**/.karty/**
+**/.codex/**
+**/.agents/**
+**/vendor/**
+# Regenerate snapshots with their owning generator.
+**/*.generated.*
+# This YAML fixture intentionally retains a JSON-compatible body for Go's JSON decoder.
+format/worldsource/testdata/concave-prefab.world.yaml

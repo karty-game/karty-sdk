@@ -1,0 +1,14 @@
+extends: default
+rules:
+  # Prettier owns layout. JSON-compatible YAML fixtures also use compact punctuation.
+  braces: disable
+  brackets: disable
+  colons: disable
+  commas: disable
+  document-start: disable
+  line-length: disable
+  indentation: disable
+  comments:
+    min-spaces-from-content: 1
+  truthy:
+    check-keys: false # GitHub Actions uses the unquoted key "on".

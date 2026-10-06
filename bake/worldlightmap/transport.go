@@ -2,9 +2,10 @@ package worldlightmapbake
 
 import (
 	"context"
+	"math"
+
 	"github.com/karty-game/karty-sdk/format/world"
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
-	"math"
 )
 
 type scene struct {
@@ -72,7 +73,17 @@ func (s *scene) lambertDirect(p, n vec, c *counters) vec {
 	}
 	return result
 }
-func (s *scene) indirect(ctx context.Context, p vec, chart worldlightmap.Chart, sampling sampleFrame, index int, options Options, c *counters, result *[3]vec) float32 {
+
+func (s *scene) indirect(
+	ctx context.Context,
+	p vec,
+	chart worldlightmap.Chart,
+	sampling sampleFrame,
+	index int,
+	options Options,
+	c *counters,
+	result *[3]vec,
+) float32 {
 	mean, moment := 0.0, 0.0
 	measure := options.Denoise != "" && options.Denoise != "off"
 	seed := options.Seed ^ uint64(index)*0xd6e8feb86659fd93

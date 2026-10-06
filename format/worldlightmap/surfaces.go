@@ -32,11 +32,21 @@ func surfacesValidated(document *world.Document) ([]Surface, error) {
 		for j, w := range s.Walls {
 			points[j] = w.Start
 		}
-		result = append(result, capSurface("sector-floor", i, s.Floor, points, false), capSurface("sector-ceiling", i, s.Ceiling, points, true))
+		result = append(
+			result,
+			capSurface("sector-floor", i, s.Floor, points, false),
+			capSurface("sector-ceiling", i, s.Ceiling, points, true),
+		)
 		for edge, w := range s.Walls {
 			length := math.Hypot(w.End.X-w.Start.X, w.End.Y-w.Start.Y)
-			surface := Surface{Binding: Binding{Kind: "sector-wall", Index: i, Edge: edge, Chart: -1}, Normal: world.Vec3{X: (w.Start.Y - w.End.Y) / length, Y: (w.End.X - w.Start.X) / length}}
-			heights := [4][2]float64{{elevation(s.Floor, w.Start), elevation(s.Floor, w.End)}, {elevation(s.Ceiling, w.Start), elevation(s.Ceiling, w.End)}}
+			surface := Surface{
+				Binding: Binding{Kind: "sector-wall", Index: i, Edge: edge, Chart: -1},
+				Normal:  world.Vec3{X: (w.Start.Y - w.End.Y) / length, Y: (w.End.X - w.Start.X) / length},
+			}
+			heights := [4][2]float64{
+				{elevation(s.Floor, w.Start), elevation(s.Floor, w.End)},
+				{elevation(s.Ceiling, w.Start), elevation(s.Ceiling, w.End)},
+			}
 			heights[2], heights[3] = heights[0], heights[1]
 			if w.Portal >= 0 {
 				target, ok := destination(document, i, w)
@@ -71,7 +81,15 @@ func surfacesValidated(document *world.Document) ([]Surface, error) {
 					}
 					pa := world.Vec2{X: w.Start.X + (w.End.X-w.Start.X)*a, Y: w.Start.Y + (w.End.Y-w.Start.Y)*a}
 					pb := world.Vec2{X: w.Start.X + (w.End.X-w.Start.X)*b, Y: w.Start.Y + (w.End.Y-w.Start.Y)*b}
-					surface.Polygons = append(surface.Polygons, []world.Vec3{point(pa, profile.Height(span[0], a)), point(pb, profile.Height(span[0], b)), point(pb, profile.Height(span[1], b)), point(pa, profile.Height(span[1], a))})
+					surface.Polygons = append(
+						surface.Polygons,
+						[]world.Vec3{
+							point(pa, profile.Height(span[0], a)),
+							point(pb, profile.Height(span[0], b)),
+							point(pb, profile.Height(span[1], b)),
+							point(pa, profile.Height(span[1], a)),
+						},
+					)
 				}
 			}
 			result = append(result, surface)
@@ -79,11 +97,29 @@ func surfacesValidated(document *world.Document) ([]Surface, error) {
 	}
 	if document.StaticSolids != nil {
 		for i, s := range document.StaticSolids.Items {
-			result = append(result, capSurface("solid-top", i, s.Top, s.Footprint, false), capSurface("solid-bottom", i, s.Bottom, s.Footprint, true))
+			result = append(
+				result,
+				capSurface("solid-top", i, s.Top, s.Footprint, false),
+				capSurface("solid-bottom", i, s.Bottom, s.Footprint, true),
+			)
 			for edge, a := range s.Footprint {
 				b := s.Footprint[(edge+1)%len(s.Footprint)]
 				length := math.Hypot(b.X-a.X, b.Y-a.Y)
-				result = append(result, Surface{Binding: Binding{Kind: "solid-side", Index: i, Edge: edge, Chart: -1}, Normal: world.Vec3{X: (b.Y - a.Y) / length, Y: (a.X - b.X) / length}, Polygons: [][]world.Vec3{{point(a, elevation(s.Bottom, a)), point(b, elevation(s.Bottom, b)), point(b, elevation(s.Top, b)), point(a, elevation(s.Top, a))}}})
+				result = append(
+					result,
+					Surface{
+						Binding: Binding{Kind: "solid-side", Index: i, Edge: edge, Chart: -1},
+						Normal:  world.Vec3{X: (b.Y - a.Y) / length, Y: (a.X - b.X) / length},
+						Polygons: [][]world.Vec3{
+							{
+								point(a, elevation(s.Bottom, a)),
+								point(b, elevation(s.Bottom, b)),
+								point(b, elevation(s.Top, b)),
+								point(a, elevation(s.Top, a)),
+							},
+						},
+					},
+				)
 			}
 		}
 	}

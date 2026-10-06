@@ -57,7 +57,12 @@ func TestMipLayoutCanonicalPackingAllCounts(t *testing.T) {
 					if data {
 						index++
 					}
-					if err != nil || r.MaterialID != ids[slot] || r.X != (index%record.Columns)*cell+record.Gutter || r.Y != record.Y+(index/record.Columns)*cell+record.Gutter || r.X-r.Gutter < 0 || r.Y-r.Gutter < 0 || r.X+r.Width+r.Gutter > width || r.Y+r.Height+r.Gutter > height {
+					if err != nil || r.MaterialID != ids[slot] || r.X != (index%record.Columns)*cell+record.Gutter ||
+						r.Y != record.Y+(index/record.Columns)*cell+record.Gutter ||
+						r.X-r.Gutter < 0 ||
+						r.Y-r.Gutter < 0 ||
+						r.X+r.Width+r.Gutter > width ||
+						r.Y+r.Height+r.Gutter > height {
 						t.Fatalf("escaped/overlapping cell: %+v", r)
 					}
 				}
@@ -220,7 +225,12 @@ func TestStrengthsBoundsCanonicalCompletenessAndLayoutSize(t *testing.T) {
 		t.Fatal("maximum default strength/mip metadata exceeds bound")
 	}
 	for i := range l.Materials {
-		l.Materials[i].Strengths = &worldmaterial.Strengths{Normal: 1.123456789012345, Height: 1.123456789012345, AO: 1.123456789012345, Rim: 1.123456789012345}
+		l.Materials[i].Strengths = &worldmaterial.Strengths{
+			Normal: 1.123456789012345,
+			Height: 1.123456789012345,
+			AO:     1.123456789012345,
+			Rim:    1.123456789012345,
+		}
 	}
 	if !errors.Is(l.Validate(), worldmaterial.ErrAtlas) {
 		t.Fatal("oversize precise strength metadata passed allocation preflight")

@@ -43,7 +43,11 @@ func TestCompileCanonicalRoundTripAndSlopedDensity(t *testing.T) {
 		t.Fatalf("round trip: %v", err)
 	}
 	chart := layout.Charts[0]
-	factor := math.Sqrt(chart.UPlane[0]*chart.UPlane[0]+chart.UPlane[1]*chart.UPlane[1]+chart.UPlane[2]*chart.UPlane[2]) * float64(layout.Pages[0].Width)
+	factor := math.Sqrt(
+		chart.UPlane[0]*chart.UPlane[0]+chart.UPlane[1]*chart.UPlane[1]+chart.UPlane[2]*chart.UPlane[2],
+	) * float64(
+		layout.Pages[0].Width,
+	)
 	if math.Abs(factor-16) > 1e-8 {
 		t.Fatalf("slope density %g", factor)
 	}
@@ -120,10 +124,10 @@ func TestMalformedCompleteLayoutRejected(t *testing.T) {
 	for name, mutate := range mutations {
 		t.Run(name, func(t *testing.T) {
 			encoded, _ := json.Marshal(layout)
-			var copy Layout
-			_ = json.Unmarshal(encoded, &copy)
-			mutate(&copy)
-			if err := Validate(&copy, &document); err == nil {
+			var mutated Layout
+			_ = json.Unmarshal(encoded, &mutated)
+			mutate(&mutated)
+			if err := Validate(&mutated, &document); err == nil {
 				t.Fatal("accepted malformed complete layout")
 			}
 		})
@@ -135,7 +139,12 @@ func TestExplicitBakeRecipeAndBounds(t *testing.T) {
 	document.Version = world.Version
 	document.Sectors[0].Walls[1].PortalWall = 4
 	document.Sectors[1].Walls[3].PortalWall = 2
-	document.Lighting = &world.Lighting{Version: 1, Lights: []world.PointLight{{ID: "sunroom", Position: world.Vec3{X: 2, Y: 2, Z: 3}, Color: world.Vec3{X: 1, Y: .6, Z: .3}, Radius: 8}}}
+	document.Lighting = &world.Lighting{
+		Version: 1,
+		Lights: []world.PointLight{
+			{ID: "sunroom", Position: world.Vec3{X: 2, Y: 2, Z: 3}, Color: world.Vec3{X: 1, Y: .6, Z: .3}, Radius: 8},
+		},
+	}
 	layout, err := Compile(document, Options{Light: "sunroom", ShadowSize: 256})
 	if err != nil || layout.RuntimeBake == nil || layout.RuntimeBake.LightID != "sunroom" {
 		t.Fatalf("recipe: %v", err)
@@ -152,7 +161,20 @@ func TestSolidPerEdgeBindingsAndThinReceiverSpan(t *testing.T) {
 	document.Version = world.Version
 	document.Sectors[0].Walls[1].PortalWall = 4
 	document.Sectors[1].Walls[3].PortalWall = 2
-	document.StaticSolids = &world.StaticSolids{Version: 1, Items: []world.Solid{{ID: "step", Footprint: []world.Vec2{{X: 1, Y: 1}, {X: 2, Y: 1}, {X: 2, Y: 2}, {X: 1, Y: 2}}, Bottom: world.Plane{C: 0}, Top: world.Plane{C: .001}, SideMaterial: 3, TopMaterial: 3, BottomMaterial: 3}}}
+	document.StaticSolids = &world.StaticSolids{
+		Version: 1,
+		Items: []world.Solid{
+			{
+				ID:             "step",
+				Footprint:      []world.Vec2{{X: 1, Y: 1}, {X: 2, Y: 1}, {X: 2, Y: 2}, {X: 1, Y: 2}},
+				Bottom:         world.Plane{C: 0},
+				Top:            world.Plane{C: .001},
+				SideMaterial:   3,
+				TopMaterial:    3,
+				BottomMaterial: 3,
+			},
+		},
+	}
 	layout, err := Compile(document, Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -266,7 +288,10 @@ func TestRuntimeBakeRejectsUnsupportedPhysicalScope(t *testing.T) {
 			document.Version = world.Version
 			document.Sectors[0].Walls[1].PortalWall = 4
 			document.Sectors[1].Walls[3].PortalWall = 2
-			document.Lighting = &world.Lighting{Version: 1, Lights: []world.PointLight{{ID: "light", Position: world.Vec3{X: 2, Y: 2, Z: 2}, Color: world.Vec3{X: 1}, Radius: 10}}}
+			document.Lighting = &world.Lighting{
+				Version: 1,
+				Lights:  []world.PointLight{{ID: "light", Position: world.Vec3{X: 2, Y: 2, Z: 2}, Color: world.Vec3{X: 1}, Radius: 10}},
+			}
 			change(&document)
 			if _, err := Compile(document, Options{}); err != nil {
 				t.Fatalf("layout-only rejected valid geometry: %v", err)

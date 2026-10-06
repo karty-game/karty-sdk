@@ -12,9 +12,16 @@ these commands from the repository root:
 
 ```sh
 mise install
+mise run fmt
+mise run check-fmt
+mise run lint
 mise run test
 mise run build
 ```
+
+`mise install` also installs the repository hk pre-commit hook. Formatting and
+lint use the same pinned hk configuration locally and in CI; see the
+[overview](README.md) for tool ownership and exclusions.
 
 This module builds independently of the private engine. Its two external Go
 dependencies are the pinned QOI and QOA codecs; retain their license notices.
@@ -46,15 +53,16 @@ Add regression coverage when it protects changed behavior. Run `mise run fmt`
 for all Go packages and review the result before submitting. Preserve unrelated work.
 
 `mise run test` and `mise run build` are the minimum checks. CI also runs
-`check-fmt`, `test-race`, native `test-32`, `test-wasm` and `fuzz`. The 32-bit task requires an
+`check-fmt`, `lint`, `test-race`, native `test-32`, `test-wasm` and `fuzz`. Formatting
+and lint run through hk with golangci-lint, yamllint, Taplo and Prettier. The 32-bit task requires an
 x86 Linux host capable of executing 386 binaries; cross-compilation alone does
 not validate integer-width behavior. `fuzz` gives each target five seconds of
 actual exploration with two workers, beyond the seed corpus used in ordinary
 tests. To investigate a target further, run the corresponding `go test -fuzz`
 command through `mise exec` with a longer budget.
 
-The pinned Node tool is used only to execute Go's Wasm tests through the official
-Go runner; runtime format/codec packages keep their Go-only dependencies.
+The pinned Node tool runs Prettier and Go's Wasm tests through the official Go
+runner; runtime format/codec packages keep their Go-only dependencies.
 
 Use `mise run bench` for fixed allocation and timing fixtures. Record the Go
 version, platform, CPU and exact command when comparing results. `B/op` measures

@@ -1,8 +1,9 @@
 package worldlightmap
 
 import (
-	"github.com/karty-game/karty-sdk/format/world"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/format/world"
 )
 
 func TestCapConnectivityRetainsOriginPlaneTolerance(t *testing.T) {

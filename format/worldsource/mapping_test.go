@@ -83,7 +83,13 @@ func TestSourceUVLegacyDefaultsAndScopeVersionGates(t *testing.T) {
 func TestSourceUVPointerOverridesAndFiniteBounds(t *testing.T) {
 	t.Parallel()
 	zero := 0.0
-	settings := &worldsource.UVSettings{Mode: worldsource.UVWrap, Anchor: worldsource.UVTop, Scale: &worldsource.Vec2{X: .001, Y: 1e6}, Offset: &worldsource.Vec2{X: -1e6, Y: 1e6}, RotationDegrees: &zero}
+	settings := &worldsource.UVSettings{
+		Mode:            worldsource.UVWrap,
+		Anchor:          worldsource.UVTop,
+		Scale:           &worldsource.Vec2{X: .001, Y: 1e6},
+		Offset:          &worldsource.Vec2{X: -1e6, Y: 1e6},
+		RotationDegrees: &zero,
+	}
 	encoded, err := json.Marshal(settings)
 	if err != nil {
 		t.Fatal(err)
@@ -106,18 +112,42 @@ func TestSourceUVPointerOverridesAndFiniteBounds(t *testing.T) {
 		valid   []float64
 		invalid []float64
 	}{
-		"scale x":  {func(s *worldsource.UVSettings) *float64 { return &s.Scale.X }, []float64{.001, 1e6}, []float64{0, -1, math.Nextafter(.001, 0), 1e6 + 1}},
-		"scale y":  {func(s *worldsource.UVSettings) *float64 { return &s.Scale.Y }, []float64{.001, 1e6}, []float64{0, -1, math.Nextafter(.001, 0), 1e6 + 1}},
-		"offset x": {func(s *worldsource.UVSettings) *float64 { return &s.Offset.X }, []float64{-1e6, 0, 1e6}, []float64{-1e6 - 1, 1e6 + 1}},
-		"offset y": {func(s *worldsource.UVSettings) *float64 { return &s.Offset.Y }, []float64{-1e6, 0, 1e6}, []float64{-1e6 - 1, 1e6 + 1}},
-		"rotation": {func(s *worldsource.UVSettings) *float64 { return s.RotationDegrees }, []float64{-1e6, 0, 1e6}, []float64{-1e6 - 1, 1e6 + 1}},
+		"scale x": {
+			func(s *worldsource.UVSettings) *float64 { return &s.Scale.X },
+			[]float64{.001, 1e6},
+			[]float64{0, -1, math.Nextafter(.001, 0), 1e6 + 1},
+		},
+		"scale y": {
+			func(s *worldsource.UVSettings) *float64 { return &s.Scale.Y },
+			[]float64{.001, 1e6},
+			[]float64{0, -1, math.Nextafter(.001, 0), 1e6 + 1},
+		},
+		"offset x": {
+			func(s *worldsource.UVSettings) *float64 { return &s.Offset.X },
+			[]float64{-1e6, 0, 1e6},
+			[]float64{-1e6 - 1, 1e6 + 1},
+		},
+		"offset y": {
+			func(s *worldsource.UVSettings) *float64 { return &s.Offset.Y },
+			[]float64{-1e6, 0, 1e6},
+			[]float64{-1e6 - 1, 1e6 + 1},
+		},
+		"rotation": {
+			func(s *worldsource.UVSettings) *float64 { return s.RotationDegrees },
+			[]float64{-1e6, 0, 1e6},
+			[]float64{-1e6 - 1, 1e6 + 1},
+		},
 	}
 	for name, field := range fields {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			for _, value := range append(append([]float64{}, field.valid...), append(field.invalid, math.NaN(), math.Inf(-1), math.Inf(1))...) {
 				rotation := 0.0
-				candidate := &worldsource.UVSettings{Scale: &worldsource.Vec2{X: 1, Y: 1}, Offset: &worldsource.Vec2{}, RotationDegrees: &rotation}
+				candidate := &worldsource.UVSettings{
+					Scale:           &worldsource.Vec2{X: 1, Y: 1},
+					Offset:          &worldsource.Vec2{},
+					RotationDegrees: &rotation,
+				}
 				*field.get(candidate) = value
 				document := validSource()
 				last := &document.Prefabs[0].Rooms[0].Boundary[len(document.Prefabs[0].Rooms[0].Boundary)-1]
@@ -167,7 +197,8 @@ func TestSourceUVModeAnchorContext(t *testing.T) {
 						document.Rooms[0].WallUV = settings
 						document.Rooms[0].Boundary[0].UV = settings
 					}
-					allowed := known && (!horizontal || mode != worldsource.UVWrap && anchor != worldsource.UVTop && anchor != worldsource.UVBottom)
+					allowed := known &&
+						(!horizontal || mode != worldsource.UVWrap && anchor != worldsource.UVTop && anchor != worldsource.UVBottom)
 					err := worldsource.Validate(&document)
 					if allowed {
 						if err != nil {

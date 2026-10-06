@@ -13,7 +13,8 @@ func TestFormatCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if digest(encoded) != "17480092567bb5990e2357f1675ccaba84f63635eb9c7d3a41ae16e38d59e893" || l.GeometrySHA256 != "4be4c013aee4bed113df4ca756d63ef417ee28370331b2c7b090ea4418c70069" {
+	if digest(encoded) != "17480092567bb5990e2357f1675ccaba84f63635eb9c7d3a41ae16e38d59e893" ||
+		l.GeometrySHA256 != "4be4c013aee4bed113df4ca756d63ef417ee28370331b2c7b090ea4418c70069" {
 		t.Fatal("canonical layout or geometry identity changed")
 	}
 	d, l, pair := prebakeFixture(t)
@@ -28,7 +29,12 @@ func TestFormatCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pair, err = NewOfflinePrebake(l, &d, pair.Image, OfflineBakeInputs{Samples: 16, Bounces: 2, Seed: 22, RGBMRange: rangeValue, ReflectanceSHA256: digest([]byte("reflectance"))})
+	pair, err = NewOfflinePrebake(
+		l,
+		&d,
+		pair.Image,
+		OfflineBakeInputs{Samples: 16, Bounces: 2, Seed: 22, RGBMRange: rangeValue, ReflectanceSHA256: digest([]byte("reflectance"))},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,13 +1,20 @@
 package cartridge_test
 
 import (
-	"github.com/karty-game/karty-sdk/format/cartridge"
 	"slices"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/format/cartridge"
 )
 
 func TestLightmapsFeatureVersion(t *testing.T) {
-	manifest := cartridge.Manifest{ProjectName: "lightmaps", Compiler: "tinygo", Width: 640, Height: 360, Features: []string{cartridge.FeatureWorldLightmapsV1, cartridge.FeatureWorldSectorsV1}}
+	manifest := cartridge.Manifest{
+		ProjectName: "lightmaps",
+		Compiler:    "tinygo",
+		Width:       640,
+		Height:      360,
+		Features:    []string{cartridge.FeatureWorldLightmapsV1, cartridge.FeatureWorldSectorsV1},
+	}
 	encoded, err := cartridge.EncodeManifest(manifest)
 	if err != nil {
 		t.Fatal(err)

@@ -2,9 +2,11 @@ package qoa_test
 
 import (
 	"bytes"
-	"github.com/karty-game/karty-sdk/codec/qoa"
+	"errors"
 	"io"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/codec/qoa"
 )
 
 func BenchmarkStreamDecoder(b *testing.B) {
@@ -21,7 +23,7 @@ func BenchmarkStreamDecoder(b *testing.B) {
 		}
 		for {
 			_, err = stream.Read(buffer)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {

@@ -63,7 +63,21 @@ func (capabilities Capabilities) Validate() error {
 	if err := validateCanonical(capabilities.Processors, []Processor{ProcessorCopyPNGv1, ProcessorQOAv1, ProcessorQOIv1}); err != nil {
 		return fmt.Errorf("processors: %w", err)
 	}
-	if err := validateCanonical(capabilities.Runtime, []Capability{CapabilityAudioStreamQOAv1, CapabilitySoundQOAv1, CapabilityTextureQOIv1, CapabilityVideoMPEG1v1, CapabilityWorldLightingV1, CapabilityWorldLightmapsV1, CapabilityWorldLightmapsPrebakedV1, CapabilityWorldMaterialAtlasV1, CapabilityWorldMaterialMappingV1, CapabilityWorldStaticSolidsV1}); err != nil {
+	if err := validateCanonical(
+		capabilities.Runtime,
+		[]Capability{
+			CapabilityAudioStreamQOAv1,
+			CapabilitySoundQOAv1,
+			CapabilityTextureQOIv1,
+			CapabilityVideoMPEG1v1,
+			CapabilityWorldLightingV1,
+			CapabilityWorldLightmapsV1,
+			CapabilityWorldLightmapsPrebakedV1,
+			CapabilityWorldMaterialAtlasV1,
+			CapabilityWorldMaterialMappingV1,
+			CapabilityWorldStaticSolidsV1,
+		},
+	); err != nil {
 		return fmt.Errorf("runtime capabilities: %w", err)
 	}
 
@@ -82,10 +96,10 @@ const (
 // Resizing never upscales; dimensions use integer floor rounding and remain at
 // least one pixel. Smooth filtering means Lanczos3 with straight-alpha pixels.
 type ImageRecipe struct {
-	MaxWidth  uint32      `toml:"max_width" json:"max_width"`
+	MaxWidth  uint32      `toml:"max_width"  json:"max_width"`
 	MaxHeight uint32      `toml:"max_height" json:"max_height"`
-	Filter    ImageFilter `toml:"filter" json:"filter"`
-	BitDepth  uint8       `toml:"bit_depth" json:"bit_depth"`
+	Filter    ImageFilter `toml:"filter"     json:"filter"`
+	BitDepth  uint8       `toml:"bit_depth"  json:"bit_depth"`
 }
 
 func (recipe ImageRecipe) Validate() error {
@@ -109,7 +123,7 @@ const (
 // keeps mono or stereo source channels unchanged.
 type AudioRecipe struct {
 	SampleRate  uint32      `toml:"sample_rate" json:"sample_rate"`
-	ChannelMode ChannelMode `toml:"channels" json:"channels"`
+	ChannelMode ChannelMode `toml:"channels"    json:"channels"`
 }
 
 func (recipe AudioRecipe) Validate() error {

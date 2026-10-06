@@ -125,7 +125,12 @@ func ReflectanceDigest(document world.Document, materials []Material) (string, e
 	return reflectanceDigest(context.Background(), &document, surfaces, images)
 }
 
-func reflectanceDigest(ctx context.Context, document *world.Document, surfaces []worldlightmap.Surface, images map[uint32]image.Image) (string, error) {
+func reflectanceDigest(
+	ctx context.Context,
+	document *world.Document,
+	surfaces []worldlightmap.Surface,
+	images map[uint32]image.Image,
+) (string, error) {
 	type assignment struct {
 		Binding  worldlightmap.Binding
 		Material uint32
@@ -205,9 +210,14 @@ func albedoPixel(im image.Image, x, y int) color.NRGBA {
 			return color.NRGBA{}
 		}
 		if c.A == 255 {
-			return color.NRGBA{R: c.R, G: c.G, B: c.B, A: c.A}
+			return color.NRGBA(c)
 		}
-		return color.NRGBA{R: uint8(uint32(c.R) * 65535 / uint32(c.A) >> 8), G: uint8(uint32(c.G) * 65535 / uint32(c.A) >> 8), B: uint8(uint32(c.B) * 65535 / uint32(c.A) >> 8), A: c.A}
+		return color.NRGBA{
+			R: uint8(uint32(c.R) * 65535 / uint32(c.A) >> 8),
+			G: uint8(uint32(c.G) * 65535 / uint32(c.A) >> 8),
+			B: uint8(uint32(c.B) * 65535 / uint32(c.A) >> 8),
+			A: c.A,
+		}
 	case *image.Gray:
 		v := im.GrayAt(x, y).Y
 		return color.NRGBA{R: v, G: v, B: v, A: 255}
@@ -223,8 +233,6 @@ var linearBytes = func() [256]float64 {
 	}
 	return values
 }()
-
-func linear(byteValue uint8) float64 { return linearBytes[byteValue] }
 
 var diffuseBytes = func() [256]float64 {
 	values := linearBytes

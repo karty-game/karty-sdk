@@ -43,7 +43,13 @@ type Result struct {
 // Half-Lambert response. Reflected transport uses cosine-weighted Lambertian
 // sampling and sRGB albedo decoded to linear reflectance bounded to .95.
 // Ambient and material AO are omitted and remain live runtime terms.
-func Bake(ctx context.Context, document world.Document, layout worldlightmap.Layout, materials []Material, options Options) (Result, error) {
+func Bake(
+	ctx context.Context,
+	document world.Document,
+	layout worldlightmap.Layout,
+	materials []Material,
+	options Options,
+) (Result, error) {
 	start := time.Now()
 	if ctx == nil {
 		return Result{}, fmt.Errorf("nil bake context")
@@ -57,7 +63,9 @@ func Bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 	if options.Workers == 0 {
 		options.Workers = min(64, runtime.GOMAXPROCS(0))
 	}
-	if options.Samples < 1 || options.Samples > worldlightmap.MaxOfflineSamples || options.Workers < 1 || options.Workers > 64 || options.Bounces < 0 || options.Bounces > worldlightmap.MaxOfflineBounces {
+	if options.Samples < 1 || options.Samples > worldlightmap.MaxOfflineSamples || options.Workers < 1 || options.Workers > 64 ||
+		options.Bounces < 0 ||
+		options.Bounces > worldlightmap.MaxOfflineBounces {
 		return Result{}, fmt.Errorf("offline bake requires samples 1..256, workers 1..64 and bounces 0..4")
 	}
 	if _, err := worldlightmap.OfflineDenoiseProducer(options.Denoise); err != nil {
@@ -108,8 +116,8 @@ func Bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 		if err := ctx.Err(); err != nil {
 			return Result{}, err
 		}
-		id, uv, origin, tangent, cap := materialOf(&document, surface.Binding)
-		r := reflectance{mapping: uv, origin: origin, tangent: tangent, cap: cap}
+		id, uv, origin, tangent, reflectanceCap := materialOf(&document, surface.Binding)
+		r := reflectance{mapping: uv, origin: origin, tangent: tangent, cap: reflectanceCap}
 		if options.Bounces > 0 && len(surface.Polygons) > 0 {
 			pixels, ok := albedos[id]
 			if !ok {
@@ -194,7 +202,11 @@ func Bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 					if filtering {
 						var indirect [3]vec
 						variance := s.indirect(ctx, r.position, chart, s.chartFrames[row.chart], index, options, c, &indirect)
-						lighting[row.chart][grid.offset(x, y)] = filterPixel{direct: packCoefficients(coeff), indirect: packCoefficients(indirect), variance: variance}
+						lighting[row.chart][grid.offset(x, y)] = filterPixel{
+							direct:   packCoefficients(coeff),
+							indirect: packCoefficients(indirect),
+							variance: variance,
+						}
 						continue
 					}
 					if options.Bounces > 0 {

@@ -140,6 +140,7 @@ func TestMalformedStreamsRejectBeforePixelAllocation(t *testing.T) {
 	}
 }
 
+//nolint:makezero // The initialized QOI header precedes the appended reference operations.
 func TestReferenceStreamOperationsPreserveStraightData(t *testing.T) {
 	t.Parallel()
 

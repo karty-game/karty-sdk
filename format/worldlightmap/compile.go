@@ -59,12 +59,24 @@ func Compile(document world.Document, options Options) (Layout, error) {
 	if err != nil {
 		return Layout{}, err
 	}
-	layout := Layout{Schema: Schema, Algorithm: Algorithm, GeometrySHA256: digest, TexelsPerUnit: options.TexelsPerUnit, Padding: options.Padding, Pages: []Page{{options.PageSize, options.PageSize}}, Bindings: make([]Binding, len(surfaces))}
+	layout := Layout{
+		Schema:         Schema,
+		Algorithm:      Algorithm,
+		GeometrySHA256: digest,
+		TexelsPerUnit:  options.TexelsPerUnit,
+		Padding:        options.Padding,
+		Pages:          []Page{{options.PageSize, options.PageSize}},
+		Bindings:       make([]Binding, len(surfaces)),
+	}
 	if options.Light != "" {
 		layout.RuntimeBake = &RuntimeBake{Encoding: PointVisibilityEncoding, LightID: options.Light, ShadowSize: options.ShadowSize}
 	}
 	if options.Lights != nil {
-		layout.RuntimeBake = &RuntimeBake{Encoding: DirectRNMEncoding, LightIDs: slices.Clone(options.Lights), ShadowSize: options.ShadowSize}
+		layout.RuntimeBake = &RuntimeBake{
+			Encoding:   DirectRNMEncoding,
+			LightIDs:   slices.Clone(options.Lights),
+			ShadowSize: options.ShadowSize,
+		}
 	}
 	if err := validateBake(layout.RuntimeBake, &document); err != nil {
 		return Layout{}, err
@@ -187,7 +199,8 @@ func pack(layout *Layout, points [][]world.Vec3, options Options) error {
 		span := [2]float64{maximum[0] - minimum[0], maximum[1] - minimum[1]}
 		density := [2]float64{math.Max(options.TexelsPerUnit, 2/span[0]), math.Max(options.TexelsPerUnit, 2/span[1])}
 		width, height := math.Ceil(span[0]*density[0])+1, math.Ceil(span[1]*density[1])+1
-		if !finite(width) || !finite(height) || width+float64(options.Padding*2) > float64(options.PageSize) || height+float64(options.Padding*2) > float64(options.PageSize) {
+		if !finite(width) || !finite(height) || width+float64(options.Padding*2) > float64(options.PageSize) ||
+			height+float64(options.Padding*2) > float64(options.PageSize) {
 			return fmt.Errorf("chart %d is oversized; change density or split surface: %w", i, ErrLayout)
 		}
 		bounds[i] = chartBounds{minimum, density, int(width), int(height)}
@@ -228,8 +241,18 @@ func pack(layout *Layout, points [][]world.Vec3, options Options) error {
 		chart.Rect = [4]int{x, y, x + width, y + height}
 		chart.ReceiverRect = [4]int{x + options.Padding, y + options.Padding, x + width - options.Padding, y + height - options.Padding}
 		page := float64(options.PageSize)
-		chart.UPlane = [4]float64{chart.Tangent.X * bound.density[0] / page, chart.Tangent.Y * bound.density[0] / page, chart.Tangent.Z * bound.density[0] / page, (float64(chart.ReceiverRect[0]) + .5 - bound.minimum[0]*bound.density[0]) / page}
-		chart.VPlane = [4]float64{chart.Bitangent.X * bound.density[1] / page, chart.Bitangent.Y * bound.density[1] / page, chart.Bitangent.Z * bound.density[1] / page, (float64(chart.ReceiverRect[1]) + .5 - bound.minimum[1]*bound.density[1]) / page}
+		chart.UPlane = [4]float64{
+			chart.Tangent.X * bound.density[0] / page,
+			chart.Tangent.Y * bound.density[0] / page,
+			chart.Tangent.Z * bound.density[0] / page,
+			(float64(chart.ReceiverRect[0]) + .5 - bound.minimum[0]*bound.density[0]) / page,
+		}
+		chart.VPlane = [4]float64{
+			chart.Bitangent.X * bound.density[1] / page,
+			chart.Bitangent.Y * bound.density[1] / page,
+			chart.Bitangent.Z * bound.density[1] / page,
+			(float64(chart.ReceiverRect[1]) + .5 - bound.minimum[1]*bound.density[1]) / page,
+		}
 	}
 	return nil
 }

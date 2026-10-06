@@ -21,11 +21,44 @@ func room(t testing.TB, barrierHeight float64) (world.Document, worldlightmap.La
 	for i, p := range points {
 		walls[i] = world.Wall{Start: p, End: points[(i+1)%4], Portal: -1, Material: 1, SourceEdge: "wall"}
 	}
-	d := world.Document{Version: world.Version, Sectors: []world.Sector{{ID: "room", SourceRoom: "room", Walls: walls, Floor: world.Plane{}, Ceiling: world.Plane{C: 3}, FloorMaterial: 1, CeilingMaterial: 2}}, Lighting: &world.Lighting{Version: world.LightingVersion, Lights: []world.PointLight{{ID: "white", Position: vec{X: 1, Y: 2, Z: 1}, Color: vec{X: 1, Y: 1, Z: 1}, Radius: 20}}}}
-	if barrierHeight > 0 {
-		d.StaticSolids = &world.StaticSolids{Version: world.StaticSolidsVersion, Items: []world.Solid{{ID: "barrier", Footprint: []world.Vec2{{X: 1.9, Y: 0}, {X: 2.1, Y: 0}, {X: 2.1, Y: 4}, {X: 1.9, Y: 4}}, Bottom: world.Plane{}, Top: world.Plane{C: barrierHeight}, SideMaterial: 1, TopMaterial: 1, BottomMaterial: 1}}}
+	d := world.Document{
+		Version: world.Version,
+		Sectors: []world.Sector{
+			{
+				ID:              "room",
+				SourceRoom:      "room",
+				Walls:           walls,
+				Floor:           world.Plane{},
+				Ceiling:         world.Plane{C: 3},
+				FloorMaterial:   1,
+				CeilingMaterial: 2,
+			},
+		},
+		Lighting: &world.Lighting{
+			Version: world.LightingVersion,
+			Lights:  []world.PointLight{{ID: "white", Position: vec{X: 1, Y: 2, Z: 1}, Color: vec{X: 1, Y: 1, Z: 1}, Radius: 20}},
+		},
 	}
-	l, err := worldlightmap.Compile(d, worldlightmap.Options{TexelsPerUnit: 4, PageSize: 512, Padding: 2, Lights: []string{"white"}, ShadowSize: 32})
+	if barrierHeight > 0 {
+		d.StaticSolids = &world.StaticSolids{
+			Version: world.StaticSolidsVersion,
+			Items: []world.Solid{
+				{
+					ID:             "barrier",
+					Footprint:      []world.Vec2{{X: 1.9, Y: 0}, {X: 2.1, Y: 0}, {X: 2.1, Y: 4}, {X: 1.9, Y: 4}},
+					Bottom:         world.Plane{},
+					Top:            world.Plane{C: barrierHeight},
+					SideMaterial:   1,
+					TopMaterial:    1,
+					BottomMaterial: 1,
+				},
+			},
+		}
+	}
+	l, err := worldlightmap.Compile(
+		d,
+		worldlightmap.Options{TexelsPerUnit: 4, PageSize: 512, Padding: 2, Lights: []string{"white"}, ShadowSize: 32},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +82,11 @@ func decoded(result Result, x, y int) vec {
 func floorAt(l worldlightmap.Layout, p vec) (int, int) {
 	chart := l.Charts[l.Bindings[0].Chart]
 	w, h := float64(l.Pages[0].Width), float64(l.Pages[0].Height)
-	return int(math.Round(w*(chart.UPlane[0]*p.X+chart.UPlane[1]*p.Y+chart.UPlane[2]*p.Z+chart.UPlane[3]) - .5)), int(math.Round(h*(chart.VPlane[0]*p.X+chart.VPlane[1]*p.Y+chart.VPlane[2]*p.Z+chart.VPlane[3]) - .5))
+	return int(
+			math.Round(w*(chart.UPlane[0]*p.X+chart.UPlane[1]*p.Y+chart.UPlane[2]*p.Z+chart.UPlane[3]) - .5),
+		), int(
+			math.Round(h*(chart.VPlane[0]*p.X+chart.VPlane[1]*p.Y+chart.VPlane[2]*p.Z+chart.VPlane[3]) - .5),
+		)
 }
 func TestRedCeilingBouncesIntoDirectShadow(t *testing.T) {
 	d, l, materials := room(t, 1.5)
@@ -210,7 +247,10 @@ func TestPartialPortalBandsOccludeWhileDoorwayTransmits(t *testing.T) {
 	right.Walls[3].PortalWall = 2
 	d.Sectors = append(d.Sectors, right)
 	d.Lighting.Lights[0].Position.Z = .2
-	l, err := worldlightmap.Compile(d, worldlightmap.Options{TexelsPerUnit: 8, PageSize: 512, Padding: 2, Lights: []string{"white"}, ShadowSize: 32})
+	l, err := worldlightmap.Compile(
+		d,
+		worldlightmap.Options{TexelsPerUnit: 8, PageSize: 512, Padding: 2, Lights: []string{"white"}, ShadowSize: 32},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

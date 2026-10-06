@@ -16,8 +16,28 @@ func TestAudioStreamCatalogRoundTrip(t *testing.T) {
 	}
 	digest := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	streams := []AudioStream{
-		{ID: 1, Name: "theme", Kind: AudioStreamMusic, Channels: 2, SampleRate: 48_000, Frames: 48_000, Size: 100, SHA256: digest, Chunks: []string{digest}},
-		{ID: 1, Name: "rain", Kind: AudioStreamEnvironment, Channels: 1, SampleRate: 24_000, Frames: 24_000, Size: 100, SHA256: digest, Chunks: []string{digest}},
+		{
+			ID:         1,
+			Name:       "theme",
+			Kind:       AudioStreamMusic,
+			Channels:   2,
+			SampleRate: 48_000,
+			Frames:     48_000,
+			Size:       100,
+			SHA256:     digest,
+			Chunks:     []string{digest},
+		},
+		{
+			ID:         1,
+			Name:       "rain",
+			Kind:       AudioStreamEnvironment,
+			Channels:   1,
+			SampleRate: 24_000,
+			Frames:     24_000,
+			Size:       100,
+			SHA256:     digest,
+			Chunks:     []string{digest},
+		},
 	}
 	encoded, err := EncodeAudioStreams(streams)
 	if err != nil {
@@ -43,7 +63,7 @@ func TestAudioStreamCatalogRejectsInvalidEntries(t *testing.T) {
 		"sample rate": func(stream *AudioStream) { stream.SampleRate = 96_000 },
 		"zero frames": func(stream *AudioStream) { stream.Frames = 0 },
 		"duration": func(stream *AudioStream) {
-			stream.Frames = uint32(stream.SampleRate*asset.MaxAudioStreamDurationSeconds + 1)
+			stream.Frames = stream.SampleRate*asset.MaxAudioStreamDurationSeconds + 1
 		},
 		"zero size":    func(stream *AudioStream) { stream.Size = 0 },
 		"size":         func(stream *AudioStream) { stream.Size = MaxAudioStreamSize + 1 },

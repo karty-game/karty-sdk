@@ -3,17 +3,17 @@
 The public contracts shared by the Karty CLI, public compilers and game engine.
 This Go module builds independently of engine source and credentials.
 
-| Package | Responsibility |
-| --- | --- |
-| [`format/cartridge`](format/cartridge/README.md) | Game manifests, embedded assets, Wasm sections and streaming media catalogs |
-| `format/level` | Versioned level envelopes and modules |
-| [`format/actions`](format/actions/README.md) | Candidate authored sequences, action literals and level-scoped actor references |
-| [`format/world`](format/world/README.md) | Canonical compiled convex-sector worlds, lighting, mapping and static solids |
-| [`format/worldsource`](format/worldsource/README.md) | Separately versioned room, prefab, port and content authoring semantics |
-| [`format/worldmaterial`](format/worldmaterial/README.md) | Material atlases, mip tails and strength controls |
-| [`format/worldlightmap`](format/worldlightmap/README.md) | Static receiver charts, bake recipes and completed prebake formats |
-| [`bake/worldlightmap`](bake/worldlightmap/README.md) | Deterministic CPU direct/diffuse RNM baking |
-| `codec/qoi`, `codec/qoa` | Bounded adapters around pinned image and audio codecs |
+| Package                                                  | Responsibility                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [`format/cartridge`](format/cartridge/README.md)         | Game manifests, embedded assets, Wasm sections and streaming media catalogs     |
+| `format/level`                                           | Versioned level envelopes and modules                                           |
+| [`format/actions`](format/actions/README.md)             | Candidate authored sequences, action literals and level-scoped actor references |
+| [`format/world`](format/world/README.md)                 | Canonical compiled convex-sector worlds, lighting, mapping and static solids    |
+| [`format/worldsource`](format/worldsource/README.md)     | Separately versioned room, prefab, port and content authoring semantics         |
+| [`format/worldmaterial`](format/worldmaterial/README.md) | Material atlases, mip tails and strength controls                               |
+| [`format/worldlightmap`](format/worldlightmap/README.md) | Static receiver charts, bake recipes and completed prebake formats              |
+| [`bake/worldlightmap`](bake/worldlightmap/README.md)     | Deterministic CPU direct/diffuse RNM baking                                     |
+| `codec/qoi`, `codec/qoa`                                 | Bounded adapters around pinned image and audio codecs                           |
 
 The SDK owns formats and shared validation. Public compilers own authoring
 parsing and expansion; the CLI owns project building and asset processing; the
@@ -26,7 +26,10 @@ Install the pinned tools with [mise](https://mise.jdx.dev/), then run from this
 repository root:
 
 ```sh
+mise install
 mise run fmt
+mise run check-fmt
+mise run lint
 mise run test
 mise run build
 mise run test-race
@@ -36,6 +39,23 @@ mise run test-wasm
 mise run fuzz
 mise run bench
 ```
+
+The shared checks in `hk.pkl` use golangci-lint for Go (including `govet`),
+yamllint for YAML, Taplo for TOML, and Prettier for YAML layout, JSON, Markdown
+and web files. Taplo validates syntax without downloading schemas.
+
+`mise install` installs the pinned tools and repository pre-commit hook through
+mise; use `mise run install-hooks` to reinstall it. The hook checks staged files
+and applies formatting fixes while preserving unstaged work. `fmt` applies all
+formatters through hk without staging; `check-fmt` reports differences without
+writing files. `lint` runs all format and lint checks; `check` also runs tests
+and build. Generated Go and `*.generated.*` snapshots, derived output and local
+contributor directories are excluded from formatting. The JSON-compatible YAML
+fixture retains its decoder input format; yamllint still checks it.
+
+After changing `format/actions/schema.json`, regenerate consumer snapshots with
+their `mise run generate-action-contract` tasks; public SDK checks remain
+independent of private source.
 
 The pinned mise environment enables Go 1.27 portable SIMD for the offline
 baker. Direct Go builds importing that package require `GOEXPERIMENT=simd`;

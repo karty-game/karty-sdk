@@ -1,8 +1,9 @@
 package asset_test
 
 import (
-	"github.com/karty-game/karty-sdk/format/asset"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/format/asset"
 )
 
 func TestStaticSolidsCapabilityCanonical(t *testing.T) {

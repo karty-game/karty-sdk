@@ -2,8 +2,9 @@ package worldlightmapbake
 
 import (
 	"math"
-	"simd"
 	"testing"
+
+	"simd"
 )
 
 func scalarBoxRay(b box, o, d vec, limit float64) bool {

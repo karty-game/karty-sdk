@@ -1,9 +1,10 @@
 package worldlightmapbake
 
 import (
+	"math"
+
 	"github.com/karty-game/karty-sdk/format/world"
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
-	"math"
 )
 
 type receiver struct {
@@ -52,7 +53,10 @@ func receiverGrids(charts []worldlightmap.Chart) ([]receiverGrid, []receiverRow)
 
 func raster(grid receiverGrid, w, h int, chart worldlightmap.Chart, t triangle) {
 	uv := func(p vec) world.Vec2 {
-		return world.Vec2{X: float64(w) * (chart.UPlane[0]*p.X + chart.UPlane[1]*p.Y + chart.UPlane[2]*p.Z + chart.UPlane[3]), Y: float64(h) * (chart.VPlane[0]*p.X + chart.VPlane[1]*p.Y + chart.VPlane[2]*p.Z + chart.VPlane[3])}
+		return world.Vec2{
+			X: float64(w) * (chart.UPlane[0]*p.X + chart.UPlane[1]*p.Y + chart.UPlane[2]*p.Z + chart.UPlane[3]),
+			Y: float64(h) * (chart.VPlane[0]*p.X + chart.VPlane[1]*p.Y + chart.VPlane[2]*p.Z + chart.VPlane[3]),
+		}
 	}
 	a, b, c := uv(t.a), uv(t.b), uv(t.c)
 	den := (b.Y-c.Y)*(a.X-c.X) + (c.X-b.X)*(a.Y-c.Y)
@@ -63,8 +67,20 @@ func raster(grid receiverGrid, w, h int, chart worldlightmap.Chart, t triangle) 
 	// Chart vertices intentionally lie on texel centres. Include their boundary
 	// samples despite tiny affine evaluation roundoff; barycentrics still test
 	// actual polygon coverage and the receiver rectangle remains authoritative.
-	x0, x1 := max(r[0], int(math.Ceil(math.Min(a.X, math.Min(b.X, c.X))-.5-1e-8))), min(r[2]-1, int(math.Floor(math.Max(a.X, math.Max(b.X, c.X))-.5+1e-8)))
-	y0, y1 := max(r[1], int(math.Ceil(math.Min(a.Y, math.Min(b.Y, c.Y))-.5-1e-8))), min(r[3]-1, int(math.Floor(math.Max(a.Y, math.Max(b.Y, c.Y))-.5+1e-8)))
+	x0, x1 := max(
+		r[0],
+		int(math.Ceil(math.Min(a.X, math.Min(b.X, c.X))-.5-1e-8)),
+	), min(
+		r[2]-1,
+		int(math.Floor(math.Max(a.X, math.Max(b.X, c.X))-.5+1e-8)),
+	)
+	y0, y1 := max(
+		r[1],
+		int(math.Ceil(math.Min(a.Y, math.Min(b.Y, c.Y))-.5-1e-8)),
+	), min(
+		r[3]-1,
+		int(math.Floor(math.Max(a.Y, math.Max(b.Y, c.Y))-.5+1e-8)),
+	)
 	for y := y0; y <= y1; y++ {
 		for x := x0; x <= x1; x++ {
 			u := ((b.Y-c.Y)*(float64(x)+.5-c.X) + (c.X-b.X)*(float64(y)+.5-c.Y)) / den

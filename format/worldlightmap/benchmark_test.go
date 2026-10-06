@@ -2,8 +2,9 @@ package worldlightmap
 
 import (
 	"fmt"
-	"github.com/karty-game/karty-sdk/format/world"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/format/world"
 )
 
 func chainDocument(count int) world.Document {

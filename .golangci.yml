@@ -1,0 +1,44 @@
+version: "2"
+
+run:
+  timeout: 2m
+
+linters:
+  # First adoption: correctness checks for bounded codecs, formats and baking.
+  # The standard set includes errcheck, govet, ineffassign, staticcheck and unused.
+  default: standard
+  enable:
+    - copyloopvar
+    - durationcheck
+    - errorlint
+    - makezero
+    - nilerr
+    - nilnesserr
+    - nosprintfhostport
+    - predeclared
+    - unconvert
+  settings:
+    staticcheck:
+      # Quick-fix style suggestions are outside the initial correctness gate.
+      checks: [all, "-QF*"]
+  exclusions:
+    presets:
+      - std-error-handling
+      - common-false-positives
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - golines
+  settings:
+    golines:
+      max-len: 140
+  exclusions:
+    generated: strict
+    paths:
+      - "(^|/)dist(/|$)"
+      - '(^|/)\.(karty|codex|agents)(/|$)'
+
+output:
+  path-mode: "abs"

@@ -2,6 +2,7 @@ package worldsource
 
 import (
 	"fmt"
+
 	"github.com/karty-game/karty-sdk/format/world"
 )
 
@@ -10,15 +11,15 @@ import (
 // Optional UV controls inherit root horizontal defaults for
 // caps; sides accept only an explicit planar/world mapping in version 6.
 type Solid struct {
-	ID             string      `json:"id" yaml:"id"`
-	Footprint      []Vec2      `json:"footprint" yaml:"footprint"`
-	Bottom         Plane       `json:"bottom" yaml:"bottom"`
-	Top            Plane       `json:"top" yaml:"top"`
-	SideMaterial   string      `json:"side_material" yaml:"side_material"`
-	TopMaterial    string      `json:"top_material" yaml:"top_material"`
-	BottomMaterial string      `json:"bottom_material" yaml:"bottom_material"`
-	SideUV         *UVSettings `json:"side_uv,omitempty" yaml:"side_uv,omitempty"`
-	TopUV          *UVSettings `json:"top_uv,omitempty" yaml:"top_uv,omitempty"`
+	ID             string      `json:"id"                  yaml:"id"`
+	Footprint      []Vec2      `json:"footprint"           yaml:"footprint"`
+	Bottom         Plane       `json:"bottom"              yaml:"bottom"`
+	Top            Plane       `json:"top"                 yaml:"top"`
+	SideMaterial   string      `json:"side_material"       yaml:"side_material"`
+	TopMaterial    string      `json:"top_material"        yaml:"top_material"`
+	BottomMaterial string      `json:"bottom_material"     yaml:"bottom_material"`
+	SideUV         *UVSettings `json:"side_uv,omitempty"   yaml:"side_uv,omitempty"`
+	TopUV          *UVSettings `json:"top_uv,omitempty"    yaml:"top_uv,omitempty"`
 	BottomUV       *UVSettings `json:"bottom_uv,omitempty" yaml:"bottom_uv,omitempty"`
 	Collision      bool        `json:"collision,omitempty" yaml:"collision,omitempty"`
 }
@@ -58,7 +59,15 @@ func validateExtras(solids []Solid, contents []Content, version uint16) error {
 		if !validIdentifier(solid.SideMaterial) || !validIdentifier(solid.TopMaterial) || !validIdentifier(solid.BottomMaterial) {
 			return fmt.Errorf("solid %q materials: %w", solid.ID, ErrReference)
 		}
-		compiled.Items[index] = world.Solid{ID: solid.ID, Bottom: world.Plane(solid.Bottom), Top: world.Plane(solid.Top), SideMaterial: 1, TopMaterial: 1, BottomMaterial: 1, Footprint: make([]world.Vec2, len(solid.Footprint))}
+		compiled.Items[index] = world.Solid{
+			ID:             solid.ID,
+			Bottom:         world.Plane(solid.Bottom),
+			Top:            world.Plane(solid.Top),
+			SideMaterial:   1,
+			TopMaterial:    1,
+			BottomMaterial: 1,
+			Footprint:      make([]world.Vec2, len(solid.Footprint)),
+		}
 		for vertex, point := range solid.Footprint {
 			compiled.Items[index].Footprint[vertex] = world.Vec2(point)
 		}
@@ -81,7 +90,8 @@ func validateExtras(solids []Solid, contents []Content, version uint16) error {
 	}
 	identities := make(map[string]struct{}, len(contents))
 	for _, content := range contents {
-		if !validIdentifier(content.ID) || !validIdentifier(content.Kind) || !validVec3(content.Position) || content.Actor != nil && !validActor(content.Actor) {
+		if !validIdentifier(content.ID) || !validIdentifier(content.Kind) || !validVec3(content.Position) ||
+			content.Actor != nil && !validActor(content.Actor) {
 			return ErrContent
 		}
 		if _, exists := identities[content.ID]; exists {

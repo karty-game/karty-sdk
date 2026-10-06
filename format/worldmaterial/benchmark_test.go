@@ -1,10 +1,11 @@
 package worldmaterial_test
 
 import (
-	"github.com/karty-game/karty-sdk/codec/qoi"
-	"github.com/karty-game/karty-sdk/format/worldmaterial"
 	"image"
 	"testing"
+
+	"github.com/karty-game/karty-sdk/codec/qoi"
+	"github.com/karty-game/karty-sdk/format/worldmaterial"
 )
 
 func BenchmarkPairValidate(b *testing.B) {

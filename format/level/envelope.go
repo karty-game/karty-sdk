@@ -151,7 +151,9 @@ func encodedLengths(entries []SourceEntry) (int, int, error) {
 
 	for index, entry := range entries {
 		if !validEntryKind(entry.Kind) || len(entry.Name) == 0 || len(entry.Name) > MaxEntryNameSize ||
-			!utf8.ValidString(entry.Name) || !validEntryName(entry.Name, entry.Kind) || len(entry.Data) == 0 || len(entry.Data) > MaxEntrySize {
+			!utf8.ValidString(
+				entry.Name,
+			) || !validEntryName(entry.Name, entry.Kind) || len(entry.Data) == 0 || len(entry.Data) > MaxEntrySize {
 			return 0, 0, fmt.Errorf("entry %q: %w", entry.Name, ErrEntry)
 		}
 

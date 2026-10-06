@@ -84,7 +84,19 @@ func TestDenoisedProducerIdentity(t *testing.T) {
 	}
 	var previous string
 	for _, mode := range []string{"off", "low", "medium"} {
-		pair, err := NewOfflinePrebake(layout, &document, direct.Image, OfflineBakeInputs{Samples: 16, Bounces: 1, Seed: 1, ReflectanceSHA256: strings.Repeat("a", 64), RGBMRange: rangeBound, Denoise: mode})
+		pair, err := NewOfflinePrebake(
+			layout,
+			&document,
+			direct.Image,
+			OfflineBakeInputs{
+				Samples:           16,
+				Bounces:           1,
+				Seed:              1,
+				ReflectanceSHA256: strings.Repeat("a", 64),
+				RGBMRange:         rangeBound,
+				Denoise:           mode,
+			},
+		)
 		if err != nil {
 			t.Fatal(err)
 		}

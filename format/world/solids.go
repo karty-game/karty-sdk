@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+
 	"github.com/karty-game/karty-sdk/format/cartridge"
 )
 

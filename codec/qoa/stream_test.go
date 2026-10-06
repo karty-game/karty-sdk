@@ -36,7 +36,7 @@ func TestStreamDecoderMatchesCompleteDecodeWithSmallReads(t *testing.T) {
 	for {
 		n, readErr := stream.Read(buffer)
 		got = append(got, buffer[:n]...)
-		if readErr == io.EOF {
+		if errors.Is(readErr, io.EOF) {
 			break
 		}
 		if readErr != nil {

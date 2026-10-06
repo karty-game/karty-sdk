@@ -42,7 +42,8 @@ run = "hk check --all"
 run = "golangci-lint run ./..."
 
 [tasks.test-race]
-run = "go test -timeout=9s -race ./..."
+# Keep race-instrumented atlas validation from competing with baker tests.
+run = "go test -p=1 -timeout=9s -race ./..."
 
 [tasks.test-simd-emulated]
 env = { GODEBUG = "simd=0" }

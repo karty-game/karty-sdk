@@ -63,12 +63,13 @@ baker. Direct Go builds importing that package require `GOEXPERIMENT=simd`;
 format-only imports are unaffected. `test-simd-emulated` exercises Go's built-in
 fallback rather than a second production implementation.
 
+`test-race` runs one package at a time to bound instrumentation overhead.
 `test-32` executes native 386 tests on an x86 Linux host with 32-bit execution
 support. `fuzz` explores each target for a bounded budget; normal tests also run
 the seed corpus. `test-wasm` executes Go Wasm tests using the official Go runner
 and pinned Node, running one package at a time to bound memory use. Its launcher
-passes a minimal environment to stay within Go's
-8 KiB argument/environment limit, preserving temporary paths and the `GODEBUG`
+passes a minimal environment to stay within Go's 8 KiB argument/environment
+limit, preserving temporary paths and the `GODEBUG`
 and `GOMAXPROCS` runtime controls. It does not exercise browser graphics.
 Benchmarks report allocation totals and CPU time for fixed
 codec, material-atlas, connected-world and bake fixtures. See

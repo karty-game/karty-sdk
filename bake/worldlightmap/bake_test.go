@@ -18,7 +18,7 @@ func room(t testing.TB, barrierHeight float64) (world.Document, worldlightmap.La
 	t.Helper()
 	// A coarse receiver grid is sufficient for transport assertions; exact
 	// producer compatibility retains its original, denser fixture separately.
-	return roomWithDensity(t, barrierHeight, 2)
+	return roomWithDensity(t, barrierHeight, 1)
 }
 
 func roomWithDensity(t testing.TB, barrierHeight float64, density float64) (world.Document, worldlightmap.Layout, []Material) {

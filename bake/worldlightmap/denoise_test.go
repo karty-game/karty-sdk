@@ -9,7 +9,8 @@ import (
 )
 
 func TestDenoiseReducesBounceErrorAndKeepsClosedShadow(t *testing.T) {
-	d, l, materials := room(t, 1.5)
+	// Filtering needs a neighborhood; transport-only tests use fewer texels.
+	d, l, materials := roomWithDensity(t, 1.5, 2)
 	bake := func(samples int, mode string, workers int) Result {
 		t.Helper()
 		r, err := Bake(t.Context(), d, l, materials, Options{Samples: samples, Bounces: 1, Workers: workers, Seed: 17, Denoise: mode})
@@ -54,7 +55,7 @@ func TestDenoiseReducesBounceErrorAndKeepsClosedShadow(t *testing.T) {
 	}
 	// A fully closed divider is in the same floor chart: chart isolation alone
 	// would blur its lit side into its black side.
-	d, l, materials = room(t, 3)
+	d, l, materials = roomWithDensity(t, 3, 2)
 	for i := range materials {
 		materials[i].Albedo = solid(color.NRGBA{R: 255, G: 255, B: 255, A: 255})
 	}

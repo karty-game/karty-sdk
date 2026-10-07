@@ -29,7 +29,7 @@ func TestSourceUVLegacyDefaultsAndScopeVersionGates(t *testing.T) {
 			return &d.Prefabs[0].Rooms[0].Boundary[len(d.Prefabs[0].Rooms[0].Boundary)-1].UV
 		},
 	}
-	if worldsource.Version != 6 || worldsource.MappingVersion != 5 || worldsource.LightingVersion != 4 {
+	if worldsource.Version != 7 || worldsource.MappingVersion != 5 || worldsource.LightingVersion != 4 {
 		t.Fatal("source version/capability gate changed")
 	}
 	for _, version := range []uint16{1, 2, 3, 4, 5, 6} {

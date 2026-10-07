@@ -156,3 +156,31 @@ those remain build-pipeline and upload responsibilities.
 These optional extensions are available in SDK 0.0.8.
 Subsequent incompatible layout/channel changes require a new schema and capability. Version 1
 does not modify released world, level-envelope, or cartridge wire versions.
+
+## Coverage-aware material atlas, version 2
+
+`world/material-atlas@2` selects `karty.world-material-atlas@2`; logical level
+entry names and paired atlas dimensions remain unchanged. Use `NewLayoutV2`
+to create the same canonical packing with per-slot `coverage` declarations.
+Every slot must declare `opaque` or `masked`. Version 1 forbids the declaration
+and retains full-opacity validation and its existing canonical bytes.
+
+Albedo RGB stores straight sRGB colour and alpha stores layer coverage. Data
+remains straight linear normal XY/height/AO in RG/B/A; AO is never opacity.
+Masked slots may contain any alpha, including their gutters and mip albedo
+cells. Opaque slots and the outer L0 atlas padding must remain alpha 255.
+`Pair.Validate` preflights the same decoded budgets and completely validates
+all QOI streams, then checks every opaque slot at every supplied mip level.
+Unknown, missing, duplicate or explicit-null declarations reject canonical
+layout decoding. Slots used as main or secondary materials must be opaque;
+opaque frame fast paths must reference opaque slots.
+
+Builders preserve band coverage independently of material-map generation,
+which receives opaque RGB with colour extended into uncovered pixels. Coverage
+mips average alpha and coverage-weighted linear RGB, normals, height and AO;
+normal vectors are normalized after averaging and zero coverage uses neutral
+material data. Sampling uses coverage-aware filtering with the compiled
+repeat/clamp controls for the selected region, rather than reading unrelated
+sheet regions. `NewMipLayout` preserves coverage declarations. Existing
+196-slot, 4096-pixel dimension, 32 KiB layout and 256 MiB shared decoded-budget
+limits apply unchanged. Secondary-only slots have neutral data (128,128,0,255).

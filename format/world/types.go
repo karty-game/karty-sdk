@@ -77,21 +77,24 @@ type Document struct {
 	Lighting        *Lighting        `json:"lighting,omitempty"`
 	MaterialMapping *MaterialMapping `json:"material_mapping,omitempty"`
 	StaticSolids    *StaticSolids    `json:"static_solids,omitempty"`
+	MaterialLayers  *MaterialLayers  `json:"material_layers,omitempty"`
 }
 
 // Sector is a strictly convex CCW cell. SourceRoom and Instance retain the
 // authoring identity after prefab expansion and decomposition.
 type Sector struct {
-	ID              string     `json:"id"`
-	SourceRoom      string     `json:"source_room"`
-	Instance        string     `json:"instance"`
-	Walls           []Wall     `json:"walls"`
-	Floor           Plane      `json:"floor"`
-	Ceiling         Plane      `json:"ceiling"`
-	FloorMaterial   uint32     `json:"floor_material"`
-	CeilingMaterial uint32     `json:"ceiling_material"`
-	FloorUV         *SurfaceUV `json:"floor_uv,omitempty"`
-	CeilingUV       *SurfaceUV `json:"ceiling_uv,omitempty"`
+	ID               string            `json:"id"`
+	SourceRoom       string            `json:"source_room"`
+	Instance         string            `json:"instance"`
+	Walls            []Wall            `json:"walls"`
+	Floor            Plane             `json:"floor"`
+	Ceiling          Plane             `json:"ceiling"`
+	FloorMaterial    uint32            `json:"floor_material"`
+	CeilingMaterial  uint32            `json:"ceiling_material"`
+	FloorUV          *SurfaceUV        `json:"floor_uv,omitempty"`
+	CeilingUV        *SurfaceUV        `json:"ceiling_uv,omitempty"`
+	FloorSecondary   *SurfaceSecondary `json:"floor_secondary,omitempty"`
+	CeilingSecondary *SurfaceSecondary `json:"ceiling_secondary,omitempty"`
 }
 
 // Wall is one directed sector boundary. Portal is the adjacent sector index,
@@ -101,13 +104,18 @@ type Sector struct {
 // portal transform. SourceEdge is empty only for compiler-generated internal
 // decomposition edges.
 type Wall struct {
-	Start      Vec2       `json:"start"`
-	End        Vec2       `json:"end"`
-	Portal     int32      `json:"portal"`
-	PortalWall uint16     `json:"portal_wall,omitempty"`
-	Material   uint32     `json:"material"`
-	SourceEdge string     `json:"source_edge"`
-	UV         *SurfaceUV `json:"uv,omitempty"`
+	Start        Vec2              `json:"start"`
+	End          Vec2              `json:"end"`
+	Portal       int32             `json:"portal"`
+	PortalWall   uint16            `json:"portal_wall,omitempty"`
+	Material     uint32            `json:"material"`
+	SourceEdge   string            `json:"source_edge"`
+	UV           *SurfaceUV        `json:"uv,omitempty"`
+	Secondary    *SurfaceSecondary `json:"secondary,omitempty"`
+	FrameRegions []WallFrameRegion `json:"frame_regions,omitempty"`
+	// FrameCompiled preserves static-frame participation when a portal has no
+	// exposed solid spans and thus no region records.
+	FrameCompiled bool `json:"frame_compiled,omitempty"`
 }
 
 // Content retains both its compiled identity and authored/prefab provenance.

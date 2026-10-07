@@ -13,6 +13,10 @@ import (
 
 const (
 	Feature        = "world/material-atlas@1"
+	FeatureV2      = "world/material-atlas@2"
+	SchemaV2       = "karty.world-material-atlas@2"
+	CoverageOpaque = "opaque"
+	CoverageMasked = "masked"
 	Schema         = "karty.world-material-atlas@1"
 	MetadataKey    = "kartyWorldMaterialAtlas"
 	LayoutEntry    = "@world/material-layout"
@@ -42,6 +46,7 @@ type Rect struct {
 	Height     int        `json:"height"`
 	Gutter     int        `json:"gutter"`
 	Strengths  *Strengths `json:"strengths,omitempty"`
+	Coverage   string     `json:"coverage,omitempty"`
 }
 
 // Layout maps level-local material IDs to a canonical row-major atlas. It has
@@ -75,12 +80,25 @@ func NewLayout(ids []uint32) (Layout, error) {
 	return l, nil
 }
 
+// NewLayoutV2 creates a coverage-aware atlas with opaque slots by default.
+func NewLayoutV2(ids []uint32) (Layout, error) {
+	l, err := NewLayout(ids)
+	if err != nil {
+		return Layout{}, err
+	}
+	l.Schema = SchemaV2
+	for i := range l.Materials {
+		l.Materials[i].Coverage = CoverageOpaque
+	}
+	return l, nil
+}
+
 func (l Layout) Validate() error {
 	// Bound the list before allocating or doing coordinate arithmetic. Comparing
 	// against the canonical grid rejects overlaps, gaps, out-of-bounds gutters,
 	// negative/overflowing coordinates and alternate packing interpretations.
 	count := len(l.Materials)
-	if count == 0 || count > MaxMaterials || l.Schema != Schema ||
+	if count == 0 || count > MaxMaterials || (l.Schema != Schema && l.Schema != SchemaV2) ||
 		l.Width != min(count, GridSize)*CellSize+2*Inset ||
 		l.Height != ((count+GridSize-1)/GridSize)*CellSize+2*Inset {
 		return ErrAtlas
@@ -91,6 +109,10 @@ func (l Layout) Validate() error {
 			Y: Inset + (i/GridSize)*CellSize + Gutter, Width: TileSize, Height: TileSize, Gutter: Gutter}
 		geometry := r
 		geometry.Strengths = nil
+		geometry.Coverage = ""
+		if l.Schema == Schema && r.Coverage != "" || l.Schema == SchemaV2 && r.Coverage != CoverageOpaque && r.Coverage != CoverageMasked {
+			return ErrAtlas
+		}
 		if seen[r.MaterialID] || geometry != want || (r.Strengths != nil && r.Strengths.Validate() != nil) {
 			return ErrAtlas
 		}
@@ -203,13 +225,16 @@ func (p Pair) Validate() error {
 		}
 		if i == 0 {
 			for o := 3; o < len(pixels.Pix); o += 4 {
-				if pixels.Pix[o] != 255 {
+				if pixels.Pix[o] != 255 && !p.Layout.maskedPixel((o/4)%p.Layout.Width, (o/4)/p.Layout.Width) {
 					return ErrAtlas
 				}
 			}
 		} else if i == 2 {
 			for level := 1; level <= MipLevels; level++ {
 				for slot := range p.Layout.Materials {
+					if p.Layout.Materials[slot].Coverage == CoverageMasked {
+						continue
+					}
 					r, _ := p.Layout.MipRect(level, slot, false)
 					for y := r.Y - r.Gutter; y < r.Y+r.Height+r.Gutter; y++ {
 						for x := r.X - r.Gutter; x < r.X+r.Width+r.Gutter; x++ {
@@ -223,4 +248,17 @@ func (p Pair) Validate() error {
 		}
 	}
 	return nil
+}
+
+// maskedPixel recognizes only declared masked cells, leaving outer padding opaque.
+func (l Layout) maskedPixel(x, y int) bool {
+	if l.Schema != SchemaV2 || x < Inset || y < Inset {
+		return false
+	}
+	col, row := (x-Inset)/CellSize, (y-Inset)/CellSize
+	if col >= GridSize || col >= min(len(l.Materials), GridSize) {
+		return false
+	}
+	slot := row*GridSize + col
+	return slot >= 0 && slot < len(l.Materials) && l.Materials[slot].Coverage == CoverageMasked
 }

@@ -103,6 +103,6 @@ func (l Layout) MipRect(level, slot int, data bool) (Rect, error) {
 	if data {
 		index++
 	}
-	return Rect{MaterialID: l.Materials[slot].MaterialID, X: (index%m.Columns)*cell + m.Gutter,
+	return Rect{MaterialID: l.Materials[slot].MaterialID, Coverage: l.Materials[slot].Coverage, X: (index%m.Columns)*cell + m.Gutter,
 		Y: m.Y + (index/m.Columns)*cell + m.Gutter, Width: m.Size, Height: m.Size, Gutter: m.Gutter}, nil
 }

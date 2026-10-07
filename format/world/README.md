@@ -126,3 +126,51 @@ validation and canonical JSON rules apply before mounting.
 Mapped solids require the material-mapping marker and capability. There are no
 new guest commands or level-envelope versions. Incompatible contract changes
 require a versioned decision.
+
+## Compiled material layers, version 1
+
+Compiled world v3 may declare `material_layers: {"version":1}` together with
+`material_mapping` and the `world/material-layers@1` cartridge capability.
+Absent fields preserve existing v1–v3 encoding. Secondary descriptors on sector
+floors/ceilings and walls contain `material`, `strength` in [0,1], and a complete
+independent `uv` projection. Atlas tiles used as primary or secondary materials
+remain opaque.
+
+An authored wall may carry `frame_compiled: true` and `frame_regions`: the entire partition of its visible
+solid spans, including main-only regions. Each convex region contains 3–4
+counterclockwise `vertices` in edge-fraction/elevation coordinates (`x` is the
+fraction from directed start to end, `y` is world Z), a resolved `material`, and
+`coverage` (`main`, `opaque`, or `masked`). Main regions use the original wall
+material/mapping and omit region `uv` and repeat controls. Frame regions supply
+one UV projection and optional `repeat_u`/`repeat_v`; their material IDs select
+ordinary level textures, including direct top/bottom band images. Opaque regions use one full material; masked
+regions blend over the wall main using atlas alpha. A completely open portal
+retains `frame_compiled: true` even with no region records, so the host can reject
+edits that would create uncompiled framed wall spans. Marked empty regions are
+valid only when the wall has no visible solid area. Nonempty regions implicitly
+mark frame participation. Coverage never opens holes
+in the wall or alters collision, geometric depth or lightmap receiver identity.
+
+`CompileWallFrame` is the shared build-time partitioner. Its non-serialized
+recipe contains resolved strip dimensions, repeats, phases, offsets and piece
+IDs. `ProfileForWall` resolves affine solid spans, including transformed portal
+endpoints. Horizontal strips preserve PNG row direction: top V=(top−z)/height and bottom
+V=(bottom+height−z)/height, before offsets. They follow slopes, and overlapping envelopes crop
+proportionally. The source-v7 builder supplies horizontal bands only; compiled
+regions also retain their existing general strip/patch representation. No authored
+texture selection or placement inference is required at runtime.
+There are at most 252 regions per wall (7 profile intervals × 2 exposed spans ×
+2 overlap branches × 3 columns × 3 rows), 4 vertices per region and 32768 regions
+per world. Existing 8 MiB encoded-world and world geometry limits still apply.
+
+Complete validation rejects nonconvex regions, invalid mappings, missing
+markers, regions on decomposition edges, escaped or portal-aperture polygons,
+overlapping partitions and uncovered solid area. The host must preserve the
+original authored edge/receiver identity during triangulation and must not
+reuse static records after a wall-height edit changes their geometry.
+
+`MaterialIDs` defines shared atlas traversal: legacy primary references first
+(sector floor, ceiling, walls, then solid side/top/bottom), followed by secondary
+references in surface order and selected non-main frame regions in emitted
+order, deduplicated by material ID. Builders and hosts must use this same order
+and validate every referenced slot before readiness.

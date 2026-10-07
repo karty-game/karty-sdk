@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestEncodeDecodeCanonicalWorld(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !slices.EqualFunc(decoded.Sectors, document.Sectors, func(left, right world.Sector) bool {
-		return left.ID == right.ID && slices.Equal(left.Walls, right.Walls)
+		return left.ID == right.ID && reflect.DeepEqual(left.Walls, right.Walls)
 	}) || decoded.Contents[0] != document.Contents[0] {
 		t.Fatalf("decoded document differs: %+v", decoded)
 	}

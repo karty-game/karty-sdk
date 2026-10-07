@@ -32,6 +32,8 @@ const (
 	CapabilityWorldMaterialMappingV1   Capability = "world/material-mapping@1"
 	CapabilityWorldStaticSolidsV1      Capability = "world/static-solids@1"
 	CapabilityWorldMaterialAtlasV1     Capability = "world/material-atlas@1"
+	CapabilityWorldMaterialAtlasV2     Capability = "world/material-atlas@2"
+	CapabilityWorldMaterialLayersV1    Capability = "world/material-layers@1"
 )
 
 const (
@@ -74,6 +76,8 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldLightmapsV1,
 			CapabilityWorldLightmapsPrebakedV1,
 			CapabilityWorldMaterialAtlasV1,
+			CapabilityWorldMaterialAtlasV2,
+			CapabilityWorldMaterialLayersV1,
 			CapabilityWorldMaterialMappingV1,
 			CapabilityWorldStaticSolidsV1,
 		},

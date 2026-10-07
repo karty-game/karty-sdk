@@ -41,7 +41,7 @@ func TestCapabilitiesAreCanonical(t *testing.T) {
 		"duplicate mapping":    {Runtime: []asset.Capability{asset.CapabilityWorldMaterialMappingV1, asset.CapabilityWorldMaterialMappingV1}},
 		"unknown mapping":      {Runtime: []asset.Capability{"world/material-mapping@2"}},
 		"mapping as processor": {Processors: []asset.Processor{asset.Processor(asset.CapabilityWorldMaterialMappingV1)}},
-		"unknown atlas":        {Runtime: []asset.Capability{"world/material-atlas@2"}},
+		"unknown atlas":        {Runtime: []asset.Capability{"world/material-atlas@3"}},
 		"unsorted atlas":       {Runtime: []asset.Capability{asset.CapabilityWorldMaterialAtlasV1, asset.CapabilityTextureQOIv1}},
 		"atlas as processor":   {Processors: []asset.Processor{asset.Processor(asset.CapabilityWorldMaterialAtlasV1)}},
 	} {

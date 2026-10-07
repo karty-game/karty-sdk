@@ -50,6 +50,9 @@ func Validate(document *Document) error {
 		return err
 	}
 
+	if err := validateDocumentLayers(document); err != nil {
+		return err
+	}
 	contentIdentities := make(map[string]struct{}, len(document.Contents))
 	for index := range document.Contents {
 		if err := validateContent(index, &document.Contents[index], document.Sectors, contentIdentities, document.Version); err != nil {

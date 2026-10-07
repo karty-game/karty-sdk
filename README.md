@@ -82,7 +82,7 @@ artifact tags (`sdk-vVERSION`) version downloadable SDK bundles and hosts
 independently. SDK 0.0.8 contracts are documented as available features, rather
 than unfinished proposals; capability declarations still govern host support.
 Compiled worlds support versions 1–3, and authoring documents support versions
-1–6. New optional features retain their explicit version gates and canonical
+1–7. New optional features retain their explicit version gates and canonical
 encoding rules. Incompatible formats or producer behavior need a versioned
 decision and compatibility coverage.
 

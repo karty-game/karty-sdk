@@ -16,7 +16,8 @@ const (
 	LightingVersion      = uint16(4)
 	MappingVersion       = uint16(5)
 	SolidsVersion        = uint16(6)
-	Version              = SolidsVersion
+	MaterialsVersion     = uint16(7)
+	Version              = MaterialsVersion
 	MaxRooms             = 1024
 	MaxPrefabs           = 256
 	MaxInstances         = 4096
@@ -85,25 +86,31 @@ type Document struct {
 // Room may be concave. The compiler decomposes it into convex sectors after
 // prefab expansion and connection resolution.
 type Room struct {
-	ID              string      `json:"id"                   yaml:"id"`
-	Boundary        []Edge      `json:"boundary"             yaml:"boundary"`
-	Floor           Plane       `json:"floor"                yaml:"floor"`
-	Ceiling         Plane       `json:"ceiling"              yaml:"ceiling"`
-	FloorMaterial   string      `json:"floor_material"       yaml:"floor_material"`
-	CeilingMaterial string      `json:"ceiling_material"     yaml:"ceiling_material"`
-	Contents        []Content   `json:"contents"             yaml:"contents"`
-	FloorUV         *UVSettings `json:"floor_uv,omitempty"   yaml:"floor_uv,omitempty"`
-	CeilingUV       *UVSettings `json:"ceiling_uv,omitempty" yaml:"ceiling_uv,omitempty"`
-	WallUV          *UVSettings `json:"wall_uv,omitempty"    yaml:"wall_uv,omitempty"`
+	ID               string             `json:"id"                          yaml:"id"`
+	Boundary         []Edge             `json:"boundary"                    yaml:"boundary"`
+	Floor            Plane              `json:"floor"                       yaml:"floor"`
+	Ceiling          Plane              `json:"ceiling"                     yaml:"ceiling"`
+	FloorMaterial    string             `json:"floor_material"              yaml:"floor_material"`
+	CeilingMaterial  string             `json:"ceiling_material"            yaml:"ceiling_material"`
+	Contents         []Content          `json:"contents"                    yaml:"contents"`
+	FloorUV          *UVSettings        `json:"floor_uv,omitempty"          yaml:"floor_uv,omitempty"`
+	CeilingUV        *UVSettings        `json:"ceiling_uv,omitempty"        yaml:"ceiling_uv,omitempty"`
+	WallUV           *UVSettings        `json:"wall_uv,omitempty"           yaml:"wall_uv,omitempty"`
+	WallBands        *BandSettings      `json:"wall_bands,omitempty"        yaml:"wall_bands,omitempty"`
+	FloorSecondary   *SecondarySettings `json:"floor_secondary,omitempty"   yaml:"floor_secondary,omitempty"`
+	CeilingSecondary *SecondarySettings `json:"ceiling_secondary,omitempty" yaml:"ceiling_secondary,omitempty"`
+	WallSecondary    *SecondarySettings `json:"wall_secondary,omitempty"    yaml:"wall_secondary,omitempty"`
 }
 
 // Edge is one named, directed CCW boundary edge.
 type Edge struct {
-	ID       string      `json:"id"           yaml:"id"`
-	Start    Vec2        `json:"start"        yaml:"start"`
-	End      Vec2        `json:"end"          yaml:"end"`
-	Material string      `json:"material"     yaml:"material"`
-	UV       *UVSettings `json:"uv,omitempty" yaml:"uv,omitempty"`
+	ID        string             `json:"id"                  yaml:"id"`
+	Start     Vec2               `json:"start"               yaml:"start"`
+	End       Vec2               `json:"end"                 yaml:"end"`
+	Material  string             `json:"material"            yaml:"material"`
+	UV        *UVSettings        `json:"uv,omitempty"        yaml:"uv,omitempty"`
+	Bands     *BandSettings      `json:"bands,omitempty"     yaml:"bands,omitempty"`
+	Secondary *SecondarySettings `json:"secondary,omitempty" yaml:"secondary,omitempty"`
 }
 
 type Content struct {

@@ -72,6 +72,9 @@ func Validate(document *Document) error {
 		counts.ports > MaxPorts || counts.edges > MaxEdges || counts.contents > MaxContents {
 		return ErrBounds
 	}
+	if err := validateDocumentMaterials(document); err != nil {
+		return err
+	}
 	if err := validateDocumentUV(document); err != nil {
 		return err
 	}

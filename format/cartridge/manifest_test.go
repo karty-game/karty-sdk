@@ -14,7 +14,7 @@ func TestManifestRoundTripInsideGameCartridge(t *testing.T) {
 	t.Parallel()
 
 	want := cartridge.Manifest{
-		ProjectName: "pong",
+		ProjectName: "test-game",
 		Compiler:    "tinygo",
 		Width:       960,
 		Height:      540,
@@ -94,31 +94,31 @@ func TestManifestRejectsMalformedData(t *testing.T) {
 	validHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	for name, manifest := range map[string]cartridge.Manifest{
 		"unsorted levels": {
-			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			ProjectName: "test-game", Compiler: "tinygo", Width: 640, Height: 360,
 			Levels: []cartridge.LevelDependency{
 				{Name: "z", Kind: "level", ContentSHA256: validHash, Size: 1, EnvelopeVersion: 1},
 				{Name: "a", Kind: "level", ContentSHA256: validHash, Size: 1, EnvelopeVersion: 1},
 			},
 		},
 		"uppercase hash": {
-			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			ProjectName: "test-game", Compiler: "tinygo", Width: 640, Height: 360,
 			Levels: []cartridge.LevelDependency{{Name: "a", Kind: "level", ContentSHA256: "A" + validHash[1:], Size: 1, EnvelopeVersion: 1}},
 		},
 		"unknown feature": {
-			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			ProjectName: "test-game", Compiler: "tinygo", Width: 640, Height: 360,
 			Features: []string{"sound/future@1"},
 		},
 		"unsorted features": {
-			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			ProjectName: "test-game", Compiler: "tinygo", Width: 640, Height: 360,
 			Features: []string{cartridge.FeatureTextureQOIv1, cartridge.FeatureSoundQOAv1},
 		},
 		"duplicate atlas": {
-			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
+			ProjectName: "test-game", Compiler: "tinygo", Width: 640, Height: 360,
 			Features: []string{cartridge.FeatureWorldMaterialAtlasV1, cartridge.FeatureWorldMaterialAtlasV1},
 		},
 		"unknown atlas version": {
-			ProjectName: "pong", Compiler: "tinygo", Width: 640, Height: 360,
-			Features: []string{"world/material-atlas@2"},
+			ProjectName: "test-game", Compiler: "tinygo", Width: 640, Height: 360,
+			Features: []string{"world/material-atlas@3"},
 		},
 	} {
 		if _, err := cartridge.EncodeManifest(manifest); err == nil {
@@ -141,7 +141,7 @@ func TestManifestDecoderRejectsMalformedAtlasFeatures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	unknown := bytes.Replace(encoded, []byte(cartridge.FeatureWorldMaterialAtlasV1), []byte("world/material-atlas@2"), 1)
+	unknown := bytes.Replace(encoded, []byte(cartridge.FeatureWorldMaterialAtlasV1), []byte("world/material-atlas@3"), 1)
 	if _, err := cartridge.DecodeManifest(unknown); !errors.Is(err, cartridge.ErrManifest) {
 		t.Fatal("decoded unsupported atlas capability")
 	}

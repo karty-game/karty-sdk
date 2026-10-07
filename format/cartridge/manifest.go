@@ -33,6 +33,8 @@ const (
 	FeatureWorldMaterialMappingV1   = "world/material-mapping@1"
 	FeatureWorldStaticSolidsV1      = "world/static-solids@1"
 	FeatureWorldMaterialAtlasV1     = "world/material-atlas@1"
+	FeatureWorldMaterialAtlasV2     = "world/material-atlas@2"
+	FeatureWorldMaterialLayersV1    = "world/material-layers@1"
 )
 
 var ErrManifest = errors.New("game cartridge manifest is invalid")
@@ -322,5 +324,5 @@ func validManifestFeatures(features []string) bool {
 func validManifestFeature(feature string) bool {
 	return feature == FeatureAudioStreamQOAv1 || feature == FeatureSoundQOAv1 || feature == FeatureTextureQOIv1 ||
 		feature == FeatureVideoMPEG1v1 || feature == FeatureWorldSectorsV1 || feature == FeatureWorldLightingV1 ||
-		feature == FeatureWorldLightmapsV1 || feature == FeatureWorldLightmapsPrebakedV1 || feature == FeatureWorldMaterialAtlasV1 || feature == FeatureWorldMaterialMappingV1 || feature == FeatureWorldStaticSolidsV1
+		feature == FeatureWorldLightmapsV1 || feature == FeatureWorldLightmapsPrebakedV1 || feature == FeatureWorldMaterialAtlasV1 || feature == FeatureWorldMaterialMappingV1 || feature == FeatureWorldStaticSolidsV1 || feature == FeatureWorldMaterialAtlasV2 || feature == FeatureWorldMaterialLayersV1
 }

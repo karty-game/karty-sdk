@@ -20,8 +20,9 @@ format validation and builds do not require the CLI or a YAML parser here.
 | 4              | Root authored lighting                                    |
 | 5              | Material UV mapping                                       |
 | 6              | Static solids, root/prefab contents and room-free prefabs |
+| 7              | Top/bottom wall bands and secondary colour textures       |
 
-Versions 1–6 remain supported. Optional fields must respect their version gates;
+Versions 1–7 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world
 contract](../world/README.md) for output validation and lighting bounds. Root
 lighting remains in global coordinates and is never transformed by a prefab.
@@ -70,3 +71,38 @@ existing `world/material-mapping@1` marker/capability; hosts also require
 
 See [compiled solids](../world/README.md#static-solids-version-1) for exact
 geometry, material and collision bounds.
+
+## Wall bands and secondary colour, source version 7
+
+Source v7 adds `wall_bands` to rooms and `bands` to directed authored edges.
+Each contains optional `enabled`, `top` and `bottom`. Each horizontal band
+accepts `texture`, `enabled`, `height`, `repeat_width` and `offset: {x, y}`.
+Textures resolve through the ordinary level texture catalog; the same texture
+can be reused by both bands. Enabled resolved bands require a texture and height.
+Repeat width defaults to 1 world unit and offset to zero. Alpha is band coverage;
+transparent pixels reveal the underlying opaque wall.
+
+Rooms also supply `floor_secondary`, `ceiling_secondary`, `wall_secondary`,
+and edges may override `secondary`. A secondary references one opaque `texture`,
+optional `enabled`, `strength` in [0,1], and existing `uv` settings. Its colour
+modulates the main in linear space; neutral sRGB (188,188,188) preserves the
+main colour. It does not replace normal, height or AO channels.
+
+All optional fields inherit field by field after prefab expansion; explicit
+`enabled: false` disables an inherited setting. Builders apply material
+substitution independently to top, bottom and secondary references.
+`MergeBandSettings` returns independent nested band records, preserving input
+values. Dimensions and repeats use world units and must be finite in
+[0.001,1000000]; offsets retain ±1000000 bounds. Source versions 1–6 reject these
+fields; omission preserves their existing serialized shape. Typed SDK validation
+checks versions and partial controls; public text parsers must additionally reject
+explicit null and unknown fields and validate the complete resolved settings and
+resource references.
+
+Horizontal bands follow visible solid-span floor and ceiling profiles with fixed
+vertical thickness. Opposing envelopes on a short span crop at a proportional
+boundary, retaining requested texture density. The builder compiles the complete
+nonoverlapping wall partition, mappings, material IDs and coverage classes. There
+are no vertical-band or frame-sheet authoring fields. The source-v7 simplification
+revises the unreleased SDK 0.0.10 candidate; released source versions and compiled
+world/material-layer formats are unchanged. See the [compiled contract](../world/README.md).

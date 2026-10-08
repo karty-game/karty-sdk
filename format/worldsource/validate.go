@@ -82,7 +82,7 @@ func Validate(document *Document) error {
 		return err
 	}
 
-	return nil
+	return validateAnimations(document)
 }
 
 func usesNonEuclideanConnections(document *Document) bool {

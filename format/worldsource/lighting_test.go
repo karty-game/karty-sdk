@@ -16,10 +16,10 @@ import (
 
 func TestLightingSourceVersionAndAbsentCompatibility(t *testing.T) {
 	t.Parallel()
-	if worldsource.Version != 7 || worldsource.LightingVersion != 4 || worldsource.MaxLights != 50 {
+	if worldsource.Version != 8 || worldsource.LightingVersion != 4 || worldsource.MaxLights != 50 {
 		t.Fatal("static lighting source version or bound changed")
 	}
-	for _, version := range []uint16{1, 2, 3, 4, 5, 6} {
+	for _, version := range []uint16{1, 2, 3, 4, 5, 6, 7} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			t.Parallel()
 			document := validSource()

@@ -17,7 +17,8 @@ const (
 	MappingVersion       = uint16(5)
 	SolidsVersion        = uint16(6)
 	MaterialsVersion     = uint16(7)
-	Version              = MaterialsVersion
+	AnimationsVersion    = uint16(8)
+	Version              = AnimationsVersion
 	MaxRooms             = 1024
 	MaxPrefabs           = 256
 	MaxInstances         = 4096
@@ -77,10 +78,11 @@ type Document struct {
 	Connections []Connection `json:"connections" yaml:"connections"`
 	// Lighting is available in source v4 and later, in global world coordinates.
 	// It is not part of any room, prefab or instance transform.
-	Lighting *Lighting   `json:"lighting,omitempty" yaml:"lighting,omitempty"`
-	UV       *UVSettings `json:"uv,omitempty"       yaml:"uv,omitempty"`
-	Solids   []Solid     `json:"solids,omitempty"   yaml:"solids,omitempty"`
-	Contents []Content   `json:"contents,omitempty" yaml:"contents,omitempty"`
+	Lighting   *Lighting   `json:"lighting,omitempty"   yaml:"lighting,omitempty"`
+	UV         *UVSettings `json:"uv,omitempty"         yaml:"uv,omitempty"`
+	Solids     []Solid     `json:"solids,omitempty"     yaml:"solids,omitempty"`
+	Contents   []Content   `json:"contents,omitempty"   yaml:"contents,omitempty"`
+	Animations *Animations `json:"animations,omitempty" yaml:"animations,omitempty"`
 }
 
 // Room may be concave. The compiler decomposes it into convex sectors after
@@ -121,12 +123,13 @@ type Content struct {
 }
 
 type Actor struct {
-	YawDegrees   float64  `json:"yaw_degrees"      yaml:"yaw_degrees"`
-	PitchDegrees float64  `json:"pitch_degrees"    yaml:"pitch_degrees"`
-	RollDegrees  float64  `json:"roll_degrees"     yaml:"roll_degrees"`
-	Scale        Vec3     `json:"scale"            yaml:"scale"`
-	Sprite       *Sprite  `json:"sprite,omitempty" yaml:"sprite,omitempty"`
-	Tags         []string `json:"tags,omitempty"   yaml:"tags,omitempty"`
+	YawDegrees   float64           `json:"yaw_degrees"         yaml:"yaw_degrees"`
+	PitchDegrees float64           `json:"pitch_degrees"       yaml:"pitch_degrees"`
+	RollDegrees  float64           `json:"roll_degrees"        yaml:"roll_degrees"`
+	Scale        Vec3              `json:"scale"               yaml:"scale"`
+	Sprite       *Sprite           `json:"sprite,omitempty"    yaml:"sprite,omitempty"`
+	Tags         []string          `json:"tags,omitempty"      yaml:"tags,omitempty"`
+	Animation    *AnimationBinding `json:"animation,omitempty" yaml:"animation,omitempty"`
 }
 
 type Sprite struct {

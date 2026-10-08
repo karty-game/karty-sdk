@@ -94,6 +94,18 @@ func MaterialIDs(d *Document) []uint32 {
 			}
 		}
 	}
+	if d.Animations != nil {
+		for _, binding := range d.Animations.Materials {
+			for _, preset := range d.Animations.Presets {
+				if preset.Name == binding.Preset && preset.Kind == "flipbook" {
+					add(binding.Material)
+					for _, frame := range preset.Frames {
+						add(frame)
+					}
+				}
+			}
+		}
+	}
 	return ids
 }
 

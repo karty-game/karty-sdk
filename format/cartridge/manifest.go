@@ -26,6 +26,8 @@ const (
 	FeatureTextureQOIv1             = "texture/qoi@1"
 	FeatureSoundQOAv1               = "sound/qoa@1"
 	FeatureAudioStreamQOAv1         = "audio-stream/qoa@1"
+	FeatureWorldAnimationsV1        = "world/animations@1"
+	FeatureWorldEmissionV1          = "world/emission@1"
 	FeatureWorldSectorsV1           = "world/sectors@1"
 	FeatureWorldLightingV1          = "world/lighting@1"
 	FeatureWorldLightmapsV1         = "world/lightmaps@1"
@@ -305,6 +307,10 @@ func validManifestString(value string) bool {
 }
 
 func validManifestFeatures(features []string) bool {
+	if (slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
+		!slices.Contains(features, FeatureWorldSectorsV1) {
+		return false
+	}
 	if slices.Contains(features, FeatureWorldLightmapsPrebakedV1) &&
 		(!slices.Contains(features, FeatureWorldLightmapsV1) || !slices.Contains(features, FeatureWorldLightingV1) ||
 			!slices.Contains(features, FeatureWorldSectorsV1)) {
@@ -324,5 +330,5 @@ func validManifestFeatures(features []string) bool {
 func validManifestFeature(feature string) bool {
 	return feature == FeatureAudioStreamQOAv1 || feature == FeatureSoundQOAv1 || feature == FeatureTextureQOIv1 ||
 		feature == FeatureVideoMPEG1v1 || feature == FeatureWorldSectorsV1 || feature == FeatureWorldLightingV1 ||
-		feature == FeatureWorldLightmapsV1 || feature == FeatureWorldLightmapsPrebakedV1 || feature == FeatureWorldMaterialAtlasV1 || feature == FeatureWorldMaterialMappingV1 || feature == FeatureWorldStaticSolidsV1 || feature == FeatureWorldMaterialAtlasV2 || feature == FeatureWorldMaterialLayersV1
+		feature == FeatureWorldLightmapsV1 || feature == FeatureWorldLightmapsPrebakedV1 || feature == FeatureWorldMaterialAtlasV1 || feature == FeatureWorldMaterialMappingV1 || feature == FeatureWorldStaticSolidsV1 || feature == FeatureWorldMaterialAtlasV2 || feature == FeatureWorldMaterialLayersV1 || feature == FeatureWorldAnimationsV1 || feature == FeatureWorldEmissionV1
 }

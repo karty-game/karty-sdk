@@ -60,7 +60,10 @@ func Validate(document *Document) error {
 		}
 	}
 
-	return nil
+	if err := ValidateEmission(document); err != nil {
+		return err
+	}
+	return ValidateAnimations(document)
 }
 
 func validateSector(index int, sector *Sector, identities map[string]struct{}) error {

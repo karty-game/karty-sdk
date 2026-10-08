@@ -174,3 +174,55 @@ reuse static records after a wall-height edit changes their geometry.
 references in surface order and selected non-main frame regions in emitted
 order, deduplicated by material ID. Builders and hosts must use this same order
 and validate every referenced slot before readiness.
+
+## Reusable animations
+
+Compiled v3 optionally carries `animations` version 1 and requires
+`world/animations@1` alongside `world/sectors@1`. Source version 8 introduces
+this feature without changing compiled geometry or the legacy absent encoding.
+The level-wide library contains at most 64 unique named presets and 196 material
+bindings. Actors can select a named preset with `animation`; material bindings
+select a texture/material ID with `material`. `phase_seconds` offsets the shared
+simulation clock by a finite nonnegative value up to 86400 seconds.
+
+| Kind        | Parameters and behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flipbook`  | `frames` (2–64 texture IDs), `fps` (0.001–120), optional `interval_seconds`. Zero interval loops continuously. A positive interval must contain the full frame sequence; after playing it, frame zero is held until the next interval.                                                                                                                                                                                                                                                                                                                                                               |
+| `liquid`    | `flow` (UV/second, each component −10 to 10), `amplitude` (UV units, 0–1), `frequency` (waves/UV unit, greater than 0 up to 100), `speed` (radians/second, −100 to 100). Smooth analytic UV distortion on world materials. Optional `surface_amplitude` (world metres, 0–0.25) adds visual waves on horizontal up-facing floors and solid tops; optional `opacity` (0–1, defaults to 1) uses ordered screen-space coverage so deeper geometry remains visible; optional `pixel_size` (integer 0–32, defaults to 0) quantizes sampling to multiples of base texture texels. Collision remains static. |
+| `spin`      | Unit `axis`, optional `pivot`, `speed` (nonzero radians/second, −100 to 100). Fixed sprites rotate around their local pivot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `oscillate` | Nonzero `offset`, `period_seconds` (0.001–86400). Fixed sprites smoothly move from their authored rest position to rest plus offset and back, using `(1-cos(2*pi*t/period))/2`.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+Axis, pivot and offset are actor-local before scale and orientation. Motion is
+visual only: authored positions, sector ownership, collision and gameplay queries
+remain unchanged. Explicit sprite `flipbook` bindings support all facing modes;
+material flipbooks also affect sprites that use that texture. `liquid` bindings
+apply to world materials; fixed sprites support spin and oscillate. Kind-specific
+validation rejects parameters belonging to other kinds and unsupported targets.
+
+All frames must reference packaged textures, including animation-only frames.
+Material flipbook frame targets cannot select another animation, except for the
+binding's own material (normally frame zero). `MaterialIDs` appends these frames
+in material-binding and frame order after all existing surface references, with
+stable deduplication. Actor-only frames stay in the ordinary sprite texture table
+and do not consume world material slots. Baking remains static: animation does
+uses the authored rest geometry and does not emit light. Horizontal surface displacement is GPU-only; other faces sharing the material remain rigid. A displacement binding needs at least one horizontal floor or solid top. `opacity: 0` is fully transparent; omitting it means opaque. Explicit null values are invalid in authored YAML. Texture pixel quantization does not reduce viewport resolution.
+
+## Material emission
+
+Candidate `world/emission@1` adds the optional compiled v3 `Emission` payload.
+Up to 196 used primary environment/band material IDs have an eight-bit intensity,
+decoded as `code * 8 / 255`, and an optional bounded cosine pulse. Depth is
+[0,1], period [0.001,86400] seconds and phase [0,86400] seconds. Duplicate IDs,
+frame-only/secondary-only materials, invalid versions and invalid pulse values
+reject. The pulse composes independently with the existing single surface
+animation. Emission uses final linear albedo and bypasses lighting/shadow/AO
+attenuation; it does not supply bloom, sprite emission or automatic light
+transport. Explicit colored point lights provide nearby illumination. Omitted
+payloads preserve legacy canonical bytes. The feature requires `world/sectors@1`.
+
+Optional material `lights` entries link existing point-light IDs to that material's
+pulse envelope. Their authored colors are the peak contribution; the same
+simulation phase drives surface emission and environment/actor light colors.
+At most 50 unique lights may be linked, each to one material. Unknown, duplicate
+or multiply owned IDs reject. A linked light with nonzero pulse depth cannot be
+included in static world-lightmap bake recipes.

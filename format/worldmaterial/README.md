@@ -184,3 +184,10 @@ repeat/clamp controls for the selected region, rather than reading unrelated
 sheet regions. `NewMipLayout` preserves coverage declarations. Existing
 196-slot, 4096-pixel dimension, 32 KiB layout and 256 MiB shared decoded-budget
 limits apply unchanged. Secondary-only slots have neutral data (128,128,0,255).
+
+Material effects in `world/animations@1` require opaque atlas coverage for both
+the bound target and every flipbook frame. `ValidateAnimationCoverage` checks
+that complete relationship after layout preparation. Legacy atlas v1's absent
+coverage is opaque; atlas v2 requires `coverage: "opaque"`. Masked world artwork
+and animated coverage boundaries are excluded from this first version. Explicit
+actor flipbooks use ordinary sprite textures and may retain alpha.

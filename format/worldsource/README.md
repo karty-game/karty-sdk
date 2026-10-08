@@ -22,7 +22,7 @@ format validation and builds do not require the CLI or a YAML parser here.
 | 6              | Static solids, root/prefab contents and room-free prefabs |
 | 7              | Top/bottom wall bands and secondary colour textures       |
 
-Versions 1–7 remain supported. Optional fields must respect their version gates;
+Versions 1–8 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world
 contract](../world/README.md) for output validation and lighting bounds. Root
 lighting remains in global coordinates and is never transformed by a prefab.
@@ -106,3 +106,27 @@ nonoverlapping wall partition, mappings, material IDs and coverage classes. Ther
 are no vertical-band or frame-sheet authoring fields. The source-v7 simplification
 revises the unreleased SDK 0.0.10 candidate; released source versions and compiled
 world/material-layer formats are unchanged. See the [compiled contract](../world/README.md).
+
+## Source v8 reusable animations
+
+Source v8 adds optional top-level `animations: {version: 1, presets: [...],
+materials: [...]}` and `actor.animation: {preset: name, phase_seconds: 0}`.
+Presets are level-wide and referenced by name, including inside prefabs. Material
+bindings use declared texture names; flipbook frames are lists of declared texture
+names. The compiler resolves every frame to a nonzero level texture ID. Material
+bindings apply wherever the material occurs; an explicit actor binding supplies
+its own preset and phase. Preset coordinates stay actor-local through prefab
+expansion, so placement scale and orientation carry motion along with the actor.
+
+The initial catalogue is `flipbook`, `liquid`, `spin`, and `oscillate`. See the
+[compiled contract](../world/README.md#reusable-animations) for parameters, bounds
+and timing. Source v1–v7 reject animations and retain existing wire behavior.
+Frames are separate complete textures, which the world material atlas packs into
+ordinary slots; they are not arbitrary authored atlas rectangles. Flipbook frames
+must have equal processed dimensions. Presets cannot be nested or reference other
+presets, and frame materials cannot select another material animation.
+
+Liquid presets may also specify `surface_amplitude` (0–0.25 world metres),
+`opacity` (0–1, omitted means 1), and `pixel_size` (integer 0–32). These fields
+are liquid-only; explicit nulls are rejected by the source YAML adapter.
+Compilation owns an independent copy of an explicit opacity value.

@@ -30,6 +30,8 @@ const (
 	CapabilityWorldLightmapsV1         Capability = "world/lightmaps@1"
 	CapabilityWorldLightmapsPrebakedV1 Capability = "world/lightmaps-prebaked@1"
 	CapabilityWorldMaterialMappingV1   Capability = "world/material-mapping@1"
+	CapabilityWorldAnimationsV1        Capability = "world/animations@1"
+	CapabilityWorldEmissionV1          Capability = "world/emission@1"
 	CapabilityWorldStaticSolidsV1      Capability = "world/static-solids@1"
 	CapabilityWorldMaterialAtlasV1     Capability = "world/material-atlas@1"
 	CapabilityWorldMaterialAtlasV2     Capability = "world/material-atlas@2"
@@ -80,6 +82,8 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldMaterialLayersV1,
 			CapabilityWorldMaterialMappingV1,
 			CapabilityWorldStaticSolidsV1,
+			CapabilityWorldAnimationsV1,
+			CapabilityWorldEmissionV1,
 		},
 	); err != nil {
 		return fmt.Errorf("runtime capabilities: %w", err)

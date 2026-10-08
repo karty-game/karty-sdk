@@ -198,6 +198,18 @@ func validateBake(recipe *RuntimeBake, document *world.Document) error {
 			if light.Motion != nil {
 				return fmt.Errorf("bake light %q has runtime motion: %w", id, ErrLayout)
 			}
+			if emission := document.Emission; emission != nil {
+				for _, material := range emission.Materials {
+					if material.Pulse == nil || material.Pulse.Depth == 0 {
+						continue
+					}
+					for _, linked := range material.Lights {
+						if linked == id {
+							return fmt.Errorf("bake light %q has an emission pulse: %w", id, ErrLayout)
+						}
+					}
+				}
+			}
 			if !runtimeEmitterInside(document, light.Position) {
 				return fmt.Errorf("bake emitter %q is outside the physical component: %w", id, ErrLayout)
 			}

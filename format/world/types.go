@@ -78,6 +78,8 @@ type Document struct {
 	MaterialMapping *MaterialMapping `json:"material_mapping,omitempty"`
 	StaticSolids    *StaticSolids    `json:"static_solids,omitempty"`
 	MaterialLayers  *MaterialLayers  `json:"material_layers,omitempty"`
+	Animations      *Animations      `json:"animations,omitempty"`
+	Emission        *Emission        `json:"emission,omitempty"`
 }
 
 // Sector is a strictly convex CCW cell. SourceRoom and Instance retain the
@@ -134,12 +136,13 @@ type Content struct {
 // Position remains on Content so actor and non-rendered gameplay contents share
 // the same stable identity and sector assignment.
 type Actor struct {
-	Yaw    float64  `json:"yaw"`
-	Pitch  float64  `json:"pitch"`
-	Roll   float64  `json:"roll"`
-	Scale  Vec3     `json:"scale"`
-	Sprite *Sprite  `json:"sprite,omitempty"`
-	Tags   []string `json:"tags,omitempty"`
+	Yaw       float64           `json:"yaw"`
+	Pitch     float64           `json:"pitch"`
+	Roll      float64           `json:"roll"`
+	Scale     Vec3              `json:"scale"`
+	Sprite    *Sprite           `json:"sprite,omitempty"`
+	Tags      []string          `json:"tags,omitempty"`
+	Animation *AnimationBinding `json:"animation,omitempty"`
 }
 
 type SpriteFacing string

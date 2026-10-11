@@ -1,12 +1,12 @@
 [tools]
 hk = "2.5.0"
 taplo = "0.10.0"
-uv = "0.12.23"
+uv = "0.13.0"
 yamllint = { version = "1.38.0", uvx = true }
-prettier = "3.9.9"
+prettier = "3.9.10"
 golangci-lint = "2.14.0"
-go = "1.27.1"
-node = "26.10.0"
+go = "1.27.2"
+node = "26.11.1"
 
 # Go 1.27 portable SIMD; remove this gate when SIMD is enabled by default.
 [env]
@@ -43,7 +43,11 @@ run = "golangci-lint run ./..."
 
 [tasks.test-race]
 # Keep race-instrumented atlas validation from competing with baker tests.
-run = "go test -p=1 -timeout=9s -race ./..."
+# Give the dense producer compatibility fixtures their own nine-second budget.
+run = [
+  "go test -p=1 -timeout=9s -race ./... -skip='^TestProducerCompatibility$'",
+  "go test -timeout=9s -race ./bake/worldlightmap -run='^TestProducerCompatibility$'",
+]
 
 [tasks.test-simd-emulated]
 env = { GODEBUG = "simd=0" }

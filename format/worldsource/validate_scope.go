@@ -142,6 +142,9 @@ func resolveEndpoint(endpoint Endpoint, index *scopeIndex, prefabs map[string]*P
 		for edgeIndex := range room.Boundary {
 			edge := &room.Boundary[edgeIndex]
 			if edge.ID == endpoint.Edge {
+				if edge.Sky {
+					return "", nil, fmt.Errorf("sky edge cannot be a connection or port endpoint: %w", ErrConnection)
+				}
 				return "room:" + endpoint.Room + "/" + endpoint.Edge, edge, nil
 			}
 		}
@@ -159,9 +162,49 @@ func resolveEndpoint(endpoint Endpoint, index *scopeIndex, prefabs map[string]*P
 	prefab := prefabs[instance.Prefab]
 	for _, port := range prefab.Ports {
 		if port.ID == endpoint.Port {
+			if skyEndpoint(port.Endpoint, prefab.Rooms, prefab.Instances, prefabs, 0) {
+				return "", nil, fmt.Errorf("sky edge cannot be a connection or port endpoint: %w", ErrConnection)
+			}
 			return "instance:" + endpoint.Instance + "/" + endpoint.Port, nil, nil
 		}
 	}
 
 	return "", nil, ErrReference
+}
+
+// Prefab cycles and missing references retain their existing dedicated checks.
+// Limit this read-only walk before those checks, with no expansion allocation.
+func skyEndpoint(endpoint Endpoint, rooms []Room, instances []Instance, prefabs map[string]*Prefab, depth int) bool {
+	if depth > MaxPrefabs {
+		return false
+	}
+	if endpoint.Room != "" {
+		for _, room := range rooms {
+			if room.ID == endpoint.Room {
+				for _, edge := range room.Boundary {
+					if edge.ID == endpoint.Edge {
+						return edge.Sky
+					}
+				}
+				return false
+			}
+		}
+		return false
+	}
+	for _, instance := range instances {
+		if instance.ID != endpoint.Instance {
+			continue
+		}
+		prefab := prefabs[instance.Prefab]
+		if prefab == nil {
+			return false
+		}
+		for _, port := range prefab.Ports {
+			if port.ID == endpoint.Port {
+				return skyEndpoint(port.Endpoint, prefab.Rooms, prefab.Instances, prefabs, depth+1)
+			}
+		}
+		return false
+	}
+	return false
 }

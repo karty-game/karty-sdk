@@ -19,7 +19,7 @@ func TestEnvelopeRejectsDuplicateTextureIDs(t *testing.T) {
 			t.Fatalf("TextureAssetID(%q) = %d, %t", name, id, ok)
 		}
 		// Preserve existing acceptance of either spelling on its own.
-		encoded, err := level.Encode([]byte(`{}`), []level.SourceEntry{
+		encoded, err := level.Encode(metadataBytes(t, level.Metadata{}), []level.SourceEntry{
 			{Name: name, Kind: level.EntryTexture, Data: []byte{1}},
 		})
 		if err != nil {
@@ -29,14 +29,14 @@ func TestEnvelopeRejectsDuplicateTextureIDs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := level.Encode([]byte(`{}`), []level.SourceEntry{
+	if _, err := level.Encode(metadataBytes(t, level.Metadata{}), []level.SourceEntry{
 		{Name: upper, Kind: level.EntryTexture, Data: []byte{1}},
 		{Name: lower, Kind: level.EntryTexture, Data: []byte{2}},
 	}); !errors.Is(err, level.ErrEntry) {
 		t.Errorf("Encode() accepted aliased texture IDs: %v", err)
 	}
 
-	encoded, err := level.Encode([]byte(`{}`), []level.SourceEntry{
+	encoded, err := level.Encode(metadataBytes(t, level.Metadata{}), []level.SourceEntry{
 		{Name: level.TextureEntryName(9), Kind: level.EntryTexture, Data: []byte{1}},
 		{Name: lower, Kind: level.EntryTexture, Data: []byte{2}},
 	})

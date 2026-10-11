@@ -28,12 +28,14 @@ func TestCanonicalSourceFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The JSON-compatible YAML fixture keeps its editor directive outside the
-	// format payload. Public formats intentionally do not depend on a YAML parser.
+	// format payload. Public formats intentionally do not depend on a YAML parser. JSON decoding is
+	// only a test adapter for this YAML subset; YAML tags own the field vocabulary.
 	header, encoded, found := bytes.Cut(encoded, []byte("\n"))
 	if !found || string(header) != "# $schema: ../../../.karty/schemas/worldsource.base.schema.json" {
 		t.Fatal("world fixture must reference its generated editor schema")
 	}
 	var document worldsource.Document
+	encoded = normalizeFixtureKeys(t, encoded)
 	decoder := json.NewDecoder(bytes.NewReader(encoded))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&document); err != nil {

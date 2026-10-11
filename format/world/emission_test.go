@@ -2,7 +2,6 @@ package world_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"math"
 	"reflect"
 	"testing"
@@ -33,18 +32,14 @@ func TestEmissionCanonicalRoundTripAndMalformedFinalRecord(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(got, d) {
 		t.Fatal("emission round trip drift", err)
 	}
-	for _, bad := range [][]byte{
-		bytes.Replace(encoded, []byte(`"intensity":255`), []byte(`"intensity":256`), 1),
-		bytes.Replace(encoded, []byte(`"intensity":255`), []byte(`"intensity":-1`), 1),
-		bytes.Replace(encoded, []byte(`"material":2,"intensity":255`), []byte(`"material":99,"intensity":255`), 1),
-		bytes.Replace(encoded, []byte(`"material":2,"intensity":255`), []byte(`"material":1,"intensity":255`), 1),
-		bytes.Replace(encoded, []byte(`"intensity":255`), []byte(`"intensity":255,"extra":true`), 1),
-		bytes.Replace(encoded, []byte(`"intensity":255`), []byte(`"intensity":255,"intensity":1`), 1),
-	} {
-		if _, err := world.Decode(bad); err == nil {
-			t.Fatal("accepted malformed complete emission payload")
+	assertBinaryMalformed(t, encoded)
+	for _, material := range []uint32{1, 99} {
+		d.Emission.Materials[1].Material = material
+		if _, err := world.Decode(uncheckedWorld(t, d)); err == nil {
+			t.Fatal("invalid last emission accepted")
 		}
 	}
+
 }
 
 func TestEmissionCompleteValidationAndAnimationComposition(t *testing.T) {
@@ -97,7 +92,7 @@ func TestEmissionIntensityQuantizationAndLegacyEncoding(t *testing.T) {
 			t.Fatal("intensity code drift", code, got, err)
 		}
 	}
-	encoded, _ := json.Marshal(world.Document{Version: 1})
+	encoded, _ := world.Encode(validWorld())
 	if bytes.Contains(encoded, []byte("emission")) {
 		t.Fatal("legacy payload changed")
 	}

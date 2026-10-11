@@ -16,7 +16,7 @@ import (
 
 func TestLightingSourceVersionAndAbsentCompatibility(t *testing.T) {
 	t.Parallel()
-	if worldsource.Version != 8 || worldsource.LightingVersion != 4 || worldsource.MaxLights != 50 {
+	if worldsource.Version != 10 || worldsource.LightingVersion != 4 || worldsource.MaxLights != 4096 || world.MaxRuntimeLights != 50 {
 		t.Fatal("static lighting source version or bound changed")
 	}
 	for _, version := range []uint16{1, 2, 3, 4, 5, 6, 7} {
@@ -27,26 +27,11 @@ func TestLightingSourceVersionAndAbsentCompatibility(t *testing.T) {
 			if err := worldsource.Validate(&document); err != nil {
 				t.Fatalf("source v%d without lighting: %v", version, err)
 			}
-			legacy := struct {
-				Version     uint16                   `json:"version"`
-				Rooms       []worldsource.Room       `json:"rooms"`
-				Prefabs     []worldsource.Prefab     `json:"prefabs"`
-				Instances   []worldsource.Instance   `json:"instances"`
-				Connections []worldsource.Connection `json:"connections"`
-			}{document.Version, document.Rooms, document.Prefabs, document.Instances, document.Connections}
-			want, err := json.Marshal(legacy)
-			if err != nil {
-				t.Fatal(err)
-			}
-			encoded, err := json.Marshal(document)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !bytes.Equal(encoded, want) || bytes.Contains(encoded, []byte(`"lighting"`)) {
-				t.Fatalf("absent lighting changed source encoding: %s", encoded)
+			if document.Lighting != nil {
+				t.Fatal("absent lighting gained defaults")
 			}
 			document.Lighting = validSourceLighting()
-			err = worldsource.Validate(&document)
+			err := worldsource.Validate(&document)
 			if version < 4 && !errors.Is(err, worldsource.ErrVersion) {
 				t.Fatalf("source v%d accepted lighting: %v", version, err)
 			}
@@ -59,7 +44,7 @@ func TestLightingSourceVersionAndAbsentCompatibility(t *testing.T) {
 
 func TestLightingSourceBoundsAndGlobalOrder(t *testing.T) {
 	t.Parallel()
-	for _, count := range []int{0, 1, 50, 51} {
+	for _, count := range []int{0, 1, 50, 51, 1000, worldsource.MaxLights, worldsource.MaxLights + 1} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			t.Parallel()
 			document := validSource()
@@ -79,7 +64,7 @@ func TestLightingSourceBoundsAndGlobalOrder(t *testing.T) {
 			err = worldsource.Validate(&document)
 			if count > worldsource.MaxLights {
 				if !errors.Is(err, worldsource.ErrBounds) {
-					t.Fatalf("51 lights: %v", err)
+					t.Fatalf("%d lights: %v", count, err)
 				}
 				return
 			}
@@ -228,9 +213,6 @@ func TestLightingDirectionalAmbientAndActorsContract(t *testing.T) {
 	encoded, err := json.Marshal(lighting)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if !bytes.Contains(encoded, []byte(`"actors":true`)) || !bytes.Contains(encoded, []byte(`"negative_z":{"x":1,"y":0,"z":1}`)) {
-		t.Fatalf("optional contract fields missing: %s", encoded)
 	}
 	var decoded worldsource.Lighting
 	if err := json.Unmarshal(encoded, &decoded); err != nil || !reflect.DeepEqual(lighting, &decoded) {

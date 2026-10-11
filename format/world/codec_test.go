@@ -23,13 +23,12 @@ func TestEncodeDecodeCanonicalWorld(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	golden, err := os.ReadFile("testdata/two-room.world.json")
+	golden, err := os.ReadFile("testdata/two-room.world.bin")
 	if err != nil {
 		t.Fatal(err)
 	}
-	golden = bytes.TrimSuffix(golden, []byte{'\n'})
 	if !bytes.Equal(encoded, golden) {
-		t.Fatalf("wire format changed:\n got %s\nwant %s", encoded, golden)
+		t.Fatalf("wire format changed:\n got %x\nwant %x", encoded, golden)
 	}
 
 	decoded, err := world.Decode(encoded)
@@ -51,8 +50,8 @@ func TestDecodeRejectsNonCanonicalAndMalformedPayloads(t *testing.T) {
 		"empty":         nil,
 		"trailing":      append(slices.Clone(encoded), '\n'),
 		"leading space": append([]byte{' '}, encoded...),
-		"unknown field": bytes.Replace(encoded, []byte(`"version":1`), []byte(`"unknown":0,"version":1`), 1),
-		"wrong version": bytes.Replace(encoded, []byte(`"version":1`), []byte(`"version":3`), 1),
+		"JSON":          []byte(`{"version":1}`),
+		"wrong version": replaceByte(encoded, 4, 2),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -78,7 +77,11 @@ func TestCompiledWorldFitsLevelEnvelope(t *testing.T) {
 	t.Parallel()
 
 	payload := encodeValid(t)
-	envelope, err := level.Encode([]byte(`{"schema":"karty.level@1"}`), []level.SourceEntry{{
+	metadata, err := level.EncodeMetadata(level.Metadata{"schema": level.StringValue("karty.level@1")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope, err := level.Encode(metadata, []level.SourceEntry{{
 		Name: world.EntryName, Kind: level.EntryData, Data: payload,
 	}})
 	if err != nil {

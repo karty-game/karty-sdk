@@ -2,7 +2,6 @@ package world_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -44,10 +43,6 @@ func TestMaterialMappingCanonicalRoundTripAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(encoded, []byte(`"material_mapping":{"version":1}`)) ||
-		!bytes.Contains(encoded, []byte(`"floor_uv":{"projections":[{"u":{"x":1,"y":0,"z":0,"offset":0}`)) {
-		t.Fatalf("canonical mapping fields missing: %s", encoded)
-	}
 	decoded, err := world.Decode(encoded)
 	if err != nil || !reflect.DeepEqual(decoded, document) {
 		t.Fatalf("roundtrip %+v: %v", decoded, err)
@@ -69,13 +64,12 @@ func TestMaterialMappingLegacyWireAndVersionGates(t *testing.T) {
 				document = lightingWorld()
 			}
 			document.Version = version
-			before, err := json.Marshal(document)
+			before, err := world.Encode(document)
 			if err != nil {
 				t.Fatal(err)
 			}
 			encoded, err := world.Encode(document)
-			if err != nil || !bytes.Equal(encoded, before) || bytes.Contains(encoded, []byte(`"material_mapping"`)) ||
-				bytes.Contains(encoded, []byte(`"_uv"`)) {
+			if err != nil || !bytes.Equal(encoded, before) {
 				t.Fatalf("legacy wire changed %v", err)
 			}
 			decoded, err := world.Decode(encoded)
@@ -216,33 +210,25 @@ func TestMaterialMappingStrictCanonicalDecode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, pair := range map[string][2]string{
-		"unknown marker":     {`"material_mapping":{"version":1}`, `"material_mapping":{"version":1,"mode":"planar"}`},
-		"duplicate marker":   {`"material_mapping":{"version":1}`, `"material_mapping":{"version":1},"material_mapping":{"version":1}`},
-		"unknown projection": {`"u":{"x":1`, `"extra":0,"u":{"x":1`},
-		"missing coordinate": {`"u":{"x":1,"y":0,"z":0,"offset":0}`, `"u":{"x":1,"y":0,"offset":0}`},
-		"missing plane":      {`"u":{"x":1,"y":0,"z":0,"offset":0},`, ``},
-		"null plane":         {`"u":{"x":1,"y":0,"z":0,"offset":0}`, `"u":null`},
-		"duplicate weights":  {`"weights":[1]`, `"weights":[1],"weights":[1]`},
-		"wrong version":      {`"material_mapping":{"version":1}`, `"material_mapping":{"version":2}`},
-		"null marker":        {`"material_mapping":{"version":1}`, `"material_mapping":null`},
-		"number spelling":    {`"offset":0`, `"offset":0.0`},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			mutated := bytes.Replace(encoded, []byte(pair[0]), []byte(pair[1]), 1)
-			if bytes.Equal(mutated, encoded) {
-				t.Fatal("fixture did not mutate")
-			}
-			decoded, err := world.Decode(mutated)
-			if err == nil || !reflect.DeepEqual(decoded, world.Document{}) {
-				t.Fatalf("malformed mapping produced partial output: %v", err)
-			}
-		})
-	}
+	assertBinaryMalformed(t, encoded)
 	for offset := range len(encoded) {
 		if _, err := world.Decode(encoded[:offset]); err == nil {
-			t.Fatalf("truncated mapping accepted at%d", offset)
+			t.Fatalf("truncated mapping at%d", offset)
 		}
+	}
+	for name, mutate := range map[string]func(*world.Document){
+		"missing projection": func(d *world.Document) { d.Sectors[0].FloorUV.Projections = nil },
+		"missing weight":     func(d *world.Document) { d.Sectors[0].FloorUV.Weights = nil },
+		"wrong marker":       func(d *world.Document) { d.MaterialMapping.Version = 2 },
+		"missing surface":    func(d *world.Document) { d.Sectors[0].FloorUV = nil },
+	} {
+		t.Run(name, func(t *testing.T) {
+			d := mappedWorld()
+			mutate(&d)
+			decoded, err := world.Decode(uncheckedWorld(t, d))
+			if err == nil || !reflect.DeepEqual(decoded, world.Document{}) {
+				t.Fatalf("partial output: %v", err)
+			}
+		})
 	}
 }

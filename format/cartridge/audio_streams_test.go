@@ -103,7 +103,7 @@ func TestAudioStreamCatalogRequiresCanonicalOrdering(t *testing.T) {
 	}
 }
 
-func TestAudioStreamCatalogRejectsMalformedJSON(t *testing.T) {
+func TestAudioStreamCatalogRejectsMalformedBinaryAndJSON(t *testing.T) {
 	t.Parallel()
 	digest := strings.Repeat("c", 64)
 	valid, err := EncodeAudioStreams([]AudioStream{{
@@ -114,10 +114,10 @@ func TestAudioStreamCatalogRejectsMalformedJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, data := range map[string][]byte{
-		"trailing":      append(bytes.Clone(valid), 'x'),
-		"version":       bytes.Replace(valid, []byte(`"version":1`), []byte(`"version":2`), 1),
-		"unknown field": bytes.Replace(valid, []byte(`"streams":`), []byte(`"extra":1,"streams":`), 1),
-		"empty":         []byte(`{"version":1,"streams":[]}`),
+		"trailing":        append(bytes.Clone(valid), 'x'),
+		"version":         func() []byte { data := bytes.Clone(valid); data[4] = 1; return data }(),
+		"reserved header": func() []byte { data := bytes.Clone(valid); data[6] = 1; return data }(),
+		"empty":           []byte(`{"version":1,"streams":[]}`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := DecodeAudioStreams(data); err == nil {

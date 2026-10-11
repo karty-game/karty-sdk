@@ -7,7 +7,6 @@ import (
 	"image/color"
 	"math"
 	"reflect"
-	"strconv"
 	"testing"
 
 	"github.com/karty-game/karty-sdk/codec/qoi"
@@ -196,10 +195,10 @@ func TestStrengthsBoundsCanonicalCompletenessAndLayoutSize(t *testing.T) {
 		if _, err := worldmaterial.DecodeLayout(encoded); err != nil {
 			t.Fatal(err)
 		}
-		missing := bytes.Replace(encoded, []byte(`"normal":`+strconv.FormatFloat(value, 'f', -1, 64)+`,`), nil, 1)
-		if _, err := worldmaterial.DecodeLayout(missing); !errors.Is(err, worldmaterial.ErrAtlas) {
-			t.Fatal("missing explicit strength channel accepted")
+		if _, err := worldmaterial.DecodeLayout(encoded[:len(encoded)-1]); err == nil {
+			t.Fatal("truncated strength accepted")
 		}
+
 	}
 	for _, value := range []float64{-0.001, 4.001, math.NaN(), math.Inf(1), math.Inf(-1)} {
 		for channel := range 4 {
@@ -232,12 +231,15 @@ func TestStrengthsBoundsCanonicalCompletenessAndLayoutSize(t *testing.T) {
 			Rim:    1.123456789012345,
 		}
 	}
-	if !errors.Is(l.Validate(), worldmaterial.ErrAtlas) {
-		t.Fatal("oversize precise strength metadata passed allocation preflight")
+	precise, err := worldmaterial.EncodeLayout(l)
+	if err != nil {
+		t.Fatal("bounded precise strengths rejected", err)
 	}
-	if _, err := worldmaterial.EncodeLayout(l); !errors.Is(err, worldmaterial.ErrAtlas) {
-		t.Fatal("oversize precise strength metadata encoded")
+	decoded, err := worldmaterial.DecodeLayout(precise)
+	if err != nil || !reflect.DeepEqual(l, decoded) {
+		t.Fatal("precise strengths changed", err)
 	}
+
 }
 
 func TestMipTailHeaderPreflightBeforeAnyPixelAllocation(t *testing.T) {

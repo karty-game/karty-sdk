@@ -8,39 +8,39 @@ import (
 )
 
 type Animations struct {
-	Version   uint32              `json:"version"             yaml:"version"`
-	Presets   []AnimationPreset   `json:"presets"             yaml:"presets"`
-	Materials []MaterialAnimation `json:"materials,omitempty" yaml:"materials,omitempty"`
+	Version   uint32              `yaml:"version"`
+	Presets   []AnimationPreset   `yaml:"presets"`
+	Materials []MaterialAnimation `yaml:"materials,omitempty"`
 }
 
 type AnimationPreset struct {
-	Name             string   `json:"name"                        yaml:"name"`
-	Kind             string   `json:"kind"                        yaml:"kind"`
-	Frames           []string `json:"frames,omitempty"            yaml:"frames,omitempty"`
-	FPS              float64  `json:"fps,omitempty"               yaml:"fps,omitempty"`
-	IntervalSeconds  float64  `json:"interval_seconds,omitempty"  yaml:"interval_seconds,omitempty"`
-	Flow             Vec2     `json:"flow,omitempty"              yaml:"flow,omitempty"`
-	Amplitude        float64  `json:"amplitude,omitempty"         yaml:"amplitude,omitempty"`
-	SurfaceAmplitude float64  `json:"surface_amplitude,omitempty" yaml:"surface_amplitude,omitempty"`
-	Opacity          *float64 `json:"opacity,omitempty"           yaml:"opacity,omitempty"`
-	PixelSize        uint32   `json:"pixel_size,omitempty"        yaml:"pixel_size,omitempty"`
-	Frequency        float64  `json:"frequency,omitempty"         yaml:"frequency,omitempty"`
-	Speed            float64  `json:"speed,omitempty"             yaml:"speed,omitempty"`
-	Axis             Vec3     `json:"axis,omitempty"              yaml:"axis,omitempty"`
-	Pivot            Vec3     `json:"pivot,omitempty"             yaml:"pivot,omitempty"`
-	Offset           Vec3     `json:"offset,omitempty"            yaml:"offset,omitempty"`
-	PeriodSeconds    float64  `json:"period_seconds,omitempty"    yaml:"period_seconds,omitempty"`
+	Name             string   `yaml:"name"`
+	Kind             string   `yaml:"kind"`
+	Frames           []string `yaml:"frames,omitempty"`
+	FPS              float64  `yaml:"fps,omitempty"`
+	IntervalSeconds  float64  `yaml:"interval_seconds,omitempty"`
+	Flow             Vec2     `yaml:"flow,omitempty"`
+	Amplitude        float64  `yaml:"amplitude,omitempty"`
+	SurfaceAmplitude float64  `yaml:"surface_amplitude,omitempty"`
+	Opacity          *float64 `yaml:"opacity,omitempty"`
+	PixelSize        uint32   `yaml:"pixel_size,omitempty"`
+	Frequency        float64  `yaml:"frequency,omitempty"`
+	Speed            float64  `yaml:"speed,omitempty"`
+	Axis             Vec3     `yaml:"axis,omitempty"`
+	Pivot            Vec3     `yaml:"pivot,omitempty"`
+	Offset           Vec3     `yaml:"offset,omitempty"`
+	PeriodSeconds    float64  `yaml:"period_seconds,omitempty"`
 }
 
 type AnimationBinding struct {
-	Preset       string  `json:"preset"                  yaml:"preset"`
-	PhaseSeconds float64 `json:"phase_seconds,omitempty" yaml:"phase_seconds,omitempty"`
+	Preset       string  `yaml:"preset"`
+	PhaseSeconds float64 `yaml:"phase_seconds,omitempty"`
 }
 
 type MaterialAnimation struct {
-	Material     string  `json:"material"                yaml:"material"`
-	Preset       string  `json:"preset"                  yaml:"preset"`
-	PhaseSeconds float64 `json:"phase_seconds,omitempty" yaml:"phase_seconds,omitempty"`
+	Material     string  `yaml:"material"`
+	Preset       string  `yaml:"preset"`
+	PhaseSeconds float64 `yaml:"phase_seconds,omitempty"`
 }
 
 // CompileAnimationPreset converts one authored preset using the level's declared

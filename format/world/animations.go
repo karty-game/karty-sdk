@@ -18,9 +18,9 @@ const (
 
 // Animations is the optional world/animations@1 payload in compiled world v3.
 type Animations struct {
-	Version   uint32              `json:"version"`
-	Presets   []AnimationPreset   `json:"presets"`
-	Materials []MaterialAnimation `json:"materials,omitempty"`
+	Version   uint32
+	Presets   []AnimationPreset
+	Materials []MaterialAnimation
 }
 
 // AnimationPreset contains exactly the fields relevant to Kind. Speeds are
@@ -29,34 +29,34 @@ type Animations struct {
 // surfaces. Opacity defaults to 1; PixelSize defaults to 0 (continuous sampling).
 // Axis, Pivot and Offset are actor-local, before actor scale and orientation.
 type AnimationPreset struct {
-	Name             string   `json:"name"`
-	Kind             string   `json:"kind"`
-	Frames           []uint32 `json:"frames,omitempty"`
-	FPS              float64  `json:"fps,omitempty"`
-	IntervalSeconds  float64  `json:"interval_seconds,omitempty"`
-	Flow             Vec2     `json:"flow,omitempty"`
-	Amplitude        float64  `json:"amplitude,omitempty"`
-	SurfaceAmplitude float64  `json:"surface_amplitude,omitempty"`
-	Opacity          *float64 `json:"opacity,omitempty"`
-	PixelSize        uint32   `json:"pixel_size,omitempty"`
-	Frequency        float64  `json:"frequency,omitempty"`
-	Speed            float64  `json:"speed,omitempty"`
-	Axis             Vec3     `json:"axis,omitempty"`
-	Pivot            Vec3     `json:"pivot,omitempty"`
-	Offset           Vec3     `json:"offset,omitempty"`
-	PeriodSeconds    float64  `json:"period_seconds,omitempty"`
+	Name             string
+	Kind             string
+	Frames           []uint32
+	FPS              float64
+	IntervalSeconds  float64
+	Flow             Vec2
+	Amplitude        float64
+	SurfaceAmplitude float64
+	Opacity          *float64
+	PixelSize        uint32
+	Frequency        float64
+	Speed            float64
+	Axis             Vec3
+	Pivot            Vec3
+	Offset           Vec3
+	PeriodSeconds    float64
 }
 
 // AnimationBinding selects a named preset and a nonnegative clock offset.
 type AnimationBinding struct {
-	Preset       string  `json:"preset"`
-	PhaseSeconds float64 `json:"phase_seconds,omitempty"`
+	Preset       string
+	PhaseSeconds float64
 }
 
 type MaterialAnimation struct {
-	Material     uint32  `json:"material"`
-	Preset       string  `json:"preset"`
-	PhaseSeconds float64 `json:"phase_seconds,omitempty"`
+	Material     uint32
+	Preset       string
+	PhaseSeconds float64
 }
 
 // ValidateAnimationPreset checks kind-specific bounds and rejects fields from

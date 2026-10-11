@@ -2,35 +2,37 @@
 package worldmaterial
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
-	"io"
 
 	"github.com/karty-game/karty-sdk/codec/qoi"
 	"github.com/karty-game/karty-sdk/format/asset"
+	"github.com/karty-game/karty-sdk/internal/binwire"
 )
 
 const (
-	Feature        = "world/material-atlas@1"
-	FeatureV2      = "world/material-atlas@2"
-	SchemaV2       = "karty.world-material-atlas@2"
-	CoverageOpaque = "opaque"
-	CoverageMasked = "masked"
-	Schema         = "karty.world-material-atlas@1"
-	MetadataKey    = "kartyWorldMaterialAtlas"
-	LayoutEntry    = "@world/material-layout"
-	AlbedoEntry    = "@world/material-albedo"
-	DataEntry      = "@world/material-data"
-	MipTailEntry   = "@world/material-mips"
-	MipLevels      = 8
-	TileSize       = 256
-	Gutter         = 16
-	CellSize       = TileSize + 2*Gutter
-	GridSize       = 14
-	Inset          = 32
-	MaxMaterials   = GridSize * GridSize
-	MaxLayoutBytes = 32 * 1024
+	Feature                 = "world/material-atlas@1"
+	FeatureV2               = "world/material-atlas@2"
+	FeatureReflectance      = "world/material-reflectance@1"
+	ReflectanceEntry        = "@world/material-reflectance"
+	ReflectanceMipTailEntry = "@world/material-reflectance-mips"
+	SchemaV2                = "karty.world-material-atlas@2"
+	CoverageOpaque          = "opaque"
+	CoverageMasked          = "masked"
+	Schema                  = "karty.world-material-atlas@1"
+	MetadataKey             = "kartyWorldMaterialAtlas"
+	LayoutEntry             = "@world/material-layout"
+	AlbedoEntry             = "@world/material-albedo"
+	DataEntry               = "@world/material-data"
+	MipTailEntry            = "@world/material-mips"
+	MipLevels               = 8
+	TileSize                = 256
+	Gutter                  = 16
+	CellSize                = TileSize + 2*Gutter
+	GridSize                = 14
+	Inset                   = 32
+	MaxMaterials            = GridSize * GridSize
+	MaxLayoutBytes          = 32 * 1024
+	BinaryMagic             = "KMA1"
 )
 
 var ErrAtlas = errors.New("world material atlas is invalid")
@@ -39,24 +41,24 @@ var ErrAtlas = errors.New("world material atlas is invalid")
 // the compiled world's level-local source texture ID, not a dense atlas slot
 // or cartridge-wide asset ID. Zero denotes the opaque default material.
 type Rect struct {
-	MaterialID uint32     `json:"materialId"`
-	X          int        `json:"x"`
-	Y          int        `json:"y"`
-	Width      int        `json:"width"`
-	Height     int        `json:"height"`
-	Gutter     int        `json:"gutter"`
-	Strengths  *Strengths `json:"strengths,omitempty"`
-	Coverage   string     `json:"coverage,omitempty"`
+	MaterialID uint32
+	X          int
+	Y          int
+	Width      int
+	Height     int
+	Gutter     int
+	Strengths  *Strengths
+	Coverage   string
 }
 
 // Layout maps level-local material IDs to a canonical row-major atlas. It has
 // no paths: the paired payloads use the fixed logical level entry names above.
 type Layout struct {
-	Schema    string     `json:"schema"`
-	Width     int        `json:"width"`
-	Height    int        `json:"height"`
-	Materials []Rect     `json:"materials"`
-	Mips      []MipLevel `json:"mips,omitempty"`
+	Schema    string
+	Width     int
+	Height    int
+	Materials []Rect
+	Mips      []MipLevel
 }
 
 // NewLayout preserves the supplied unique IDs; ID zero is the opaque default
@@ -121,48 +123,45 @@ func (l Layout) Validate() error {
 	if l.validateMips() != nil {
 		return ErrAtlas
 	}
-	// Ordinary placements and eight compact records fit by construction.
-	// Arbitrary precise controls must also fit the actual canonical byte bound
-	// before Pair.Validate can allocate any decoded images.
-	for _, rect := range l.Materials {
-		if rect.Strengths != nil {
-			encoded, err := json.Marshal(l)
-			if err != nil || len(encoded) > MaxLayoutBytes {
-				return ErrAtlas
-			}
-			break
-		}
+	if _, err := encodeLayoutBinary(l); err != nil {
+		return err
 	}
 	return nil
 }
 
-// EncodeLayout emits the only JSON representation accepted by DecodeLayout.
+// EncodeLayout emits canonical typed binary accepted by DecodeLayout.
 func EncodeLayout(l Layout) ([]byte, error) {
 	if err := l.Validate(); err != nil {
 		return nil, err
 	}
-	encoded, err := json.Marshal(l)
-	if err != nil || len(encoded) > MaxLayoutBytes {
+	return encodeLayoutBinary(l)
+}
+
+func encodeLayoutBinary(l Layout) ([]byte, error) {
+	w := binwire.NewWriter(BinaryMagic, MaxLayoutBytes)
+	writeWorldmaterialLayout(w, &l)
+	encoded, err := w.Bytes()
+	if err != nil {
 		return nil, ErrAtlas
 	}
 	return encoded, nil
 }
 
-// DecodeLayout rejects unknown/duplicate fields, trailing bytes and noncanonical
-// JSON (including whitespace, field reordering and alternative number syntax).
+// DecodeLayout bounds the complete binary payload before typed allocation.
+// JSON, noncanonical primitives, oversized counts and trailing bytes fail.
 func DecodeLayout(encoded []byte) (Layout, error) {
 	if len(encoded) == 0 || len(encoded) > MaxLayoutBytes {
 		return Layout{}, ErrAtlas
 	}
-	var l Layout
-	d := json.NewDecoder(bytes.NewReader(encoded))
-	d.DisallowUnknownFields()
-	if d.Decode(&l) != nil || d.Decode(&struct{}{}) != io.EOF || l.Validate() != nil {
+	scan := binwire.NewReader(encoded, BinaryMagic, MaxLayoutBytes)
+	scanWorldmaterialLayout(scan)
+	if scan.Done() != nil {
 		return Layout{}, ErrAtlas
 	}
-	// Require canonical JSON, rejecting duplicate fields as well as whitespace.
-	canonical, _ := EncodeLayout(l)
-	if !bytes.Equal(encoded, canonical) {
+	var l Layout
+	reader := binwire.NewReader(encoded, BinaryMagic, MaxLayoutBytes)
+	readWorldmaterialLayout(reader, &l)
+	if reader.Done() != nil || l.Validate() != nil {
 		return Layout{}, ErrAtlas
 	}
 	return l, nil
@@ -170,39 +169,43 @@ func DecodeLayout(encoded []byte) (Layout, error) {
 
 // Pair groups encoded QOI bytes with their shared layout; callers retain slice
 // ownership. It is not a serialized level format: levels carry three entries and an optional
-// fourth mip tail. Tail albedo cells hold sRGB bytes; raw data cells hold the
+// fourth mip tail, plus optional reflectance companion entries. Tail albedo cells
+// hold sRGB bytes; raw data cells hold the
 // linear channels below. The combined tail has a linear raw-storage QOI tag.
 // Albedo is opaque sRGB RGBA. Data uses straight linear RGBA channels:
 // RG OpenGL tangent normal XY (128 is zero, signed decode clamps
 // (byte-128)/127 to [-1,1]), B height, A ambient occlusion, NOT opacity.
 type Pair struct {
-	Layout  Layout
-	Albedo  []byte
-	Data    []byte
-	MipTail []byte
+	Layout             Layout
+	Albedo             []byte
+	Data               []byte
+	MipTail            []byte
+	Reflectance        []byte
+	ReflectanceMipTail []byte
 }
 
 // Validate preflights every allocation and completely validates every QOI.
-// Only albedo-bearing images require decoded pixels for opacity checks.
+// Albedo and reflectance images require decoded pixels for channel checks.
 func (p Pair) Validate() error {
-	if p.Layout.Validate() != nil || (len(p.Layout.Mips) != 0) != (len(p.MipTail) != 0) {
+	if p.Layout.Validate() != nil || (len(p.Layout.Mips) != 0) != (len(p.MipTail) != 0) ||
+		(len(p.ReflectanceMipTail) != 0 && len(p.Reflectance) == 0) ||
+		(len(p.Reflectance) != 0 && (len(p.Layout.Mips) != 0) != (len(p.ReflectanceMipTail) != 0)) {
 		return ErrAtlas
 	}
 	var total uint64
 	width, height := p.Layout.MipDimensions()
-	images := [3][]byte{p.Albedo, p.Data, p.MipTail}
-	count := 2
-	if len(p.MipTail) != 0 {
-		count++
-	}
-	for i, encoded := range images[:count] {
+	images := [5][]byte{p.Albedo, p.Data, p.MipTail, p.Reflectance, p.ReflectanceMipTail}
+	for i, encoded := range images {
+		if i >= 2 && len(encoded) == 0 {
+			continue
+		}
 		m, err := qoi.Inspect(encoded)
 		space := qoi.ColorspaceLinear
 		w, h := p.Layout.Width, p.Layout.Height
 		if i == 0 {
 			space = qoi.ColorspaceSRGB
 		}
-		if i == 2 {
+		if i == 2 || i == 4 {
 			w, h = width, height
 		}
 		if err != nil || int(m.Width) != w || int(m.Height) != h ||
@@ -212,7 +215,10 @@ func (p Pair) Validate() error {
 		}
 		total += m.DecodedBytes
 	}
-	for i, encoded := range images[:count] {
+	for i, encoded := range images {
+		if i >= 2 && len(encoded) == 0 {
+			continue
+		}
 		if i == 1 {
 			if _, err := qoi.Validate(encoded); err != nil {
 				return ErrAtlas
@@ -244,6 +250,10 @@ func (p Pair) Validate() error {
 						}
 					}
 				}
+			}
+		} else if i >= 3 {
+			if p.Layout.validateReflectancePixels(pixels, i == 4) != nil {
+				return ErrAtlas
 			}
 		}
 	}

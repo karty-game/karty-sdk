@@ -1,10 +1,7 @@
 package cartridge
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
-	"io"
 
 	"github.com/karty-game/karty-sdk/format/asset"
 )
@@ -32,52 +29,20 @@ const (
 // precede environment entries; IDs are one-based and names are sorted within
 // each kind.
 type AudioStream struct {
-	ID         uint32          `json:"id"`
-	Name       string          `json:"name"`
-	Kind       AudioStreamKind `json:"kind"`
-	Channels   uint8           `json:"channels"`
-	SampleRate uint32          `json:"sampleRate"`
-	Frames     uint32          `json:"frames"`
-	Size       int64           `json:"size"`
-	SHA256     string          `json:"sha256"`
-	Chunks     []string        `json:"chunks"`
+	ID         uint32
+	Name       string
+	Kind       AudioStreamKind
+	Channels   uint8
+	SampleRate uint32
+	Frames     uint32
+	Size       int64
+	SHA256     string
+	Chunks     []string
 }
 
 // Path returns the opaque distribution path for this QOA stream. The Karty
 // extension discourages treating verified sidecars as loose source media.
 func (stream AudioStream) Path() string { return "content/" + stream.SHA256 + ".kaud" }
-
-type audioStreamCatalog struct {
-	Version int           `json:"version"`
-	Streams []AudioStream `json:"streams"`
-}
-
-func EncodeAudioStreams(streams []AudioStream) ([]byte, error) {
-	if err := validateAudioStreams(streams); err != nil {
-		return nil, err
-	}
-	data, err := json.Marshal(audioStreamCatalog{Version: 1, Streams: streams})
-	if err != nil || len(data) > MaxAudioStreamCatalog {
-		return nil, ErrAudioStreams
-	}
-	return data, nil
-}
-
-func DecodeAudioStreams(data []byte) ([]AudioStream, error) {
-	if len(data) > MaxAudioStreamCatalog {
-		return nil, ErrAudioStreams
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	var catalog audioStreamCatalog
-	if decoder.Decode(&catalog) != nil || catalog.Version != 1 || decoder.Decode(new(any)) != io.EOF {
-		return nil, ErrAudioStreams
-	}
-	if err := validateAudioStreams(catalog.Streams); err != nil {
-		return nil, err
-	}
-	return catalog.Streams, nil
-}
 
 func validateAudioStreams(streams []AudioStream) error {
 	if len(streams) == 0 || len(streams) > MaxAudioStreamCount {

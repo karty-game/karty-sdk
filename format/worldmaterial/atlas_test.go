@@ -7,10 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"reflect"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/karty-game/karty-sdk/codec/qoi"
@@ -121,53 +121,28 @@ func TestLayoutRejectsMalformedPlacements(t *testing.T) {
 	}
 }
 
-func TestLayoutJSONIsFrozen(t *testing.T) {
+func TestLayoutBinaryIsFrozen(t *testing.T) {
 	l, _ := worldmaterial.NewLayout([]uint32{0})
-	encoded, _ := worldmaterial.EncodeLayout(l)
-	want := `{"schema":"karty.world-material-atlas@1","width":352,"height":352,"materials":[{"materialId":0,"x":48,"y":48,"width":256,"height":256,"gutter":16}]}`
-	if string(encoded) != want {
-		t.Fatalf("contract changed: %s", encoded)
+	encoded, err := worldmaterial.EncodeLayout(l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != "47cbd7290c8725c060d3186373bc97196425af300c178fbe210bd2a539e08215" {
+		t.Fatalf("binary material golden %s", got)
 	}
 	for name, malformed := range map[string][]byte{
-		"empty":                      nil,
-		"oversize":                   bytes.Repeat([]byte(" "), worldmaterial.MaxLayoutBytes+1),
-		"truncated":                  encoded[:len(encoded)-1],
-		"trailing":                   append(bytes.Clone(encoded), []byte(`{}`)...),
-		"whitespace":                 append(bytes.Clone(encoded), ' '),
-		"unknown path":               []byte(strings.Replace(want, `"width":352`, `"path":"../../atlas.qoi","width":352`, 1)),
-		"unknown placement texture":  []byte(strings.Replace(want, `"materialId":0`, `"materialId":0,"texture":"@texture/00000001"`, 1)),
-		"unversioned schema":         []byte(strings.Replace(want, worldmaterial.Schema, "karty.world-material-atlas", 1)),
-		"future schema":              []byte(strings.Replace(want, worldmaterial.Schema, "karty.world-material-atlas@2", 1)),
-		"duplicate top field":        []byte(strings.Replace(want, `"width":352`, `"width":1,"width":352`, 1)),
-		"duplicate placement field":  []byte(strings.Replace(want, `"x":48`, `"x":1,"x":48`, 1)),
-		"missing zero ID":            []byte(strings.Replace(want, `"materialId":0,`, "", 1)),
-		"missing schema":             []byte(strings.Replace(want, `"schema":"karty.world-material-atlas@1",`, "", 1)),
-		"null layout":                []byte("null"),
-		"null placement":             []byte(strings.Replace(want, want[strings.Index(want, "[{")+1:len(want)-2], "null", 1)),
-		"alternate number":           []byte(strings.Replace(want, `"width":352`, `"width":352.0`, 1)),
-		"exponent number":            []byte(strings.Replace(want, `"width":352`, `"width":352e0`, 1)),
-		"negative ID":                []byte(strings.Replace(want, `"materialId":0`, `"materialId":-1`, 1)),
-		"overflow ID":                []byte(strings.Replace(want, `"materialId":0`, `"materialId":4294967296`, 1)),
-		"overflow coordinate":        []byte(strings.Replace(want, `"x":48`, `"x":18446744073709551616`, 1)),
-		"null ID":                    []byte(strings.Replace(want, `"materialId":0`, `"materialId":null`, 1)),
-		"string ID":                  []byte(strings.Replace(want, `"materialId":0`, `"materialId":"0"`, 1)),
-		"reordered top fields":       []byte(strings.Replace(want, `"width":352,"height":352`, `"height":352,"width":352`, 1)),
-		"reordered placement fields": []byte(strings.Replace(want, `"x":48,"y":48`, `"y":48,"x":48`, 1)),
-		"case-folded field":          []byte(strings.Replace(want, `"materialId"`, `"MaterialId"`, 1)),
-		"escaped schema":             []byte(strings.Replace(want, `"karty.`, `"\u006barty.`, 1)),
-		"leading whitespace":         append([]byte{' '}, encoded...),
-		"UTF-8 BOM":                  append([]byte{0xef, 0xbb, 0xbf}, encoded...),
-		"null placements":            []byte(strings.Replace(want, string(encoded[bytes.IndexByte(encoded, '['):len(encoded)-1]), "null", 1)),
+		"empty": nil, "oversize": make([]byte, worldmaterial.MaxLayoutBytes+1), "JSON": []byte(`{"schema":"karty.world-material-atlas@1"}`),
+		"version": materialByte(encoded, 4, 2), "flags": materialByte(encoded, 6, 1), "reserved": materialByte(encoded, 12, 1), "trailing": append(bytes.Clone(encoded), 0),
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := worldmaterial.DecodeLayout(malformed); !errors.Is(err, worldmaterial.ErrAtlas) {
-				t.Fatal("accepted noncanonical JSON")
+				t.Fatal("malformed binary accepted")
 			}
 		})
 	}
 	for size := range len(encoded) {
-		if _, err := worldmaterial.DecodeLayout(encoded[:size]); !errors.Is(err, worldmaterial.ErrAtlas) {
-			t.Fatalf("accepted truncation at %d", size)
+		if _, err := worldmaterial.DecodeLayout(encoded[:size]); err == nil {
+			t.Fatalf("truncation at%d", size)
 		}
 	}
 }
@@ -297,7 +272,7 @@ func TestPairLevelEnvelopeIntegration(t *testing.T) {
 	ids := []uint32{99, 7, ^uint32(0), 0}
 	p := testPair(t, ids...)
 	layout, _ := worldmaterial.EncodeLayout(p.Layout)
-	metadata, _ := json.Marshal(map[string]string{worldmaterial.MetadataKey: worldmaterial.Schema})
+	metadata := materialMetadata(t)
 	compiled, err := world.Encode(world.Document{
 		Version: world.Version,
 		Sectors: []world.Sector{{
@@ -542,15 +517,15 @@ func TestAtlasEntriesRequireDataKind(t *testing.T) {
 	for _, name := range []string{worldmaterial.LayoutEntry, worldmaterial.AlbedoEntry, worldmaterial.DataEntry} {
 		t.Run(name, func(t *testing.T) {
 			entry := level.SourceEntry{Name: name, Kind: level.EntryTexture, Data: []byte{1}}
-			if _, err := level.Encode([]byte(`{}`), []level.SourceEntry{entry}); !errors.Is(err, level.ErrEntry) {
+			if _, err := level.Encode(materialMetadata(t), []level.SourceEntry{entry}); !errors.Is(err, level.ErrEntry) {
 				t.Fatalf("Encode() error = %v, want ErrEntry", err)
 			}
 			entry.Kind = level.EntryData
-			encoded, err := level.Encode([]byte(`{}`), []level.SourceEntry{entry})
+			encoded, err := level.Encode(materialMetadata(t), []level.SourceEntry{entry})
 			if err != nil {
 				t.Fatal(err)
 			}
-			encoded[level.HeaderSize+2] = byte(level.EntryTexture)
+			encoded[level.HeaderSize+len(materialMetadata(t))] = byte(level.EntryTexture)
 			if _, err := level.Decode(encoded); !errors.Is(err, level.ErrEntry) {
 				t.Fatalf("Decode() error = %v, want ErrEntry", err)
 			}

@@ -1,10 +1,12 @@
 # World authoring semantics
 
 `worldsource` defines typed room, prefab, port, content and material authoring
-semantics. It has no YAML implementation dependency: tags describe field names,
+semantics. It has no YAML implementation dependency: YAML tags describe field names,
 and `Validate` checks typed values. Public compilers own text parsing, presence
 and unknown-field checks, diagnostics, prefab expansion and convex decomposition.
-They must enforce compiled-world bounds again after expansion.
+They must enforce compiled-world bounds again after expansion. Runtime format
+types have no JSON tags or custom JSON methods; source YAML vocabulary and
+TOML asset controls remain explicit and independently checked.
 
 The Karty CLI generates local YAML editor schemas with `karty schema`. Run it
 from a game project to include that level's material, texture and prefab choices,
@@ -21,11 +23,71 @@ format validation and builds do not require the CLI or a YAML parser here.
 | 5              | Material UV mapping                                       |
 | 6              | Static solids, root/prefab contents and room-free prefabs |
 | 7              | Top/bottom wall bands and secondary colour textures       |
+| 8              | Reusable actor and material animations                    |
+| 9              | Environment presets, sky ceilings and horizon boundaries  |
+| 10             | GPU sprite particle presets and transformed emitters      |
 
-Versions 1–8 remain supported. Optional fields must respect their version gates;
+Versions 1–10 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world
 contract](../world/README.md) for output validation and lighting bounds. Root
 lighting remains in global coordinates and is never transformed by a prefab.
+
+The unreleased SDK 0.0.11 candidate separates the 4,096 authored-source bound
+(`worldsource.MaxLights`) from the 50 live direct-light budget
+(`world.MaxRuntimeLights`). Offline build policy may automatically select every
+fixed light without a nonzero linked emission pulse; motion and pulsing sources
+remain runtime lights. Authoring and compiled validation accept the complete
+source set, while producers check the remaining live budget when packaging a
+world. An unbaked preview still uses the runtime limit.
+
+## Environment and outdoor geometry, source version 9
+
+Source v9 adds an optional root environment and room/edge sky markers:
+
+```yaml
+version: 9
+environment:
+  preset: fantasy
+  palette: violet # optional; omitted means the preset's default sky
+  sun: # optional; omission uses the preset direction
+    azimuth: 135
+    elevation: 40
+rooms:
+  - id: courtyard
+    sky: true
+    # Ordinary finite geometry and material fields remain required.
+```
+
+`preset` is `daylight`, `space`, `cartoon` or `fantasy`. `palette` is omitted,
+`default`, `violet` or `twilight`; it changes sky colors without changing light
+colors or intensity. A supplied `sun` requires both finite angles in degrees:
+azimuth `[0,360)` measured from +X toward +Y, and elevation `[0,90]` above the
+XY plane. Environment belongs to the root, with no prefab transform. A preset
+alone supplies bounded sky, sun and outdoor fill defaults.
+
+Optional `time_of_day` supplies finite hours `[0,24)` (midnight 0, sunrise 6,
+noon 12, sunset 18); optional `cloud_amount` supplies finite coverage `[0,1]`.
+Omitted time preserves fixed sun defaults or explicit angles; providing both
+time and sun is rejected. Omitted clouds resolve to `0.35`; explicit zero is
+clear. Compilers preserve pointer presence for these optional controls. The
+engine live setter can subsequently override the clock/clouds for every camera
+in a mounted world while retaining authored preset/palette choices.
+
+Room `sky: true` turns its ceiling into an environment opening. The room retains
+its finite ceiling for spatial bounds and portal confinement. Edge `sky: true`
+turns an opaque boundary into a horizon opening, while preserving confinement;
+it requires a sky room and cannot be a connection or exported port endpoint,
+including through nested prefab ports. Ordinary walls, floors, roofs and static
+solids keep their physical behavior. Sky rooms in prefabs require the root
+environment. Outdoor rooms remain ordinary connected playable geometry.
+
+Source v1–8 reject all environment/sky fields, including explicitly supplied
+`environment: null` and `sky: false`. Text parsers reject null, unknown fields,
+missing sun angles and bad scalar types; typed SDK validation checks the values
+and complete graph. Compilers preserve sky markers through expansion and convex
+decomposition, add the compiled version-1 environment payload and declare
+`world/environment@1` with `world/sectors@1`. See the
+[compiled decision](../world/README.md#environment-and-sky-openings-version-1).
 
 ## Material mapping, version 1
 
@@ -130,3 +192,22 @@ Liquid presets may also specify `surface_amplitude` (0–0.25 world metres),
 `opacity` (0–1, omitted means 1), and `pixel_size` (integer 0–32). These fields
 are liquid-only; explicit nulls are rejected by the source YAML adapter.
 Compilation owns an independent copy of an explicit opacity value.
+
+## GPU sprite particles, source version 10
+
+Candidate SDK 0.0.11 adds root `particles: {version: 1, presets: [...], emitters: [...]}`
+and room/prefab `particle_emitters` arrays. Presets name level textures; emitter
+positions, yaw and uniform scale follow prefab transforms. Source v1–9 rejects
+particle fields, including explicit null. Optional fields should be omitted;
+text decoders also reject null inside the particle block and require explicitly
+authored zero-valued fields such as seed, position, curve age and burst time.
+
+Compilers resolve all frames, require square matching frame dimensions, reserve
+complete birth schedule groups for overlapping lifetimes, compute conservative
+GPU motion bounds, and confine every emitter to one compiled convex sector.
+Room-local emitters remain in sectors owned by their expanded room. An emitter-only
+prefab is valid without unrelated geometry or marker contents. Optional scale
+omission or zero defaults to one; omitted vector components remain zero.
+They stage the separate `@world/particles` resource and declare `world/particles@1`
+alongside `world/sectors@1`. See the [version-1 particle contract](../worldparticles/README.md)
+for exact fields, units, lifecycle rules and resource bounds.

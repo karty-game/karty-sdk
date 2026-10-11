@@ -9,13 +9,15 @@ import (
 )
 
 type scene struct {
-	surfaces      []worldlightmap.Surface
-	materials     []reflectance
-	accel         accelerator
-	lights        []preparedLight
-	surfaceFrames []sampleFrame
-	chartFrames   []sampleFrame
-	samples       []initialSample
+	surfaces       []worldlightmap.Surface
+	materials      []reflectance
+	accel          accelerator
+	lights         []preparedLight
+	lightIndex     lightIndex
+	surfaceFrames  []sampleFrame
+	chartFrames    []sampleFrame
+	samples        []initialSample
+	maxRayDistance float64
 }
 type preparedLight struct {
 	world.PointLight
@@ -31,10 +33,12 @@ func (s *scene) visible(p, n, d vec, distance float64, c *counters) bool {
 }
 func (s *scene) direct(p vec, chart worldlightmap.Chart, c *counters) [3]vec {
 	var result [3]vec
-	for _, l := range s.lights {
+	candidates := s.lightIndex.query(p, len(s.lights))
+	for index := candidates.next(); index >= 0; index = candidates.next() {
+		l := s.lights[index]
 		delta := sub(l.Position, p)
 		distance := math.Sqrt(dot(delta, delta))
-		if distance < epsilon(p) || distance >= l.Radius {
+		if distance < epsilon(p) || distance >= l.Radius || s.maxRayDistance > 0 && distance >= s.maxRayDistance {
 			continue
 		}
 		d := scale(delta, 1/distance)
@@ -58,10 +62,12 @@ func (s *scene) direct(p vec, chart worldlightmap.Chart, c *counters) [3]vec {
 }
 func (s *scene) lambertDirect(p, n vec, c *counters) vec {
 	result := vec{}
-	for _, l := range s.lights {
+	candidates := s.lightIndex.query(p, len(s.lights))
+	for index := candidates.next(); index >= 0; index = candidates.next() {
+		l := s.lights[index]
 		delta := sub(l.Position, p)
 		distance := math.Sqrt(dot(delta, delta))
-		if distance < epsilon(p) || distance >= l.Radius {
+		if distance < epsilon(p) || distance >= l.Radius || s.maxRayDistance > 0 && distance >= s.maxRayDistance {
 			continue
 		}
 		d := scale(delta, 1/distance)
@@ -109,7 +115,11 @@ func (s *scene) indirect(
 		incoming := vec{}
 		for bounce := range options.Bounces {
 			c.bounce++
-			hit, distance := s.accel.hit(origin, d, math.Inf(1))
+			limit := math.Inf(1)
+			if s.maxRayDistance > 0 {
+				limit = s.maxRayDistance
+			}
+			hit, distance := s.accel.hit(origin, d, limit)
 			if hit < 0 {
 				break
 			}

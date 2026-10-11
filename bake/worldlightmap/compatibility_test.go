@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Pin existing producer pixels and reflectance identity across internal changes.
+// Pin unchanged producer pixels and the candidate binary reflectance identity.
 func TestProducerCompatibility(t *testing.T) {
 	cases := []struct {
 		barrier             float64
@@ -18,37 +18,37 @@ func TestProducerCompatibility(t *testing.T) {
 			0,
 			0,
 			"860841426310d3f88b43339628051c0c478d64dfaadfac26b7fb2b1e600ee096",
-			"8938e79f958dead37f23d2e68b3f0e04a8a83e6c86e070ef477542d5e5af5a46",
+			"90fcd2582f951eb4372a535d874d250ecccaa940720e0afe6f37f6557cd0f983",
 		},
 		{
 			0,
 			2,
 			"1e8d9f6dd63953ccfaf3ccc7526623cc04706aa5bbfd89b238d109485aa90e4e",
-			"8938e79f958dead37f23d2e68b3f0e04a8a83e6c86e070ef477542d5e5af5a46",
+			"90fcd2582f951eb4372a535d874d250ecccaa940720e0afe6f37f6557cd0f983",
 		},
 		{
 			1.5,
 			0,
 			"6110397e8817c6beeb0cc0ddd97ddce45a6f9dad26bf2e930bd1bb7b1a55720c",
-			"1c755c5bc2bdea2610cd434052091b501606ea85c150cfb6ff8726ba6a219705",
+			"34c5895302153587a59d9e51c615952634083db493fb6a698b4b72a7f885dff2",
 		},
 		{
 			1.5,
 			2,
 			"59a031f5756a4739a8dc8ee13decfe4ade8e6904fa235fa65e2a9541e91857d7",
-			"1c755c5bc2bdea2610cd434052091b501606ea85c150cfb6ff8726ba6a219705",
+			"34c5895302153587a59d9e51c615952634083db493fb6a698b4b72a7f885dff2",
 		},
 		{
 			3,
 			0,
 			"1a8ae922df495b38483bc1d5772a96439d4ec3ab140fa31020fc426b33282a11",
-			"1c755c5bc2bdea2610cd434052091b501606ea85c150cfb6ff8726ba6a219705",
+			"34c5895302153587a59d9e51c615952634083db493fb6a698b4b72a7f885dff2",
 		},
 		{
 			3,
 			2,
 			"807bb71aa8cbb7954b7e48312372776db326a390757f3c1ef3e48226afc71291",
-			"1c755c5bc2bdea2610cd434052091b501606ea85c150cfb6ff8726ba6a219705",
+			"34c5895302153587a59d9e51c615952634083db493fb6a698b4b72a7f885dff2",
 		},
 	}
 	for _, test := range cases {

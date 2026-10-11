@@ -13,11 +13,11 @@ import (
 
 func fixture(t testing.TB) world.Document {
 	t.Helper()
-	encoded, err := os.ReadFile("../world/testdata/two-room.world.json")
+	encoded, err := os.ReadFile("../world/testdata/two-room.world.bin")
 	if err != nil {
 		t.Fatal(err)
 	}
-	document, err := world.Decode(bytes.TrimSpace(encoded))
+	document, err := world.Decode(encoded)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,8 +54,8 @@ func TestCompileCanonicalRoundTripAndSlopedDensity(t *testing.T) {
 	if _, err := Decode(append(encoded, ' '), &document); err == nil {
 		t.Fatal("noncanonical encoding accepted")
 	}
-	if _, err := Decode(bytes.Replace(encoded, []byte(`"algorithm":1`), []byte(`"algorithm":1,"algorithm":1`), 1), &document); err == nil {
-		t.Fatal("duplicate field accepted")
+	if _, err := Decode(append(bytes.Clone(encoded), 0), &document); err == nil {
+		t.Fatal("trailing byte accepted")
 	}
 }
 

@@ -9,7 +9,8 @@ import (
 )
 
 func resolvedOptions(options Options) (Options, error) {
-	if options.Lights != nil && (options.Light != "" || len(options.Lights) == 0 || len(options.Lights) > MaxBakeLights) {
+	if options.AllStatic && (options.Light != "" || options.Lights != nil) ||
+		options.Lights != nil && (options.Light != "" || len(options.Lights) == 0 || len(options.Lights) > MaxBakeLights) {
 		return Options{}, fmt.Errorf("mutually exclusive or empty light selection: %w", ErrLayout)
 	}
 	if options.TexelsPerUnit == 0 {
@@ -44,6 +45,17 @@ func resolvedOptions(options Options) (Options, error) {
 // and ceilings across ordinary reciprocal portals, never across transformed or
 // disconnected spaces. Walls and solid sides retain semantic chart identities.
 func Compile(document world.Document, options Options) (Layout, error) {
+	return compileReceivers(document, options, nil)
+}
+
+// CompileReceivers packs only selected receivers at the requested density.
+// Global bindings and the full geometry digest keep chunk identity stable.
+// Algorithm 2 never merges charts across an unselected sector.
+func CompileReceivers(document world.Document, options Options, sectors, solids []int) (Layout, error) {
+	return compileReceivers(document, options, &ReceiverSelection{Sectors: slices.Clone(sectors), Solids: slices.Clone(solids)})
+}
+
+func compileReceivers(document world.Document, options Options, selection *ReceiverSelection) (Layout, error) {
 	options, err := resolvedOptions(options)
 	if err != nil {
 		return Layout{}, err
@@ -51,9 +63,25 @@ func Compile(document world.Document, options Options) (Layout, error) {
 	if err := world.Validate(&document); err != nil {
 		return Layout{}, err
 	}
+	if options.AllStatic {
+		if document.Lighting == nil {
+			return Layout{}, fmt.Errorf("automatic bake requires authored lighting: %w", ErrLayout)
+		}
+		options.Lights = staticLightIDsValidated(&document)
+	}
 	surfaces, err := surfacesValidated(&document)
 	if err != nil {
 		return Layout{}, err
+	}
+	if selection != nil {
+		if _, _, err := ReceiverScope(&document, selection); err != nil {
+			return Layout{}, err
+		}
+		for i := range surfaces {
+			if !receiverSelected(surfaces[i].Binding, selection) {
+				surfaces[i].Polygons = nil
+			}
+		}
 	}
 	digest, err := geometryDigestValidated(&document)
 	if err != nil {
@@ -67,18 +95,58 @@ func Compile(document world.Document, options Options) (Layout, error) {
 		Padding:        options.Padding,
 		Pages:          []Page{{options.PageSize, options.PageSize}},
 		Bindings:       make([]Binding, len(surfaces)),
+		Receivers:      selection,
+	}
+	if selection != nil {
+		layout.Algorithm = ReceiverAlgorithm
 	}
 	if options.Light != "" {
 		layout.RuntimeBake = &RuntimeBake{Encoding: PointVisibilityEncoding, LightID: options.Light, ShadowSize: options.ShadowSize}
 	}
 	if options.Lights != nil {
+		if document.Lighting == nil {
+			return Layout{}, fmt.Errorf("direct bake requires authored lighting: %w", ErrLayout)
+		}
+		lights := slices.Clone(options.Lights)
+		if selection != nil {
+			scope, _, scopeErr := ReceiverScope(&document, selection)
+			if scopeErr != nil {
+				return Layout{}, scopeErr
+			}
+			componentDocument := document
+			componentDocument.Sectors = nil
+			for i, included := range scope {
+				if included {
+					componentDocument.Sectors = append(componentDocument.Sectors, document.Sectors[i])
+				}
+			}
+			lights = make([]string, 0, len(options.Lights))
+			seen := make(map[string]bool, len(options.Lights))
+			sources := make(map[string]world.PointLight, len(document.Lighting.Lights))
+			for _, light := range document.Lighting.Lights {
+				sources[light.ID] = light
+			}
+			for _, id := range options.Lights {
+				if seen[id] {
+					return Layout{}, fmt.Errorf("duplicate bake light: %w", ErrLayout)
+				}
+				seen[id] = true
+				light, found := sources[id]
+				if !found {
+					return Layout{}, fmt.Errorf("unknown bake light: %w", ErrLayout)
+				}
+				if runtimeEmitterInside(&componentDocument, light.Position) {
+					lights = append(lights, id)
+				}
+			}
+		}
 		layout.RuntimeBake = &RuntimeBake{
 			Encoding:   DirectRNMEncoding,
-			LightIDs:   slices.Clone(options.Lights),
+			LightIDs:   lights,
 			ShadowSize: options.ShadowSize,
 		}
 	}
-	if err := validateBake(layout.RuntimeBake, &document); err != nil {
+	if err := validateLayoutBake(&layout, &document); err != nil {
 		return Layout{}, err
 	}
 	parents := make([]int, len(surfaces))
@@ -161,6 +229,9 @@ func basis(normal world.Vec3) (world.Vec3, world.Vec3) {
 	return tangent, cross(normal, tangent)
 }
 func samePlane(a, b Surface) bool {
+	if len(a.Polygons) == 0 || len(b.Polygons) == 0 {
+		return false
+	}
 	if dot(sub(a.Normal, b.Normal), sub(a.Normal, b.Normal)) > 1e-12 {
 		return false
 	}
@@ -199,9 +270,12 @@ func pack(layout *Layout, points [][]world.Vec3, options Options) error {
 		span := [2]float64{maximum[0] - minimum[0], maximum[1] - minimum[1]}
 		density := [2]float64{math.Max(options.TexelsPerUnit, 2/span[0]), math.Max(options.TexelsPerUnit, 2/span[1])}
 		width, height := math.Ceil(span[0]*density[0])+1, math.Ceil(span[1]*density[1])+1
-		if !finite(width) || !finite(height) || width+float64(options.Padding*2) > float64(options.PageSize) ||
+		if !finite(width) || !finite(height) {
+			return fmt.Errorf("chart %d has nonfinite dimensions: %w", i, ErrLayout)
+		}
+		if width+float64(options.Padding*2) > float64(options.PageSize) ||
 			height+float64(options.Padding*2) > float64(options.PageSize) {
-			return fmt.Errorf("chart %d is oversized; change density or split surface: %w", i, ErrLayout)
+			return fmt.Errorf("chart %d is oversized; change density or split surface: %w: %w", i, ErrPageCapacity, ErrLayout)
 		}
 		bounds[i] = chartBounds{minimum, density, int(width), int(height)}
 		order[i] = i
@@ -233,7 +307,7 @@ func pack(layout *Layout, points [][]world.Vec3, options Options) error {
 				y = last.y + last.height
 			}
 			if y+height > options.PageSize {
-				return fmt.Errorf("one-page lightmap budget exhausted; change density or split asset: %w", ErrLayout)
+				return fmt.Errorf("one-page lightmap budget exhausted; change density or split asset: %w: %w", ErrPageCapacity, ErrLayout)
 			}
 			rows = append(rows, shelf{width, y, height})
 		}

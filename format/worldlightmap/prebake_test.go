@@ -105,18 +105,17 @@ func TestPrebakeRejectsMalformedManifestAndImage(t *testing.T) {
 			}
 		})
 	}
-	for name, mutation := range map[string][2]string{
-		"null":      {`"rgbm_range":6`, `"rgbm_range":null`},
-		"missing":   {`,"rgbm_range":6`, ``},
-		"duplicate": {`"rgbm_range":6`, `"rgbm_range":6,"rgbm_range":6`},
-		"unknown":   {`"rgbm_range":6`, `"rgbm_range":6,"extra":1`},
-	} {
+	for name, raw := range map[string][]byte{"JSON": []byte(`{"schema":"karty.world-lightmap-prebake@1"}`), "version": changeByte(encoded, 4, 2), "flags": changeByte(encoded, 6, 1), "reserved": changeByte(encoded, 12, 1)} {
 		t.Run(name, func(t *testing.T) {
-			raw := bytes.Replace(encoded, []byte(mutation[0]), []byte(mutation[1]), 1)
 			if _, err := DecodePrebake(raw, pair.Image, layout, &document); err == nil {
-				t.Fatal("noncanonical manifest accepted")
+				t.Fatal("malformed manifest accepted")
 			}
 		})
+	}
+	for size := range len(encoded) {
+		if _, err := DecodePrebakeManifest(encoded[:size]); err == nil {
+			t.Fatalf("manifest truncation%d", size)
+		}
 	}
 	if _, err := DecodePrebake(append(encoded, ' '), pair.Image, layout, &document); err == nil {
 		t.Fatal("noncanonical whitespace accepted")

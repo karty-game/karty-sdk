@@ -18,7 +18,9 @@ const (
 	SolidsVersion        = uint16(6)
 	MaterialsVersion     = uint16(7)
 	AnimationsVersion    = uint16(8)
-	Version              = AnimationsVersion
+	EnvironmentVersion   = uint16(9)
+	ParticlesVersion     = uint16(10)
+	Version              = ParticlesVersion
 	MaxRooms             = 1024
 	MaxPrefabs           = 256
 	MaxInstances         = 4096
@@ -49,139 +51,148 @@ var (
 	ErrContent     = errors.New("world source content is invalid")
 	ErrUVMapping   = errors.New("world source UV mapping is invalid")
 	ErrLighting    = errors.New("world source lighting is invalid")
+	ErrEnvironment = errors.New("world source environment is invalid")
 	ErrPrefabCycle = errors.New("world source prefab cycle is invalid")
 )
 
 type Vec2 struct {
-	X float64 `json:"x" yaml:"x"`
-	Y float64 `json:"y" yaml:"y"`
+	X float64 `yaml:"x"`
+	Y float64 `yaml:"y"`
 }
 
 type Vec3 struct {
-	X float64 `json:"x" yaml:"x"`
-	Y float64 `json:"y" yaml:"y"`
-	Z float64 `json:"z" yaml:"z"`
+	X float64 `yaml:"x"`
+	Y float64 `yaml:"y"`
+	Z float64 `yaml:"z"`
 }
 
 // Plane describes elevation z=A*x+B*y+C in source coordinates.
 type Plane struct {
-	A float64 `json:"a" yaml:"a"`
-	B float64 `json:"b" yaml:"b"`
-	C float64 `json:"c" yaml:"c"`
+	A float64 `yaml:"a"`
+	B float64 `yaml:"b"`
+	C float64 `yaml:"c"`
 }
 
 type Document struct {
-	Version     uint16       `json:"version"     yaml:"version"`
-	Rooms       []Room       `json:"rooms"       yaml:"rooms"`
-	Prefabs     []Prefab     `json:"prefabs"     yaml:"prefabs"`
-	Instances   []Instance   `json:"instances"   yaml:"instances"`
-	Connections []Connection `json:"connections" yaml:"connections"`
+	Version     uint16       `yaml:"version"`
+	Rooms       []Room       `yaml:"rooms"`
+	Prefabs     []Prefab     `yaml:"prefabs"`
+	Instances   []Instance   `yaml:"instances"`
+	Connections []Connection `yaml:"connections"`
 	// Lighting is available in source v4 and later, in global world coordinates.
 	// It is not part of any room, prefab or instance transform.
-	Lighting   *Lighting   `json:"lighting,omitempty"   yaml:"lighting,omitempty"`
-	UV         *UVSettings `json:"uv,omitempty"         yaml:"uv,omitempty"`
-	Solids     []Solid     `json:"solids,omitempty"     yaml:"solids,omitempty"`
-	Contents   []Content   `json:"contents,omitempty"   yaml:"contents,omitempty"`
-	Animations *Animations `json:"animations,omitempty" yaml:"animations,omitempty"`
+	Lighting    *Lighting    `yaml:"lighting,omitempty"`
+	UV          *UVSettings  `yaml:"uv,omitempty"`
+	Solids      []Solid      `yaml:"solids,omitempty"`
+	Contents    []Content    `yaml:"contents,omitempty"`
+	Animations  *Animations  `yaml:"animations,omitempty"`
+	Environment *Environment `yaml:"environment,omitempty"`
+	Particles   *Particles   `yaml:"particles,omitempty"`
 }
 
 // Room may be concave. The compiler decomposes it into convex sectors after
 // prefab expansion and connection resolution.
 type Room struct {
-	ID               string             `json:"id"                          yaml:"id"`
-	Boundary         []Edge             `json:"boundary"                    yaml:"boundary"`
-	Floor            Plane              `json:"floor"                       yaml:"floor"`
-	Ceiling          Plane              `json:"ceiling"                     yaml:"ceiling"`
-	FloorMaterial    string             `json:"floor_material"              yaml:"floor_material"`
-	CeilingMaterial  string             `json:"ceiling_material"            yaml:"ceiling_material"`
-	Contents         []Content          `json:"contents"                    yaml:"contents"`
-	FloorUV          *UVSettings        `json:"floor_uv,omitempty"          yaml:"floor_uv,omitempty"`
-	CeilingUV        *UVSettings        `json:"ceiling_uv,omitempty"        yaml:"ceiling_uv,omitempty"`
-	WallUV           *UVSettings        `json:"wall_uv,omitempty"           yaml:"wall_uv,omitempty"`
-	WallBands        *BandSettings      `json:"wall_bands,omitempty"        yaml:"wall_bands,omitempty"`
-	FloorSecondary   *SecondarySettings `json:"floor_secondary,omitempty"   yaml:"floor_secondary,omitempty"`
-	CeilingSecondary *SecondarySettings `json:"ceiling_secondary,omitempty" yaml:"ceiling_secondary,omitempty"`
-	WallSecondary    *SecondarySettings `json:"wall_secondary,omitempty"    yaml:"wall_secondary,omitempty"`
+	ID               string             `yaml:"id"`
+	Boundary         []Edge             `yaml:"boundary"`
+	Floor            Plane              `yaml:"floor"`
+	Ceiling          Plane              `yaml:"ceiling"`
+	FloorMaterial    string             `yaml:"floor_material"`
+	CeilingMaterial  string             `yaml:"ceiling_material"`
+	Contents         []Content          `yaml:"contents"`
+	FloorUV          *UVSettings        `yaml:"floor_uv,omitempty"`
+	CeilingUV        *UVSettings        `yaml:"ceiling_uv,omitempty"`
+	WallUV           *UVSettings        `yaml:"wall_uv,omitempty"`
+	WallBands        *BandSettings      `yaml:"wall_bands,omitempty"`
+	FloorSecondary   *SecondarySettings `yaml:"floor_secondary,omitempty"`
+	CeilingSecondary *SecondarySettings `yaml:"ceiling_secondary,omitempty"`
+	WallSecondary    *SecondarySettings `yaml:"wall_secondary,omitempty"`
+	Sky              bool               `yaml:"sky,omitempty"`
+	ParticleEmitters []ParticleEmitter  `yaml:"particle_emitters,omitempty"`
 }
 
 // Edge is one named, directed CCW boundary edge.
 type Edge struct {
-	ID        string             `json:"id"                  yaml:"id"`
-	Start     Vec2               `json:"start"               yaml:"start"`
-	End       Vec2               `json:"end"                 yaml:"end"`
-	Material  string             `json:"material"            yaml:"material"`
-	UV        *UVSettings        `json:"uv,omitempty"        yaml:"uv,omitempty"`
-	Bands     *BandSettings      `json:"bands,omitempty"     yaml:"bands,omitempty"`
-	Secondary *SecondarySettings `json:"secondary,omitempty" yaml:"secondary,omitempty"`
+	ID        string             `yaml:"id"`
+	Start     Vec2               `yaml:"start"`
+	End       Vec2               `yaml:"end"`
+	Material  string             `yaml:"material"`
+	UV        *UVSettings        `yaml:"uv,omitempty"`
+	Bands     *BandSettings      `yaml:"bands,omitempty"`
+	Secondary *SecondarySettings `yaml:"secondary,omitempty"`
+	// Sky opens a finite boundary visually, while retaining player confinement.
+	// It requires a sky room and cannot be a connection or port endpoint.
+	Sky bool `yaml:"sky,omitempty"`
 }
 
 type Content struct {
-	ID       string `json:"id"              yaml:"id"`
-	Kind     string `json:"kind"            yaml:"kind"`
-	Position Vec3   `json:"position"        yaml:"position"`
-	Actor    *Actor `json:"actor,omitempty" yaml:"actor,omitempty"`
+	ID       string `yaml:"id"`
+	Kind     string `yaml:"kind"`
+	Position Vec3   `yaml:"position"`
+	Actor    *Actor `yaml:"actor,omitempty"`
 }
 
 type Actor struct {
-	YawDegrees   float64           `json:"yaw_degrees"         yaml:"yaw_degrees"`
-	PitchDegrees float64           `json:"pitch_degrees"       yaml:"pitch_degrees"`
-	RollDegrees  float64           `json:"roll_degrees"        yaml:"roll_degrees"`
-	Scale        Vec3              `json:"scale"               yaml:"scale"`
-	Sprite       *Sprite           `json:"sprite,omitempty"    yaml:"sprite,omitempty"`
-	Tags         []string          `json:"tags,omitempty"      yaml:"tags,omitempty"`
-	Animation    *AnimationBinding `json:"animation,omitempty" yaml:"animation,omitempty"`
+	YawDegrees   float64           `yaml:"yaw_degrees"`
+	PitchDegrees float64           `yaml:"pitch_degrees"`
+	RollDegrees  float64           `yaml:"roll_degrees"`
+	Scale        Vec3              `yaml:"scale"`
+	Sprite       *Sprite           `yaml:"sprite,omitempty"`
+	Tags         []string          `yaml:"tags,omitempty"`
+	Animation    *AnimationBinding `yaml:"animation,omitempty"`
 }
 
 type Sprite struct {
-	Texture string  `json:"texture"  yaml:"texture"`
-	Facing  string  `json:"facing"   yaml:"facing"`
-	Alpha   string  `json:"alpha"    yaml:"alpha"`
-	Width   float64 `json:"width"    yaml:"width"`
-	Height  float64 `json:"height"   yaml:"height"`
-	OriginX float64 `json:"origin_x" yaml:"origin_x"`
-	OriginY float64 `json:"origin_y" yaml:"origin_y"`
+	Texture string  `yaml:"texture"`
+	Facing  string  `yaml:"facing"`
+	Alpha   string  `yaml:"alpha"`
+	Width   float64 `yaml:"width"`
+	Height  float64 `yaml:"height"`
+	OriginX float64 `yaml:"origin_x"`
+	OriginY float64 `yaml:"origin_y"`
 }
 
 type Prefab struct {
-	ID          string       `json:"id"                 yaml:"id"`
-	Rooms       []Room       `json:"rooms"              yaml:"rooms"`
-	Instances   []Instance   `json:"instances"          yaml:"instances"`
-	Connections []Connection `json:"connections"        yaml:"connections"`
-	Ports       []Port       `json:"ports"              yaml:"ports"`
-	Solids      []Solid      `json:"solids,omitempty"   yaml:"solids,omitempty"`
-	Contents    []Content    `json:"contents,omitempty" yaml:"contents,omitempty"`
+	ID               string            `yaml:"id"`
+	Rooms            []Room            `yaml:"rooms"`
+	Instances        []Instance        `yaml:"instances"`
+	Connections      []Connection      `yaml:"connections"`
+	Ports            []Port            `yaml:"ports"`
+	Solids           []Solid           `yaml:"solids,omitempty"`
+	Contents         []Content         `yaml:"contents,omitempty"`
+	ParticleEmitters []ParticleEmitter `yaml:"particle_emitters,omitempty"`
 }
 
 type Instance struct {
-	ID        string             `json:"id"        yaml:"id"`
-	Prefab    string             `json:"prefab"    yaml:"prefab"`
-	Transform Transform          `json:"transform" yaml:"transform"`
-	Materials []MaterialOverride `json:"materials" yaml:"materials"`
+	ID        string             `yaml:"id"`
+	Prefab    string             `yaml:"prefab"`
+	Transform Transform          `yaml:"transform"`
+	Materials []MaterialOverride `yaml:"materials"`
 	// Tags replaces the actor tags of every content in this prefab instance.
 	// An empty list preserves the prefab-authored tags.
-	Tags []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Tags []string `yaml:"tags,omitempty"`
 }
 
 // Transform applies uniform scale, Z-axis yaw in degrees and translation.
 // Scale zero means the schema default of one.
 type Transform struct {
-	Translation Vec3    `json:"translation" yaml:"translation"`
-	YawDegrees  float64 `json:"yaw_degrees" yaml:"yaw_degrees"`
-	Scale       float64 `json:"scale"       yaml:"scale"`
+	Translation Vec3    `yaml:"translation"`
+	YawDegrees  float64 `yaml:"yaw_degrees"`
+	Scale       float64 `yaml:"scale"`
 }
 
 type MaterialOverride struct {
-	From string `json:"from" yaml:"from"`
-	To   string `json:"to"   yaml:"to"`
+	From string `yaml:"from"`
+	To   string `yaml:"to"`
 }
 
 // Endpoint selects either a room edge in the current scope or a named port on
 // an instance in that scope. Exactly one pair must be populated.
 type Endpoint struct {
-	Room     string `json:"room"     yaml:"room"`
-	Edge     string `json:"edge"     yaml:"edge"`
-	Instance string `json:"instance" yaml:"instance"`
-	Port     string `json:"port"     yaml:"port"`
+	Room     string `yaml:"room"`
+	Edge     string `yaml:"edge"`
+	Instance string `yaml:"instance"`
+	Port     string `yaml:"port"`
 }
 
 type PortalDirection string
@@ -197,15 +208,15 @@ const (
 // of any number of links. NonEuclidean permits equal-length edges at different
 // positions or orientations.
 type Connection struct {
-	ID           string          `json:"id"                      yaml:"id"`
-	A            Endpoint        `json:"a"                       yaml:"a"`
-	B            Endpoint        `json:"b"                       yaml:"b"`
-	Direction    PortalDirection `json:"direction,omitempty"     yaml:"direction,omitempty"`
-	NonEuclidean bool            `json:"non_euclidean,omitempty" yaml:"non_euclidean,omitempty"`
+	ID           string          `yaml:"id"`
+	A            Endpoint        `yaml:"a"`
+	B            Endpoint        `yaml:"b"`
+	Direction    PortalDirection `yaml:"direction,omitempty"`
+	NonEuclidean bool            `yaml:"non_euclidean,omitempty"`
 }
 
 // Port exposes one otherwise unconnected prefab endpoint to its instances.
 type Port struct {
-	ID       string   `json:"id"       yaml:"id"`
-	Endpoint Endpoint `json:"endpoint" yaml:"endpoint"`
+	ID       string   `yaml:"id"`
+	Endpoint Endpoint `yaml:"endpoint"`
 }

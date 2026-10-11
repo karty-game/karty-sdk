@@ -5,7 +5,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/karty-game/karty-sdk/format/actions"
+	"github.com/karty-game/karty-sdk/authoring/actions"
 )
 
 func main() {

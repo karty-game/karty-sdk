@@ -9,36 +9,132 @@ tags while readers retain version 1 compatibility.
 
 See [authoring semantics](../worldsource/README.md) for compiler inputs.
 
+## Candidate binary wire, version 1
+
+The unreleased SDK candidate replaces compiled runtime JSON with `KWR1` typed
+binary. The 16-byte little-endian header contains magic (4 bytes), binary version
+`1` (uint16), zero flags (uint16), payload length (uint32) and zero reserved
+(uint32). The exact payload follows public Go declaration order; semantic world
+versions 1–3 retain their separate feature gates. JSON and older runtime payloads
+are rejected, without a compatibility fallback.
+
+Integers use fixed widths (`int` is signed int32), floats are finite IEEE values,
+and negative zero has one canonical positive-zero encoding. Booleans and pointer
+presence are bytes 0/1. Strings have uint32 byte lengths and valid UTF-8; slices
+use uint32 `length+1`, reserving zero for nil and preserving an explicit empty
+slice. Fixed arrays have no counts. Generated readers scan every record before
+allocating typed arrays, enforcing field counts, the 8 MiB payload bound and a
+32 MiB conservative allocation ceiling. Truncation, bad counts, unsupported
+versions, noncanonical primitives and trailing bytes fail before publication.
+
+The handwritten [generator](../../internal/codegen/binary/main.go) owns the typed
+codecs. Run `mise exec -- go generate ./format/world` after contract edits;
+regeneration coverage prevents stale generated files. Binary digests and compiled
+artifacts must be rebuilt for this candidate; historical released JSON bytes are
+not the current wire contract. Authoring remains TOML/YAML.
+
+## Environment and sky openings, version 1
+
+The next candidate SDK adds optional `world/environment@1` alongside
+`world/sectors@1`, using compiled world v3 and source v9. The typed environment record has version 1 and preset `daylight`, optionally
+adding `palette`, a sun with azimuth 135/elevation 40, `time_of_day` and
+`cloud_amount`.
+The engine candidate supplies a mount-owned live clock/cloud setter; cartridge
+manifest capability gating is independent of the candidate binary envelope.
+Compiled v1–2 reject the feature; absent controls retain their prior semantics.
+
+Presets are `daylight`, `space`, `cartoon`, `fantasy`. Palette is omitted,
+`default`, `violet` or `twilight`; it affects only sky colors, independently of
+illumination. A supplied sun has two finite angles in degrees: azimuth `[0,360)`
+from +X toward +Y and elevation `[0,90]` above XY. The fixed global sun direction
+points toward the light, so incoming rays travel in the opposite direction.
+Each preset fixes the default angles, light color/intensity, sky palette and
+outdoor ambient cube for this capability version. `ResolveEnvironment` exposes
+the bounded linear RGB defaults without heap allocations; consumers resolve
+them at preparation time. Changing these defaults requires a versioned decision.
+
+Optional `time_of_day` is finite hours in `[0,24)`; `cloud_amount` is finite
+coverage in `[0,1]`. Pointer presence preserves explicit zero. Omitted time
+retains the fixed preset or explicit sun; authored time and sun together are
+rejected. Omitted clouds default to `0.35`. `ResolveEnvironmentSettings` accepts
+a complete live clock/cloud override without allocation; `15` reproduces preset
+sun defaults, `0` is midnight, `6` sunrise, `12` noon and `18` sunset. The clock
+coordinates direction, direct intensity, sky/fill brightness and low-sun warmth;
+night sun intensity/disk are zero. Palette selection remains independent of
+illumination. Clouds change visual coverage and do not shadow geometry.
+
+| Preset   | Default azimuth/elevation | Sun intensity | Outdoor fill         |
+| -------- | ------------------------- | ------------- | -------------------- |
+| daylight | 135° / 40°                | 0.72          | Cool blue            |
+| space    | 135° / 25°                | 0.85          | Restrained dark blue |
+| cartoon  | 135° / 50°                | 0.58          | Bright neutral blue  |
+| fantasy  | 135° / 32°                | 0.68          | Muted violet         |
+
+Sector `sky: true` is a finite ceiling mask revealing the environment rather
+than a physical roof. Opaque wall `sky: true` is a finite horizon mask, valid
+only in a sky sector with `portal: -1`. Every sky marker requires a root
+environment. Sky masks preserve navigation bounds, collision confinement,
+portal topology and semantic surface bindings. Adjacent sky sectors show the
+same environment in their exposed upper wall strips even when finite ceiling
+heights differ. Sky ceilings, horizon masks and these upper strips are excluded
+from physical shadow casters and lightmap receivers. Floors, roofs and ordinary
+walls still occlude lighting. Decorative clouds, stars and celestial bodies
+do not introduce additional lights.
+
+Outdoor fill must be restricted to sky-connected geometry and sun visibility
+must respect physical occluders; the resolver's ambient cube is not a global
+interior light. Renderer quality and shadow budgets are host choices. The first
+version supports a live clock and static casters; moving casters, terrain
+generation, vegetation and baked sun/sky transport remain separate features. Existing point-light bake recipes remain usable with open sky geometry
+and never select the directional sun. See
+[lightmap treatment](../worldlightmap/README.md#environment-sky-receivers).
+
+Complete validation rejects unknown presets/palettes, bad versions and angles,
+sky without an environment, horizon walls on portals and horizon walls in indoor
+sectors. Binary decoding rejects malformed presence tags, incomplete records and
+noncanonical primitives. Older hosts reject the new capability before
+publishing resources.
+
 ## Authored lighting, version 1
 
 The `world/lighting@1` contract adds optional authored lighting to
 compiled world version 3 and authoring source version 4. The cartridge declares
 both `world/sectors@1` and `world/lighting@1`. Compiled versions 1–2 and source
-versions 1–3 reject lighting. An absent `lighting` field preserves every
-supported version's existing wire encoding and legacy rendering; source v4 also
-accepts absence. This independently versioned capability does not change the
+versions 1–3 reject lighting. Absent lighting preserves legacy rendering on every supported semantic world
+version; source v4 also accepts absence. This independently versioned capability does not change the
 level envelope or cartridge manifest version.
 
-The payload is `{"version":1,"ambient":{"x":0.1,"y":0.1,"z":0.1},"lights":[]}`.
+The typed record contains version 1, ambient linear RGB and a light list.
 Each point light has `id`, `position`, `color` and `radius` fields. Ambient and
 point colors are finite **linear RGB** intensities in `[0,1]`, represented by
 `x`, `y`, `z`; they are not sRGB color bytes. Positions are finite global world
 coordinates, bounded inclusively to ±1,000,000 per component, and need not fall
-inside a sector. There are 0–50 lights in authored order, with unique nonempty
+inside a sector. The unreleased SDK 0.0.11 candidate permits 0–4,096 authored
+sources in authored order, with unique nonempty
 UTF-8 IDs of at most 128 bytes. An empty list permits ambient-only lighting.
 Lighting belongs to the root document, never a room, prefab or instance, and
 receives no prefab transform or sector assignment. The contract supplies no
 shadows, portal transport, guest lighting controls or PBR parameters.
+
+`MaxLights` bounds authored sources; `MaxRuntimeLights = 50` separately bounds
+live direct lighting. Completed prebakes collapse any selected steady sources
+into three coefficient tiles and remove them from runtime direct-light slots.
+An unbaked world or partial bake must still fit its remaining direct sources
+within 50; raising the authored bound does not raise GPU or guest light limits.
+The typed binary field layout stays unchanged, while its generated source-count
+preflight bound becomes 4,096. Small light lists retain allocation-free identity
+validation; larger lists use a bounded identity index rather than quadratic
+comparisons. This candidate producer/bounds change belongs to SDK 0.0.11;
+released manifests and the runtime command protocol remain unchanged.
 
 The version-1 decision bounds radius inclusively to `[0.001, 1,000,000]` world
 units (`world.MinLightRadius` and `world.MaxCoordinate`). The lower bound keeps
 the host's float32 distance/attenuation calculation representable; arbitrary
 positive float64 radii are not valid. Both source and compiled validators enforce
 the same complete lighting bounds, identities and finite values. Compiled world
-decoding additionally requires its canonical JSON spelling and rejects unknown,
-duplicate or missing fields and explicit `"lighting":null`. A nil lights slice
-encodes as `"lights":null` and has the same ambient-only semantics as an empty
-array. Source JSON/YAML presence and unknown-field
+decoding additionally requires complete canonical binary records. A nil lights
+slice and an explicit empty slice have distinct encodings and the same
+ambient-only semantics. Source TOML/YAML presence and unknown-field
 checks belong to the public compiler: `worldsource.Validate` validates typed
 values and does not parse author text. Future semantic changes require a new
 lighting capability/version.
@@ -71,7 +167,7 @@ by squared normal components, then apply material AO once. Identical six colors
 match uniform ambient. This world-global artistic cube provides no spatial
 probes or portal light transport. Optional `actors: true` lights world sprites
 in full camera output using geometry normals; omitted/false keeps sprites unlit.
-Neither optional field changes older payload encodings when absent.
+Their absence retains the existing lighting behavior.
 
 ## Point-light motion, version 1
 
@@ -83,7 +179,7 @@ bounds; period is finite in [0.1, 3600] seconds. Runtime position follows
 mounted-level simulation clock, reset on replacement/remount. Full surfaces and
 opted-in actors receive this unshadowed direct light; diagnostic views stay
 unchanged. A moving light cannot be selected in a static lightmap bake.
-Omission preserves the existing static encoding. The motion record
+Omission retains static-light semantics. The motion record
 is version 1; the guest wire contract is unchanged.
 
 ## Material mapping, version 1
@@ -104,15 +200,15 @@ to ±1,000,000,000,000. Weights are finite in [0,1] and sum to one within 1e-9.
 Three projections blend using constant surface weights derived by the compiler
 from geometric normals; all material channels use the same projections and
 weights. The runtime does not infer projection setup or authoring modes.
-Compiled decoding requires canonical JSON and rejects partial, null, unknown,
-duplicate and malformed records before publishing a world. This capability is available in SDK 0.0.8; absent mappings preserve older encodings.
+Compiled decoding requires complete canonical binary records before publishing a
+world. The mapping capability is available in SDK 0.0.8; absent mappings retain
+legacy projection semantics.
 
 ## Static solids, version 1
 
 Compiled world v3 optionally carries `static_solids: {version: 1, items: [...]}`
 with the `world/static-solids@1` capability, available in SDK 0.0.8. Solids are
-independent of room sectors and portal connectivity. Omission preserves
-existing encoded bytes.
+independent of room sectors and portal connectivity. Omission retains worlds without static solids.
 
 Each compiled `Solid` contains `id`, a strictly convex CCW `footprint` (3–64
 vertices), `bottom`/`top` elevation planes, nonzero `side_material`, `top_material`
@@ -121,7 +217,7 @@ and `bottom_material` IDs, optional `side_uv`/`top_uv`/`bottom_uv`, and omitted-
 Coordinates, plane coefficients and evaluated elevations obey ±1,000,000 bounds;
 edges and thickness are at least 1e-6. Overlapping solids do not relax any room or
 portal validation. Collision is a blocking volume, not a walkable top. Complete
-validation and canonical JSON rules apply before mounting.
+validation and canonical binary rules apply before mounting.
 
 Mapped solids require the material-mapping marker and capability. There are no
 new guest commands or level-envelope versions. Incompatible contract changes
@@ -131,7 +227,7 @@ require a versioned decision.
 
 Compiled world v3 may declare `material_layers: {"version":1}` together with
 `material_mapping` and the `world/material-layers@1` cartridge capability.
-Absent fields preserve existing v1–v3 encoding. Secondary descriptors on sector
+Absent fields retain existing v1–v3 material behavior. Secondary descriptors on sector
 floors/ceilings and walls contain `material`, `strength` in [0,1], and a complete
 independent `uv` projection. Atlas tiles used as primary or secondary materials
 remain opaque.
@@ -179,7 +275,7 @@ and validate every referenced slot before readiness.
 
 Compiled v3 optionally carries `animations` version 1 and requires
 `world/animations@1` alongside `world/sectors@1`. Source version 8 introduces
-this feature without changing compiled geometry or the legacy absent encoding.
+this feature without changing compiled geometry or absent-animation behavior.
 The level-wide library contains at most 64 unique named presets and 196 material
 bindings. Actors can select a named preset with `animation`; material bindings
 select a texture/material ID with `material`. `phase_seconds` offsets the shared
@@ -218,7 +314,7 @@ reject. The pulse composes independently with the existing single surface
 animation. Emission uses final linear albedo and bypasses lighting/shadow/AO
 attenuation; it does not supply bloom, sprite emission or automatic light
 transport. Explicit colored point lights provide nearby illumination. Omitted
-payloads preserve legacy canonical bytes. The feature requires `world/sectors@1`.
+payloads retain legacy emission behavior. The feature requires `world/sectors@1`.
 
 Optional material `lights` entries link existing point-light IDs to that material's
 pulse envelope. Their authored colors are the peak contribution; the same

@@ -5,6 +5,14 @@ producer for the SDK's completed RNM prebake format. It accepts a validated
 compiled world, its existing receiver layout and original albedo images. It
 does not import the private engine or require OpenGL, WebGL or WASM execution.
 
+For chunk receiver algorithm 2, pass the complete logical world and the selected
+layout to the same `Bake` function. Only selected receivers allocate atlas space;
+all ordinary physical neighbors remain shadow and diffuse transport geometry.
+Other physical components are excluded, including those reached through
+transformed portals. The producer preserves a selected space with no local
+light as covered black. Tests exercise a light and occluding solid outside the
+receiver chunk, and a transformed-space lighting boundary.
+
 ```go
 result, err := worldlightmapbake.Bake(ctx, document, layout, materials,
     worldlightmapbake.Options{Samples: 64, Bounces: 1, Workers: 0, Seed: 1})
@@ -15,11 +23,15 @@ original sRGB albedo. Missing nonzero opaque-surface materials fail explicitly. 
 caller must keep images and document/layout slices unchanged during the call.
 Use `Result.Image` as straight-alpha RGBM, without premultiplying its alpha,
 and use `Result.RGBMRange` when making an algorithm-2 offline prebake manifest.
-`ReflectanceDigest` is independently callable for cached-bake invalidation.
-It commits used decoded texture bytes and the semantic material/UV assignments,
+`ReflectanceDigest` independently commits the complete world's used decoded
+texture bytes and semantic material/UV assignments,
 including affine projections and triplanar weights. Unused materials, actors,
 ambient and material AO do not invalidate that digest. The separate prebake
 manifest also commits geometry, layout, selected lights and bake controls.
+`ReflectanceDigestForLayout(document, layout, materials, options)` returns exactly
+the producer's current scoped reflectance provenance, including its ordinary
+physical component and any bounded transport halo. Use this value to create a
+fresh manifest when reusing verified cached pixels.
 
 The baker rasterizes actual semantic polygons into chart texel centres and uses
 a balanced triangle BVH for double-sided ray visibility. It includes solid
@@ -28,6 +40,16 @@ become blockers. Chart rectangles remain isolated during coverage dilation,
 and covered black samples retain nonzero alpha. Runtime recipe validation
 restricts the bake to one ordinary reciprocal physical component. Transformed
 portal transport is not supported.
+
+Candidate environment worlds use the same point-light-only producer. Sky
+ceilings, horizon boundaries and outdoor upper seams contain no polygons, so
+they neither cast shadows nor require albedo images. Escaped transport rays
+receive zero incoming radiance: this producer does not bake directional sun,
+sky illumination or sky-driven bounce light. Those contributions remain live.
+Changing presets has no effect on bake pixels, although the canonical offline
+surface snapshot conservatively retains the environment for artifact identity.
+Sun selection in a point-light recipe is rejected; transformed-portal and
+ordinary physical-component restrictions remain unchanged.
 
 Primary direct lighting retains the current squared Half-Lambert RNM contract
 and squared falloff in normalized squared distance. Bounced transport instead
@@ -42,7 +64,72 @@ Selected direct lights are ray tested at each hit; reflected contributions are
 accumulated into the receiver's three directional RNM coefficients. The
 coefficient distribution preserves geometric neutral irradiance. No dense
 surface-to-surface matrix, artistic constant fill light or ambient term is used.
-The storage range reserves a conservative geometric-series energy bound.
+Producer revision 2 reserves a conservative geometric-series energy bound over
+spatially overlapping light influences. A weighted interval sweep computes the
+maximum possible overlapping source energy independently along X, Y and Z; the
+smallest of those three upper bounds remains conservative for every sphere.
+Outward interval and accumulation rounding preserve that bound. A thousand
+distant lamps therefore retain approximately the range of one lamp, while a
+thousand overlapping lamps reserve their combined energy. The atlas still has
+three coefficient tiles at the receiver's fixed resolution. New producer names
+end in `@2` and explicitly bind their RGBM range into the offline identity;
+`@1` manifests remain verifiable using their original global-sum range and exact
+identity bytes. Source selection, shadows, path sampling and accumulation order
+retain their existing semantics.
+
+`Options.MaxRayDistance` defaults to zero, preserving unbounded revision-2
+transport. A finite positive value at most `worldlightmap.MaxBakeRayDistance`
+(1,000,000 world units) selects a distinct revision-3 producer. A source beyond
+that distance contributes zero to both primary and bounce-hit lighting; sources
+inside the limit keep their original radius falloff. Every diffuse bounce
+segment is also limited to that distance. This intentionally truncates transport
+and can reduce distant bounce light. Denoising visibility segments stay within
+their receiver charts and retain their barrier tests independently of the limit.
+
+`BoundedInfluenceScope` is the authoritative conservative dependency selection.
+For `b` bounces and distance `D`, derived surface polygons overlapping receiver
+bounds expanded by `(b+1)*D` remain transport geometry. Sources must reach receiver
+bounds expanded by `b*D`, using influence radius `min(source.Radius,D)`. Numerical
+guards cover ray-origin and raster rounding. The local source set controls RGBM
+range, while the complete recipe continues to classify completed static sources;
+scoping never returns an excluded steady source to runtime light slots. Bounding
+boxes can overestimate dependencies, especially for large receiver charts.
+
+`BakeInputDigest(document, layout, materials, options)` hashes the present pixel
+dependencies: producer, sampling/filter controls, distance, local RGBM range,
+source records, chart packing, actual derived polygons, UV/material assignments
+and used decoded albedo pixels. It omits global geometry digests, unrelated
+bindings and global sector/solid index offsets. Used local geometry and source
+order are retained. Worker count does not affect it. Thus a cache from hundreds
+of commits ago can be safely looked up by recomputing current content; a Git diff
+or last-build snapshot is unnecessary. Remote edits outside the halo preserve
+the key when local receiver packing remains the same. The cache must verify its
+stored QOI integrity and regenerate current layout/manifest identities before
+packaging. The digest identifies reusable pixels, not a mountable old artifact.
+Zero distance conservatively retains the full physical-component dependencies.
+
+Recipes accept up to 4,096 authored static sources independently of the 50 live
+direct-light limit. Named-source lookup uses a bounded index. Above 32 selected
+sources, a balanced influence BVH skips lights whose conservative radius boxes
+do not contain the receiver or bounce hit. Its bounded bitset iterator yields
+candidates in recipe order, preserving deterministic floating-point sums and
+existing pixel fixtures without per-hit allocation. Smaller recipes keep the
+linear walk. This accelerates spatially separated sources; physically overlapping
+lights still require their actual build-time visibility work.
+
+The sparse source benchmark runs one direct RNM query and one bounce-hit
+Lambert query against the same source set, with no occluders. On Linux amd64,
+AMD Ryzen 7 5700U, pinned Go 1.27.1, three 300 ms repetitions produced these
+median times; every variant allocated zero bytes and zero objects per query pair:
+
+| Sources | Linear source walk | Influence BVH |
+| ------- | ------------------ | ------------- |
+| 1,000   | 19,583 ns          | 395.8 ns      |
+| 4,096   | 80,701 ns          | 610.7 ns      |
+
+Command: `GOCACHE=/tmp/karty-engine-go-cache mise exec -- go test ./bake/worldlightmap -run '^$' -bench '^BenchmarkSparseSourceLighting$' -benchmem -benchtime=300ms -count=3 -timeout=9s`.
+These are CPU source-query measurements, not whole-bake timings or GPU/frame-rate
+predictions. The 24-source Hangar recipe keeps the small-list path.
 
 Samples default to 16 and accept 1–256. Bounces are explicitly 0–4; zero requests
 direct-only output. Workers default to GOMAXPROCS capped at 64, with an explicit
@@ -70,8 +157,9 @@ Tests verify coloured reflection into a direct shadow, absence of reflected
 energy from black surfaces, no leakage across a closed barrier, partial-portal
 blocking/opening, UV-dependent reflected colours, the neutral direct contract,
 energy bounds, worker determinism and cancellation without partial output.
-Six golden pixel/reflectance hashes pin the existing `cpu-rnm3-pathtrace@1`
-producer across internal refactors.
+Six golden pixel/reflectance hashes pin the original one-source transport
+fixtures across producer revisions and internal refactors. A separate manifest
+fixture preserves the exact revision-1 identity and pins revision 2 separately.
 
 ## Default material decision, version 1
 
@@ -88,8 +176,11 @@ Missing nonzero materials still fail, including direct-only bakes.
 ID `0`. Thus omitted and explicitly supplied identical default pixels have the
 same identity; changing a used explicit default image invalidates the bake.
 Previously valid nonzero-material worlds retain identical pixels and digests.
-The producer identifier, prebake algorithms, canonical JSON and capability names
-remain unchanged; no engine SDK manifest is modified by this decision.
+The candidate uses canonical typed binary for reflectance assignments and bake
+identities; runtime JSON has no fallback. Artifacts and bake caches must be
+rebuilt. Producer identifiers, sampling, pixels and capability names retain
+their existing semantics; the versioned candidate format decision owns the
+serialization change.
 
 ## Indirect denoising
 

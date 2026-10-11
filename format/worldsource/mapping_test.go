@@ -29,7 +29,7 @@ func TestSourceUVLegacyDefaultsAndScopeVersionGates(t *testing.T) {
 			return &d.Prefabs[0].Rooms[0].Boundary[len(d.Prefabs[0].Rooms[0].Boundary)-1].UV
 		},
 	}
-	if worldsource.Version != 8 || worldsource.MappingVersion != 5 || worldsource.LightingVersion != 4 {
+	if worldsource.Version != 10 || worldsource.MappingVersion != 5 || worldsource.LightingVersion != 4 {
 		t.Fatal("source version/capability gate changed")
 	}
 	for _, version := range []uint16{1, 2, 3, 4, 5, 6, 7} {
@@ -38,13 +38,9 @@ func TestSourceUVLegacyDefaultsAndScopeVersionGates(t *testing.T) {
 		if err := worldsource.Validate(&document); err != nil {
 			t.Fatalf("absent UV broke source%d: %v", version, err)
 		}
-		encoded, err := json.Marshal(document)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, field := range []string{`"uv"`, `"floor_uv"`, `"ceiling_uv"`, `"wall_uv"`} {
-			if bytes.Contains(encoded, []byte(field)) {
-				t.Fatalf("absent UV changed source%d wire", version)
+		for name, scope := range scopes {
+			if *scope(&document) != nil {
+				t.Fatalf("absent UV changed %s", name)
 			}
 		}
 		for name, scope := range scopes {
@@ -93,9 +89,6 @@ func TestSourceUVPointerOverridesAndFiniteBounds(t *testing.T) {
 	encoded, err := json.Marshal(settings)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if !bytes.Contains(encoded, []byte(`"rotation_degrees":0`)) {
-		t.Fatal("explicit zero rotation override was omitted")
 	}
 	var decoded worldsource.UVSettings
 	if err := json.Unmarshal(encoded, &decoded); err != nil || !reflect.DeepEqual(settings, &decoded) {

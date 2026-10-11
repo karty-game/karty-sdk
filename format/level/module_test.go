@@ -10,7 +10,7 @@ import (
 func TestWrapModuleIsDeterministicAndContainsEnvelope(t *testing.T) {
 	t.Parallel()
 
-	envelope, err := level.Encode([]byte(`{"schema":"test@1"}`), []level.SourceEntry{
+	envelope, err := level.Encode(metadataBytes(t, level.Metadata{"schema": level.StringValue("test@1")}), []level.SourceEntry{
 		{Name: "map", Kind: level.EntryData, Data: []byte{1, 2, 3}},
 	})
 	if err != nil {

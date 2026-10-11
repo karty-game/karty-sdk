@@ -22,20 +22,24 @@ const (
 type Capability string
 
 const (
-	CapabilityTextureQOIv1             Capability = "texture/qoi@1"
-	CapabilitySoundQOAv1               Capability = "sound/qoa@1"
-	CapabilityAudioStreamQOAv1         Capability = "audio-stream/qoa@1"
-	CapabilityVideoMPEG1v1             Capability = "video/mpeg1@1"
-	CapabilityWorldLightingV1          Capability = "world/lighting@1"
-	CapabilityWorldLightmapsV1         Capability = "world/lightmaps@1"
-	CapabilityWorldLightmapsPrebakedV1 Capability = "world/lightmaps-prebaked@1"
-	CapabilityWorldMaterialMappingV1   Capability = "world/material-mapping@1"
-	CapabilityWorldAnimationsV1        Capability = "world/animations@1"
-	CapabilityWorldEmissionV1          Capability = "world/emission@1"
-	CapabilityWorldStaticSolidsV1      Capability = "world/static-solids@1"
-	CapabilityWorldMaterialAtlasV1     Capability = "world/material-atlas@1"
-	CapabilityWorldMaterialAtlasV2     Capability = "world/material-atlas@2"
-	CapabilityWorldMaterialLayersV1    Capability = "world/material-layers@1"
+	CapabilityTextureQOIv1               Capability = "texture/qoi@1"
+	CapabilitySoundQOAv1                 Capability = "sound/qoa@1"
+	CapabilityAudioStreamQOAv1           Capability = "audio-stream/qoa@1"
+	CapabilityVideoMPEG1v1               Capability = "video/mpeg1@1"
+	CapabilityWorldLightingV1            Capability = "world/lighting@1"
+	CapabilityWorldChunksV1              Capability = "world/chunks@1"
+	CapabilityWorldLightmapsV1           Capability = "world/lightmaps@1"
+	CapabilityWorldLightmapsPrebakedV1   Capability = "world/lightmaps-prebaked@1"
+	CapabilityWorldMaterialMappingV1     Capability = "world/material-mapping@1"
+	CapabilityWorldParticlesV1           Capability = "world/particles@1"
+	CapabilityWorldAnimationsV1          Capability = "world/animations@1"
+	CapabilityWorldEmissionV1            Capability = "world/emission@1"
+	CapabilityWorldEnvironmentV1         Capability = "world/environment@1"
+	CapabilityWorldStaticSolidsV1        Capability = "world/static-solids@1"
+	CapabilityWorldMaterialAtlasV1       Capability = "world/material-atlas@1"
+	CapabilityWorldMaterialAtlasV2       Capability = "world/material-atlas@2"
+	CapabilityWorldMaterialLayersV1      Capability = "world/material-layers@1"
+	CapabilityWorldMaterialReflectanceV1 Capability = "world/material-reflectance@1"
 )
 
 const (
@@ -75,15 +79,19 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityTextureQOIv1,
 			CapabilityVideoMPEG1v1,
 			CapabilityWorldLightingV1,
+			CapabilityWorldChunksV1,
 			CapabilityWorldLightmapsV1,
 			CapabilityWorldLightmapsPrebakedV1,
 			CapabilityWorldMaterialAtlasV1,
 			CapabilityWorldMaterialAtlasV2,
 			CapabilityWorldMaterialLayersV1,
 			CapabilityWorldMaterialMappingV1,
+			CapabilityWorldMaterialReflectanceV1,
 			CapabilityWorldStaticSolidsV1,
 			CapabilityWorldAnimationsV1,
+			CapabilityWorldParticlesV1,
 			CapabilityWorldEmissionV1,
+			CapabilityWorldEnvironmentV1,
 		},
 	); err != nil {
 		return fmt.Errorf("runtime capabilities: %w", err)
@@ -104,10 +112,10 @@ const (
 // Resizing never upscales; dimensions use integer floor rounding and remain at
 // least one pixel. Smooth filtering means Lanczos3 with straight-alpha pixels.
 type ImageRecipe struct {
-	MaxWidth  uint32      `toml:"max_width"  json:"max_width"`
-	MaxHeight uint32      `toml:"max_height" json:"max_height"`
-	Filter    ImageFilter `toml:"filter"     json:"filter"`
-	BitDepth  uint8       `toml:"bit_depth"  json:"bit_depth"`
+	MaxWidth  uint32      `toml:"max_width"`
+	MaxHeight uint32      `toml:"max_height"`
+	Filter    ImageFilter `toml:"filter"`
+	BitDepth  uint8       `toml:"bit_depth"`
 }
 
 func (recipe ImageRecipe) Validate() error {
@@ -130,8 +138,8 @@ const (
 // to signed PCM16 before QOA encoding. Mono conversion is explicit; preserve
 // keeps mono or stereo source channels unchanged.
 type AudioRecipe struct {
-	SampleRate  uint32      `toml:"sample_rate" json:"sample_rate"`
-	ChannelMode ChannelMode `toml:"channels"    json:"channels"`
+	SampleRate  uint32      `toml:"sample_rate"`
+	ChannelMode ChannelMode `toml:"channels"`
 }
 
 func (recipe AudioRecipe) Validate() error {

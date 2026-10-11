@@ -72,15 +72,7 @@ func TestFrameCompilationCanonicalAndLegacyEncoding(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(d, decoded) {
 		t.Fatalf("roundtrip: %v", err)
 	}
-	for _, mutation := range [][]byte{
-		bytes.Replace(encoded, []byte(`"material_layers":{"version":1}`), []byte(`"material_layers":null`), 1),
-		bytes.Replace(encoded, []byte(`"coverage":"opaque"`), []byte(`"coverage":"opaque","coverage":"opaque"`), 1),
-		bytes.Replace(encoded, []byte(`"repeat_u":true`), []byte(`"repeat_u":null`), 1),
-	} {
-		if _, err := world.Decode(mutation); err == nil {
-			t.Fatal("accepted noncanonical frame fields")
-		}
-	}
+	assertBinaryMalformed(t, encoded)
 	legacy := validWorld()
 	encoded, err = world.Encode(legacy)
 	if err != nil {
@@ -289,14 +281,11 @@ func TestCompiledFrameMarkerPreservesEmptyPortalParticipation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(b, []byte(`"frame_compiled":true`)) {
-		t.Fatal("empty portal lost compiled frame marker")
-	}
 	round, err := world.Decode(b)
 	if err != nil || !round.Sectors[0].Walls[1].FrameCompiled {
 		t.Fatalf("marker roundtrip: %v", err)
 	}
-	if _, err := world.Decode(bytes.Replace(b, []byte(`"frame_compiled":true`), []byte(`"frame_compiled":null`), 1)); err == nil {
+	if _, err := world.Decode(replaceByte(b, 6, 1)); err == nil {
 		t.Fatal("accepted null compiled frame marker")
 	}
 	d.MaterialLayers = nil

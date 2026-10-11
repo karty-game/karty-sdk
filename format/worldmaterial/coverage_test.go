@@ -48,14 +48,11 @@ func TestCoverageLayoutV2CanonicalAndLimits(t *testing.T) {
 			t.Fatal("accepted malformed coverage declaration")
 		}
 	}
-	for _, bad := range [][]byte{
-		bytes.Replace(encoded, []byte(`"coverage":"masked"`), []byte(`"coverage":null`), 1),
-		bytes.Replace(encoded, []byte(`"coverage":"masked"`), []byte(`"coverage":"masked","coverage":"masked"`), 1),
-	} {
-		if _, err := worldmaterial.DecodeLayout(bad); err == nil {
-			t.Fatal("accepted noncanonical coverage field")
-		}
+	bad := bytes.Replace(encoded, []byte("masked"), []byte("blend!"), 1)
+	if _, err := worldmaterial.DecodeLayout(bad); err == nil {
+		t.Fatal("unknown coverage accepted")
 	}
+
 }
 func TestCoveragePairV2OpacityAndStraightBytes(t *testing.T) {
 	t.Parallel()

@@ -3,64 +3,78 @@
 package worldlightmap
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/karty-game/karty-sdk/format/cartridge"
 	"github.com/karty-game/karty-sdk/format/world"
+	"github.com/karty-game/karty-sdk/internal/binwire"
 )
 
 const (
 	Schema                  = "karty.world-lightmaps@1"
 	Algorithm               = uint32(1)
+	ReceiverAlgorithm       = uint32(2)
 	EntryName               = "@world/lightmaps/layout"
 	MetadataKey             = "kartyWorldLightmaps"
 	Feature                 = cartridge.FeatureWorldLightmapsV1
 	MaxEncodedSize          = 8 * 1024 * 1024
 	MaxCharts               = 8192
 	MaxTexels               = 1024 * 1024
-	MaxBakeLights           = 8
+	MaxBakeLights           = world.MaxLights
 	PointVisibilityEncoding = "point-visibility@1"
 	DirectRNMEncoding       = "direct-rnm3@1"
+	BinaryMagic             = "KLM1"
 )
 
-var ErrLayout = errors.New("world lightmap layout is invalid")
+var (
+	ErrLayout = errors.New("world lightmap layout is invalid")
+	// ErrPageCapacity identifies finite receiver charts that cannot fit the
+	// requested page. Capacity errors also wrap ErrLayout. Invalid geometry,
+	// options and lighting recipes do not wrap ErrPageCapacity.
+	ErrPageCapacity = errors.New("world lightmap page capacity is exhausted")
+)
 
 type Layout struct {
-	Schema         string       `json:"schema"`
-	Algorithm      uint32       `json:"algorithm"`
-	GeometrySHA256 string       `json:"geometry_sha256"`
-	TexelsPerUnit  float64      `json:"texels_per_unit"`
-	Padding        int          `json:"padding"`
-	Pages          []Page       `json:"pages"`
-	Charts         []Chart      `json:"charts"`
-	Bindings       []Binding    `json:"bindings"`
-	RuntimeBake    *RuntimeBake `json:"runtime_bake,omitempty"`
+	Schema         string
+	Algorithm      uint32
+	GeometrySHA256 string
+	TexelsPerUnit  float64
+	Padding        int
+	Pages          []Page
+	Charts         []Chart
+	Bindings       []Binding
+	RuntimeBake    *RuntimeBake
+	Receivers      *ReceiverSelection
+}
+
+// ReceiverSelection scopes an atlas to global sector/solid identities. The
+// complete ordinary physical component remains the transport context.
+type ReceiverSelection struct {
+	Sectors []int
+	Solids  []int
 }
 
 type Page struct {
-	Width  int `json:"width"`
-	Height int `json:"height"`
+	Width  int
+	Height int
 }
 
 // Chart describes a receiver's atlas placement and basis.
 // Rectangles are [minimumX,minimumY,maximumX,maximumY] in page pixels,
 // maximums exclusive. Plane values are normalized page coordinates.
 type Chart struct {
-	ID           int        `json:"id"`
-	Page         int        `json:"page"`
-	Rect         [4]int     `json:"rect"`
-	ReceiverRect [4]int     `json:"receiver_rect"`
-	Normal       world.Vec3 `json:"normal"`
-	Tangent      world.Vec3 `json:"tangent"`
-	Bitangent    world.Vec3 `json:"bitangent"`
-	UPlane       [4]float64 `json:"u_plane"`
-	VPlane       [4]float64 `json:"v_plane"`
+	ID           int
+	Page         int
+	Rect         [4]int
+	ReceiverRect [4]int
+	Normal       world.Vec3
+	Tangent      world.Vec3
+	Bitangent    world.Vec3
+	UPlane       [4]float64
+	VPlane       [4]float64
 }
 
 // Binding associates a world surface with its receiver chart.
@@ -68,17 +82,17 @@ type Chart struct {
 // addresses the directed wall or footprint edge otherwise. Chart -1 explicitly
 // marks a wall with no opaque receiver. Array order is semantic discovery order.
 type Binding struct {
-	Kind  string `json:"kind"`
-	Index int    `json:"index"`
-	Edge  int    `json:"edge"`
-	Chart int    `json:"chart"`
+	Kind  string
+	Index int
+	Edge  int
+	Chart int
 }
 
 type RuntimeBake struct {
-	Encoding   string   `json:"encoding"`
-	LightID    string   `json:"light_id,omitempty"`
-	LightIDs   []string `json:"light_ids,omitempty"`
-	ShadowSize int      `json:"shadow_size"`
+	Encoding   string
+	LightID    string
+	LightIDs   []string
+	ShadowSize int
 }
 
 type Options struct {
@@ -86,36 +100,65 @@ type Options struct {
 	PageSize, Padding, MaxPages, MaxTexels int
 	Light                                  string
 	Lights                                 []string
-	ShadowSize                             int
+	// AllStatic selects every fixed source without a nonzero emission pulse.
+	// It is build policy, not an additional runtime wire field.
+	AllStatic  bool
+	ShadowSize int
 }
 
 func Encode(layout Layout, document *world.Document) ([]byte, error) {
 	if err := Validate(&layout, document); err != nil {
 		return nil, err
 	}
-	encoded, err := json.Marshal(layout)
-	if err != nil || len(encoded) > MaxEncodedSize {
+	return encodeLayoutBinary(layout)
+}
+
+func encodeLayoutBinary(layout Layout) ([]byte, error) {
+	w := binwire.NewWriter(BinaryMagic, MaxEncodedSize)
+	writeWorldlightmapLayout(w, &layout)
+	encoded, err := w.Bytes()
+	if err != nil {
 		return nil, ErrLayout
 	}
 	return encoded, nil
+}
+
+// LayoutDigest hashes the exact canonical binary layout. It checks structural
+// bounds and finite fields without a world; callers validate semantic bindings
+// against the complete world before mounting a layout.
+func LayoutDigest(layout *Layout) (string, error) {
+	if layout == nil {
+		return "", ErrLayout
+	}
+	encoded, err := encodeLayoutBinary(*layout)
+	if err != nil {
+		return "", err
+	}
+	r := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
+	scanWorldlightmapLayout(r)
+	if r.Done() != nil {
+		return "", ErrLayout
+	}
+	return digest(encoded), nil
 }
 
 func Decode(encoded []byte, document *world.Document) (Layout, error) {
 	if len(encoded) == 0 || len(encoded) > MaxEncodedSize {
 		return Layout{}, ErrLayout
 	}
+	scan := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
+	scanWorldlightmapLayout(scan)
+	if scan.Done() != nil {
+		return Layout{}, ErrLayout
+	}
 	var layout Layout
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&layout); err != nil {
-		return Layout{}, fmt.Errorf("decode lightmap: %w", ErrLayout)
+	reader := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
+	readWorldlightmapLayout(reader, &layout)
+	if reader.Done() != nil {
+		return Layout{}, ErrLayout
 	}
 	if err := Validate(&layout, document); err != nil {
 		return Layout{}, err
-	}
-	canonical, err := json.Marshal(layout)
-	if err != nil || !bytes.Equal(encoded, canonical) {
-		return Layout{}, fmt.Errorf("canonical lightmap: %w", ErrLayout)
 	}
 	return layout, nil
 }
@@ -130,43 +173,44 @@ func GeometryDigest(document *world.Document) (string, error) {
 }
 
 func geometryDigestValidated(document *world.Document) (string, error) {
-	type wallGeometry struct {
-		Start, End world.Vec2
-		Portal     int32
-		PortalWall uint16
-	}
-	type sectorGeometry struct {
-		ID             string
-		Walls          []wallGeometry
-		Floor, Ceiling world.Plane
-	}
-	type solidGeometry struct {
-		ID          string
-		Footprint   []world.Vec2
-		Bottom, Top world.Plane
-	}
-	geometry := struct {
-		Sectors []sectorGeometry
-		Solids  []solidGeometry
-	}{}
+	w := binwire.NewWriter("KWG1", world.MaxEncodedSize)
+	w.Count(len(document.Sectors), false, world.MaxSectors)
 	for _, s := range document.Sectors {
-		g := sectorGeometry{ID: s.ID, Floor: s.Floor, Ceiling: s.Ceiling}
-		for _, w := range s.Walls {
-			g.Walls = append(g.Walls, wallGeometry{w.Start, w.End, w.Portal, w.PortalWall})
+		w.String(s.ID, world.MaxIdentifierBytes)
+		w.Count(len(s.Walls), false, world.MaxWallsPerSector)
+		for _, wall := range s.Walls {
+			writeWorldVec2(w, &wall.Start)
+			writeWorldVec2(w, &wall.End)
+			w.I32(int(wall.Portal))
+			w.U16(wall.PortalWall)
+			w.Bool(wall.Sky)
 		}
-		geometry.Sectors = append(geometry.Sectors, g)
+		writeWorldPlane(w, &s.Floor)
+		writeWorldPlane(w, &s.Ceiling)
+		w.Bool(s.Sky)
 	}
+	count := 0
+	if document.StaticSolids != nil {
+		count = len(document.StaticSolids.Items)
+	}
+	w.Count(count, false, world.MaxStaticSolids)
 	if document.StaticSolids != nil {
 		for _, s := range document.StaticSolids.Items {
-			geometry.Solids = append(geometry.Solids, solidGeometry{s.ID, s.Footprint, s.Bottom, s.Top})
+			w.String(s.ID, world.MaxIdentifierBytes)
+			w.Count(len(s.Footprint), false, world.MaxSolidVertices)
+			for _, point := range s.Footprint {
+				writeWorldVec2(w, &point)
+			}
+			writeWorldPlane(w, &s.Bottom)
+			writeWorldPlane(w, &s.Top)
 		}
 	}
-	encoded, err := json.Marshal(geometry)
+	encoded, err := w.Bytes()
 	if err != nil {
 		return "", ErrLayout
 	}
-	digest := sha256.Sum256(encoded)
-	return hex.EncodeToString(digest[:]), nil
+	sum := sha256.Sum256(encoded)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func finite(v float64) bool                    { return !math.IsNaN(v) && !math.IsInf(v, 0) }

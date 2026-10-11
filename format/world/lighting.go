@@ -7,42 +7,42 @@ import "fmt"
 // authored order and global world coordinates, without sector assignment,
 // prefab transforms, shadows, portal transport or PBR parameters.
 type Lighting struct {
-	Version     uint32       `json:"version"`
-	Ambient     Vec3         `json:"ambient"`
-	Lights      []PointLight `json:"lights"`
-	AmbientCube *AmbientCube `json:"ambient_cube,omitempty"`
-	Actors      bool         `json:"actors,omitempty"`
+	Version     uint32
+	Ambient     Vec3
+	Lights      []PointLight
+	AmbientCube *AmbientCube
+	Actors      bool
 }
 
 // AmbientCube supplies six world-space directional ambient colors. It replaces
 // Ambient when present; squared unit-normal components weight each selected face.
 // Colors are finite linear RGB intensities in [0,1].
 type AmbientCube struct {
-	PositiveX Vec3 `json:"positive_x"`
-	NegativeX Vec3 `json:"negative_x"`
-	PositiveY Vec3 `json:"positive_y"`
-	NegativeY Vec3 `json:"negative_y"`
-	PositiveZ Vec3 `json:"positive_z"`
-	NegativeZ Vec3 `json:"negative_z"`
+	PositiveX Vec3
+	NegativeX Vec3
+	PositiveY Vec3
+	NegativeY Vec3
+	PositiveZ Vec3
+	NegativeZ Vec3
 }
 
 // PointLight is one bounded global light. ID is unique within Lighting;
 // Radius is an influence radius in world units in [MinLightRadius, MaxCoordinate].
 type PointLight struct {
-	ID       string       `json:"id"`
-	Position Vec3         `json:"position"`
-	Color    Vec3         `json:"color"`
-	Radius   float64      `json:"radius"`
-	Motion   *LightMotion `json:"motion,omitempty"`
+	ID       string
+	Position Vec3
+	Color    Vec3
+	Radius   float64
+	Motion   *LightMotion
 }
 
 // LightMotion version 1 moves a light smoothly from Position to Position+Offset
 // and back once per PeriodSeconds. It is runtime direct lighting, never baked.
 // The complete segment must stay within the ordinary light coordinate bounds.
 type LightMotion struct {
-	Version       uint32  `json:"version"`
-	Offset        Vec3    `json:"offset"`
-	PeriodSeconds float64 `json:"period_seconds"`
+	Version       uint32
+	Offset        Vec3
+	PeriodSeconds float64
 }
 
 // ValidateLighting checks the complete lighting payload without requiring
@@ -69,15 +69,26 @@ func ValidateLighting(lighting *Lighting) error {
 			}
 		}
 	}
+	// Small runtime lists retain allocation-free validation. Large authored
+	// source lists need an index so validation stays linear in source count.
+	var identities map[string]struct{}
+	if len(lighting.Lights) > MaxRuntimeLights {
+		identities = make(map[string]struct{}, len(lighting.Lights))
+	}
 	for index, light := range lighting.Lights {
 		if !validIdentifier(light.ID) {
 			return fmt.Errorf("light %d: %w", index, ErrIdentity)
 		}
-		// The fixed 50-light bound permits checking identities without an index
-		// allocation and preserves the authored list order.
-		for previous := range index {
-			if lighting.Lights[previous].ID == light.ID {
+		if identities != nil {
+			if _, duplicate := identities[light.ID]; duplicate {
 				return fmt.Errorf("light %q: %w", light.ID, ErrIdentity)
+			}
+			identities[light.ID] = struct{}{}
+		} else {
+			for previous := range index {
+				if lighting.Lights[previous].ID == light.ID {
+					return fmt.Errorf("light %q: %w", light.ID, ErrIdentity)
+				}
 			}
 		}
 		if !validVec3(light.Position) || !validLightColor(light.Color) ||

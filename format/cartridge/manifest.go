@@ -23,20 +23,24 @@ const (
 )
 
 const (
-	FeatureTextureQOIv1             = "texture/qoi@1"
-	FeatureSoundQOAv1               = "sound/qoa@1"
-	FeatureAudioStreamQOAv1         = "audio-stream/qoa@1"
-	FeatureWorldAnimationsV1        = "world/animations@1"
-	FeatureWorldEmissionV1          = "world/emission@1"
-	FeatureWorldSectorsV1           = "world/sectors@1"
-	FeatureWorldLightingV1          = "world/lighting@1"
-	FeatureWorldLightmapsV1         = "world/lightmaps@1"
-	FeatureWorldLightmapsPrebakedV1 = "world/lightmaps-prebaked@1"
-	FeatureWorldMaterialMappingV1   = "world/material-mapping@1"
-	FeatureWorldStaticSolidsV1      = "world/static-solids@1"
-	FeatureWorldMaterialAtlasV1     = "world/material-atlas@1"
-	FeatureWorldMaterialAtlasV2     = "world/material-atlas@2"
-	FeatureWorldMaterialLayersV1    = "world/material-layers@1"
+	FeatureTextureQOIv1               = "texture/qoi@1"
+	FeatureSoundQOAv1                 = "sound/qoa@1"
+	FeatureAudioStreamQOAv1           = "audio-stream/qoa@1"
+	FeatureWorldParticlesV1           = "world/particles@1"
+	FeatureWorldAnimationsV1          = "world/animations@1"
+	FeatureWorldEmissionV1            = "world/emission@1"
+	FeatureWorldEnvironmentV1         = "world/environment@1"
+	FeatureWorldSectorsV1             = "world/sectors@1"
+	FeatureWorldChunksV1              = "world/chunks@1"
+	FeatureWorldLightingV1            = "world/lighting@1"
+	FeatureWorldLightmapsV1           = "world/lightmaps@1"
+	FeatureWorldLightmapsPrebakedV1   = "world/lightmaps-prebaked@1"
+	FeatureWorldMaterialMappingV1     = "world/material-mapping@1"
+	FeatureWorldStaticSolidsV1        = "world/static-solids@1"
+	FeatureWorldMaterialAtlasV1       = "world/material-atlas@1"
+	FeatureWorldMaterialAtlasV2       = "world/material-atlas@2"
+	FeatureWorldMaterialLayersV1      = "world/material-layers@1"
+	FeatureWorldMaterialReflectanceV1 = "world/material-reflectance@1"
 )
 
 var ErrManifest = errors.New("game cartridge manifest is invalid")
@@ -307,7 +311,18 @@ func validManifestString(value string) bool {
 }
 
 func validManifestFeatures(features []string) bool {
-	if (slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
+	if slices.Contains(features, FeatureWorldChunksV1) && !slices.Contains(features, FeatureWorldSectorsV1) {
+		return false
+	}
+	if slices.Contains(features, FeatureWorldEnvironmentV1) && !slices.Contains(features, FeatureWorldSectorsV1) {
+		return false
+	}
+	if slices.Contains(features, FeatureWorldMaterialReflectanceV1) &&
+		(!slices.Contains(features, FeatureWorldSectorsV1) ||
+			(!slices.Contains(features, FeatureWorldMaterialAtlasV1) && !slices.Contains(features, FeatureWorldMaterialAtlasV2))) {
+		return false
+	}
+	if (slices.Contains(features, FeatureWorldParticlesV1) || slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
 		!slices.Contains(features, FeatureWorldSectorsV1) {
 		return false
 	}
@@ -328,7 +343,15 @@ func validManifestFeatures(features []string) bool {
 }
 
 func validManifestFeature(feature string) bool {
-	return feature == FeatureAudioStreamQOAv1 || feature == FeatureSoundQOAv1 || feature == FeatureTextureQOIv1 ||
-		feature == FeatureVideoMPEG1v1 || feature == FeatureWorldSectorsV1 || feature == FeatureWorldLightingV1 ||
-		feature == FeatureWorldLightmapsV1 || feature == FeatureWorldLightmapsPrebakedV1 || feature == FeatureWorldMaterialAtlasV1 || feature == FeatureWorldMaterialMappingV1 || feature == FeatureWorldStaticSolidsV1 || feature == FeatureWorldMaterialAtlasV2 || feature == FeatureWorldMaterialLayersV1 || feature == FeatureWorldAnimationsV1 || feature == FeatureWorldEmissionV1
+	switch feature {
+	case FeatureWorldChunksV1, FeatureAudioStreamQOAv1, FeatureSoundQOAv1, FeatureTextureQOIv1,
+		FeatureVideoMPEG1v1, FeatureWorldMaterialReflectanceV1,
+		FeatureWorldSectorsV1, FeatureWorldLightingV1, FeatureWorldLightmapsV1, FeatureWorldLightmapsPrebakedV1,
+		FeatureWorldMaterialAtlasV1, FeatureWorldMaterialMappingV1, FeatureWorldStaticSolidsV1,
+		FeatureWorldMaterialAtlasV2, FeatureWorldMaterialLayersV1, FeatureWorldAnimationsV1,
+		FeatureWorldEmissionV1, FeatureWorldEnvironmentV1, FeatureWorldParticlesV1:
+		return true
+	default:
+		return false
+	}
 }

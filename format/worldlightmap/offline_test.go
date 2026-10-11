@@ -2,6 +2,7 @@ package worldlightmap
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 )
@@ -9,7 +10,7 @@ import (
 func TestOfflinePrebakeVersionIdentityAndDirectCompatibility(t *testing.T) {
 	document, layout, direct := prebakeFixture(t)
 	rangeBound, err := OfflineRGBMRange(layout, &document, 1)
-	if err != nil || rangeBound != 11.7 {
+	if err != nil || rangeBound < 11.7 || math.Abs(rangeBound-11.7) > 1e-12 {
 		t.Fatalf("one-bounce range: %v %v", rangeBound, err)
 	}
 	inputs := OfflineBakeInputs{Samples: 16, Bounces: 1, Seed: 1, ReflectanceSHA256: strings.Repeat("a", 64), RGBMRange: rangeBound}

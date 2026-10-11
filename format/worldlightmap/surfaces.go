@@ -8,7 +8,7 @@ import (
 )
 
 // Surface describes actual receiver polygons before triangulation. Empty
-// Polygons explicitly describes a fully open portal wall.
+// Polygons explicitly describes a fully open portal wall or sky ceiling.
 type Surface struct {
 	Binding  Binding
 	Normal   world.Vec3
@@ -32,16 +32,24 @@ func surfacesValidated(document *world.Document) ([]Surface, error) {
 		for j, w := range s.Walls {
 			points[j] = w.Start
 		}
+		ceiling := capSurface("sector-ceiling", i, s.Ceiling, points, true)
+		if s.Sky {
+			ceiling.Polygons = nil
+		}
 		result = append(
 			result,
 			capSurface("sector-floor", i, s.Floor, points, false),
-			capSurface("sector-ceiling", i, s.Ceiling, points, true),
+			ceiling,
 		)
 		for edge, w := range s.Walls {
 			length := math.Hypot(w.End.X-w.Start.X, w.End.Y-w.Start.Y)
 			surface := Surface{
 				Binding: Binding{Kind: "sector-wall", Index: i, Edge: edge, Chart: -1},
 				Normal:  world.Vec3{X: (w.Start.Y - w.End.Y) / length, Y: (w.End.X - w.Start.X) / length},
+			}
+			if w.Sky {
+				result = append(result, surface)
+				continue
 			}
 			heights := [4][2]float64{
 				{elevation(s.Floor, w.Start), elevation(s.Floor, w.End)},
@@ -74,6 +82,11 @@ func surfacesValidated(document *world.Document) ([]Surface, error) {
 				spans := [][2]int{{0, 1}}
 				if w.Portal >= 0 && profile.Height(high, middle) > profile.Height(low, middle)+1e-9 {
 					spans = [][2]int{{0, low}, {high, 1}}
+					if s.Sky && document.Sectors[w.Portal].Sky {
+						// Differing finite outdoor ceilings are sky masks, never
+						// physical upper wall receivers or shadow casters.
+						spans = spans[:1]
+					}
 				}
 				for _, span := range spans {
 					if profile.Height(span[1], middle) <= profile.Height(span[0], middle)+1e-9 {

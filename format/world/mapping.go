@@ -18,31 +18,31 @@ const (
 // Every floor, ceiling and wall must then supply complete baked projections.
 // Projection setup, authoring modes and anchors belong to the compiler.
 type MaterialMapping struct {
-	Version uint32 `json:"version"`
+	Version uint32
 }
 
 // SurfaceUV contains one planar/wrapped projection or three blended projections.
 // Weights are constant per surface, finite, nonnegative and normalized to one
 // within UVWeightTolerance. They apply to all material channels, not just color.
 type SurfaceUV struct {
-	Projections []UVProjection `json:"projections"`
-	Weights     []float64      `json:"weights"`
+	Projections []UVProjection
+	Weights     []float64
 }
 
 // UVProjection is an authored-position affine mapping to texture repeats.
 // Hosts evaluate these planes before clipping; no projection setup is inferred.
 type UVProjection struct {
-	U UVPlane `json:"u"`
-	V UVPlane `json:"v"`
+	U UVPlane
+	V UVPlane
 }
 
 // UVPlane evaluates X*position.X+Y*position.Y+Z*position.Z+Offset.
 // All coefficients and Offset are finite with absolute value at most 1e12.
 type UVPlane struct {
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	Z      float64 `json:"z"`
-	Offset float64 `json:"offset"`
+	X      float64
+	Y      float64
+	Z      float64
+	Offset float64
 }
 
 // ValidateSurfaceUV validates complete bounded projection and weight lists.

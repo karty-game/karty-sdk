@@ -28,3 +28,13 @@ is limited to four hours and 512 MiB of QOA payload per entry. The
 `codec/qoa` package exposes `EncodeStream`, `InspectStream`, and `StreamDecoder`
 for packaging and bounded playback; the existing `Encode` and `Inspect` APIs
 retain the smaller one-shot sound limits.
+
+Candidate SDK 0.0.11 writes binary catalog version 2 and rejects prior JSON
+catalog payloads. Headers are `KTVC` for videos and `KTAC` for audio, followed
+by u16 version 2, u16 reserved zero and u32 entry count. Every entry carries u32
+ID, u32-length UTF-8 name, u64 stored size, 64 lowercase ASCII SHA-256 bytes,
+u32 chunk count and that many 64-byte hashes. Audio adds kind u8 (1 music,
+2 environment), channels u8, u16 reserved zero, sample rate u32 and frames u32
+between name and stored size. Numeric fields are little-endian. Complete scans
+check all lengths/counts/digests before allocating catalog and chunk arrays;
+canonical identity/order and media bounds remain mandatory.

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/karty-game/karty-sdk/format/world"
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
+	"github.com/karty-game/karty-sdk/internal/binwire"
 )
 
 // Material is the original sRGB albedo texture. Normal, height and AO textures
@@ -131,13 +131,29 @@ func reflectanceDigest(
 	surfaces []worldlightmap.Surface,
 	images map[uint32]image.Image,
 ) (string, error) {
-	type assignment struct {
-		Binding  worldlightmap.Binding
-		Material uint32
-		UV       *world.SurfaceUV
+	return reflectanceDigestWithBindings(ctx, document, surfaces, images, false)
+}
+
+// Pixel-cache identity ignores global indices while current artifact provenance
+// retains them. Discovery order, material assignments and decoded pixels remain
+// bound in both paths.
+func reflectanceDigestWithBindings(
+	ctx context.Context,
+	document *world.Document,
+	surfaces []worldlightmap.Surface,
+	images map[uint32]image.Image,
+	normalize bool,
+) (string, error) {
+	w := binwire.NewWriter("KRA1", 32*1024*1024)
+	count := 0
+	for _, surface := range surfaces {
+		if len(surface.Polygons) > 0 {
+			count++
+		}
 	}
-	assignments := make([]assignment, 0, len(surfaces))
+	w.Count(count, false, 76288)
 	used := make(map[uint32]bool)
+	localIndex := 0
 	for _, s := range surfaces {
 		if len(s.Polygons) == 0 {
 			continue
@@ -146,10 +162,35 @@ func reflectanceDigest(
 		if images[id] == nil {
 			return "", fmt.Errorf("missing albedo material %d", id)
 		}
-		assignments = append(assignments, assignment{s.Binding, id, uv})
+		w.String(s.Binding.Kind, 128)
+		index := s.Binding.Index
+		if normalize {
+			index = localIndex
+		}
+		localIndex++
+		w.I32(index)
+		w.I32(s.Binding.Edge)
+		w.I32(s.Binding.Chart)
+		w.U32(id)
+		w.Bool(uv != nil)
+		if uv != nil {
+			w.Count(len(uv.Projections), false, 3)
+			for _, projection := range uv.Projections {
+				for _, plane := range [2]world.UVPlane{projection.U, projection.V} {
+					w.F64(plane.X)
+					w.F64(plane.Y)
+					w.F64(plane.Z)
+					w.F64(plane.Offset)
+				}
+			}
+			w.Count(len(uv.Weights), false, 3)
+			for _, weight := range uv.Weights {
+				w.F64(weight)
+			}
+		}
 		used[id] = true
 	}
-	encoded, err := json.Marshal(assignments)
+	encoded, err := w.Bytes()
 	if err != nil {
 		return "", err
 	}

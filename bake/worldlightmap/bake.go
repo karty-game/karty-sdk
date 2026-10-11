@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,7 +20,8 @@ import (
 type Options struct {
 	Samples, Bounces, Workers int
 	Seed                      uint64
-	Denoise                   string // empty/off preserves original pixels; low or medium filters indirect only
+	Denoise                   string  // empty/off preserves original pixels; low or medium filters indirect only
+	MaxRayDistance            float64 // zero is unbounded; otherwise each transport segment is clipped
 }
 type Stats struct {
 	ReceiverTexels, Triangles, Workers, Samples, Bounces int
@@ -57,39 +57,14 @@ func Bake(
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	if options.Samples == 0 {
-		options.Samples = 16
-	}
-	if options.Workers == 0 {
-		options.Workers = min(64, runtime.GOMAXPROCS(0))
-	}
-	if options.Samples < 1 || options.Samples > worldlightmap.MaxOfflineSamples || options.Workers < 1 || options.Workers > 64 ||
-		options.Bounces < 0 ||
-		options.Bounces > worldlightmap.MaxOfflineBounces {
-		return Result{}, fmt.Errorf("offline bake requires samples 1..256, workers 1..64 and bounces 0..4")
-	}
-	if _, err := worldlightmap.OfflineDenoiseProducer(options.Denoise); err != nil {
-		return Result{}, err
-	}
-	// This public boundary validates the complete world/layout, direct recipe and
-	// encoded-size bound once, before allocating bake scratch.
-	rangeValue, err := worldlightmap.OfflineRGBMRange(layout, &document, options.Bounces)
-	if err != nil {
-		return Result{}, fmt.Errorf("offline bake layout: %w", err)
-	}
-	images, err := materialImages(materials)
+	inputs, err := prepareBakeInputs(ctx, document, layout, materials, options)
 	if err != nil {
 		return Result{}, err
 	}
-	surfaces, err := worldlightmap.Surfaces(&document)
-	if err != nil {
-		return Result{}, err
-	}
-	digest, err := reflectanceDigest(ctx, &document, surfaces, images)
-	if err != nil {
-		return Result{}, err
-	}
-	s := scene{surfaces: surfaces, materials: make([]reflectance, len(surfaces))}
+	options = inputs.options
+	rangeValue, images, surfaces := inputs.rangeValue, inputs.images, inputs.surfaces
+	digest, lightIDs := inputs.reflectance, inputs.lightIDs
+	s := scene{surfaces: surfaces, materials: make([]reflectance, len(surfaces)), maxRayDistance: options.MaxRayDistance}
 	if options.Bounces > 0 {
 		s.samples = initialSamples(options.Samples)
 		s.surfaceFrames = make([]sampleFrame, len(surfaces))
@@ -101,14 +76,15 @@ func Bake(
 			s.chartFrames[i] = newSampleFrame(chart.Normal)
 		}
 	}
-	for _, id := range layout.RuntimeBake.LightIDs {
-		for _, light := range document.Lighting.Lights {
-			if light.ID == id {
-				s.lights = append(s.lights, preparedLight{light, light.Radius * light.Radius})
-				break
-			}
-		}
+	sources := make(map[string]world.PointLight, len(document.Lighting.Lights))
+	for _, light := range document.Lighting.Lights {
+		sources[light.ID] = light
 	}
+	for _, id := range lightIDs {
+		light := sources[id]
+		s.lights = append(s.lights, preparedLight{light, light.Radius * light.Radius})
+	}
+	s.lightIndex.prepare(s.lights)
 	w, h := layout.Pages[0].Width, layout.Pages[0].Height
 	grids, rows := receiverGrids(layout.Charts)
 	albedos := make(map[uint32]*image.NRGBA)

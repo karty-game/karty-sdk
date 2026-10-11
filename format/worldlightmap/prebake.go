@@ -1,16 +1,15 @@
 package worldlightmap
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 
 	"github.com/karty-game/karty-sdk/codec/qoi"
 	"github.com/karty-game/karty-sdk/format/cartridge"
 	"github.com/karty-game/karty-sdk/format/level"
 	"github.com/karty-game/karty-sdk/format/world"
+	"github.com/karty-game/karty-sdk/internal/binwire"
 )
 
 const (
@@ -22,27 +21,31 @@ const (
 	PrebakeFeature         = cartridge.FeatureWorldLightmapsPrebakedV1
 	MaxPrebakeManifestSize = 16 * 1024
 	MaxPrebakeImageSize    = level.MaxEntrySize
+	PrebakeBinaryMagic     = "KPB1"
 )
 
 // PrebakeManifest binds one completed direct RNM image to exact layout and
-// selected lighting inputs. Its canonical JSON is the public manifest entry.
+// selected lighting inputs. Its canonical binary is the public manifest entry.
 type PrebakeManifest struct {
-	Schema            string  `json:"schema"`
-	Algorithm         int     `json:"algorithm"`
-	Encoding          string  `json:"encoding"`
-	LayoutSHA256      string  `json:"layout_sha256"`
-	BakeSHA256        string  `json:"bake_sha256"`
-	ImageSHA256       string  `json:"image_sha256"`
-	ImageBytes        int     `json:"image_bytes"`
-	Width             int     `json:"width"`
-	Height            int     `json:"height"`
-	RGBMRange         float64 `json:"rgbm_range"`
-	Producer          string  `json:"producer,omitempty"`
-	Samples           int     `json:"samples,omitempty"`
-	Bounces           int     `json:"bounces,omitempty"`
-	Seed              uint64  `json:"seed,omitempty"`
-	ReflectanceSHA256 string  `json:"reflectance_sha256,omitempty"`
-	SurfaceSHA256     string  `json:"surface_sha256,omitempty"`
+	Schema            string
+	Algorithm         int
+	Encoding          string
+	LayoutSHA256      string
+	BakeSHA256        string
+	ImageSHA256       string
+	ImageBytes        int
+	Width             int
+	Height            int
+	RGBMRange         float64
+	Producer          string
+	Samples           int
+	Bounces           int
+	Seed              uint64
+	ReflectanceSHA256 string
+	SurfaceSHA256     string
+	// MaxRayDistance is present on the wire only for bounded producer revision
+	// 3. Zero retains the exact unbounded revision-1/2 manifest bytes.
+	MaxRayDistance float64
 }
 
 // PrebakePair retains caller ownership of Image; consumers clone it before
@@ -72,23 +75,28 @@ func NewPrebake(layout Layout, document *world.Document, image []byte) (PrebakeP
 		return PrebakePair{}, fmt.Errorf("prebake image dimensions, channels or stream: %w", ErrLayout)
 	}
 	lights := make([]world.PointLight, 0, len(layout.RuntimeBake.LightIDs))
+	sources := make(map[string]world.PointLight, len(document.Lighting.Lights))
+	for _, light := range document.Lighting.Lights {
+		sources[light.ID] = light
+	}
 	rangeSum := 0.0
 	for _, id := range layout.RuntimeBake.LightIDs {
-		for _, light := range document.Lighting.Lights {
-			if light.ID == id {
-				lights = append(lights, light)
-				rangeSum += max(light.Color.X, light.Color.Y, light.Color.Z)
-				break
-			}
-		}
+		light := sources[id]
+		lights = append(lights, light)
+		rangeSum += max(light.Color.X, light.Color.Y, light.Color.Z)
 	}
 	layoutDigest := digest(encoded)
-	inputs, err := json.Marshal(struct {
-		Schema       string             `json:"schema"`
-		Algorithm    int                `json:"algorithm"`
-		LayoutSHA256 string             `json:"layout_sha256"`
-		Lights       []world.PointLight `json:"lights"`
-	}{PrebakeSchema, PrebakeAlgorithm, layoutDigest, lights})
+	// Selected source records are hashed, not carried in the small published
+	// manifest. Their bounded scratch must accommodate all authored sources.
+	w := binwire.NewWriter("KDI1", world.MaxEncodedSize)
+	w.String(PrebakeSchema, 128)
+	w.I32(PrebakeAlgorithm)
+	w.String(layoutDigest, 64)
+	w.Count(len(lights), false, MaxBakeLights)
+	for _, light := range lights {
+		writeWorldPointLight(w, &light)
+	}
+	inputs, err := w.Bytes()
 	if err != nil {
 		return PrebakePair{}, fmt.Errorf("prebake inputs: %w", ErrLayout)
 	}
@@ -108,10 +116,11 @@ func (pair PrebakePair) Validate(layout Layout, document *world.Document) error 
 		if modeErr != nil {
 			return modeErr
 		}
-		expected, err = NewOfflinePrebake(layout, document, pair.Image, OfflineBakeInputs{
+		expected, err = newOfflinePrebakeForProducer(layout, document, pair.Image, OfflineBakeInputs{
 			Denoise: mode, Samples: pair.Manifest.Samples, Bounces: pair.Manifest.Bounces, Seed: pair.Manifest.Seed,
 			ReflectanceSHA256: pair.Manifest.ReflectanceSHA256, RGBMRange: pair.Manifest.RGBMRange,
-		})
+			MaxRayDistance: pair.Manifest.MaxRayDistance,
+		}, pair.Manifest.Producer)
 	} else {
 		expected, err = NewPrebake(layout, document, pair.Image)
 	}
@@ -126,28 +135,70 @@ func EncodePrebake(pair PrebakePair, layout Layout, document *world.Document) ([
 	if err := pair.Validate(layout, document); err != nil {
 		return nil, err
 	}
-	encoded, err := json.Marshal(pair.Manifest)
-	if err != nil || len(encoded) > MaxPrebakeManifestSize {
+	return encodePrebakeManifest(pair.Manifest)
+}
+
+func encodePrebakeManifest(manifest PrebakeManifest) ([]byte, error) {
+	w := binwire.NewWriter(PrebakeBinaryMagic, MaxPrebakeManifestSize)
+	writeWorldlightmapPrebakeManifest(w, &manifest)
+	encoded, err := w.Bytes()
+	if err != nil {
 		return nil, ErrLayout
 	}
 	return encoded, nil
 }
 
-// DecodePrebake rejects unknown, duplicate, missing, null, reordered and
-// noncanonical fields before returning a validated pair. Image remains borrowed.
+// DecodePrebakeManifest inspects a bounded canonical binary manifest without
+// decoding pixels. Full layout, source and image identity requires DecodePrebake.
+func DecodePrebakeManifest(encoded []byte) (PrebakeManifest, error) {
+	scan := binwire.NewReader(encoded, PrebakeBinaryMagic, MaxPrebakeManifestSize)
+	scanWorldlightmapPrebakeManifest(scan)
+	if scan.Done() != nil {
+		return PrebakeManifest{}, ErrLayout
+	}
+	var manifest PrebakeManifest
+	reader := binwire.NewReader(encoded, PrebakeBinaryMagic, MaxPrebakeManifestSize)
+	readWorldlightmapPrebakeManifest(reader, &manifest)
+	if reader.Done() != nil || manifest.Schema != PrebakeSchema || manifest.Encoding != DirectRNMEncoding ||
+		!lowerSHA256(manifest.LayoutSHA256) || !lowerSHA256(manifest.BakeSHA256) || !lowerSHA256(manifest.ImageSHA256) ||
+		manifest.ImageBytes < 1 || manifest.ImageBytes > MaxPrebakeImageSize ||
+		(manifest.Height != 512 && manifest.Height != 1024) || manifest.Width != 3*manifest.Height || manifest.RGBMRange < 1 {
+		return PrebakeManifest{}, ErrLayout
+	}
+	if manifest.Algorithm == PrebakeAlgorithm {
+		if manifest.Producer != "" || manifest.Samples != 0 || manifest.Bounces != 0 || manifest.Seed != 0 ||
+			manifest.ReflectanceSHA256 != "" ||
+			manifest.SurfaceSHA256 != "" || manifest.MaxRayDistance != 0 {
+			return PrebakeManifest{}, ErrLayout
+		}
+	} else if manifest.Algorithm == OfflinePrebakeAlgorithm {
+		if _, err := OfflineDenoiseMode(manifest.Producer); err != nil {
+			return PrebakeManifest{}, err
+		}
+		if manifest.Samples < 1 || manifest.Samples > MaxOfflineSamples || manifest.Bounces < 0 || manifest.Bounces > MaxOfflineBounces ||
+			!lowerSHA256(manifest.ReflectanceSHA256) ||
+			!lowerSHA256(manifest.SurfaceSHA256) || !validMaxRayDistance(manifest.MaxRayDistance) ||
+			boundedOfflineProducer(manifest.Producer) != (manifest.MaxRayDistance > 0) {
+			return PrebakeManifest{}, ErrLayout
+		}
+	} else {
+		return PrebakeManifest{}, ErrLayout
+	}
+	return manifest, nil
+}
+
+// DecodePrebake rejects malformed binary fields before returning a completely
+// validated pair. Image remains borrowed; JSON and trailing data are rejected.
 func DecodePrebake(encoded, image []byte, layout Layout, document *world.Document) (PrebakePair, error) {
 	if len(encoded) == 0 || len(encoded) > MaxPrebakeManifestSize {
 		return PrebakePair{}, ErrLayout
 	}
-	var manifest PrebakeManifest
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&manifest); err != nil {
-		return PrebakePair{}, ErrLayout
+	manifest, err := DecodePrebakeManifest(encoded)
+	if err != nil {
+		return PrebakePair{}, err
 	}
 	pair := PrebakePair{Manifest: manifest, Image: image}
-	canonical, err := EncodePrebake(pair, layout, document)
-	if err != nil || !bytes.Equal(encoded, canonical) {
+	if err := pair.Validate(layout, document); err != nil {
 		return PrebakePair{}, ErrLayout
 	}
 	return pair, nil

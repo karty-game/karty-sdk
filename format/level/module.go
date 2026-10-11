@@ -12,6 +12,12 @@ func WrapModule(envelope []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	return wrapValidatedEnvelope(envelope), nil
+}
+
+// The caller has validated the envelope using Decode before constructing Wasm.
+func wrapValidatedEnvelope(envelope []byte) []byte {
+
 	module := []byte{0, 0x61, 0x73, 0x6d, 1, 0, 0, 0}
 	appendSection := func(identifier byte, payload []byte) {
 		module = append(module, identifier)
@@ -56,7 +62,7 @@ func WrapModule(envelope []byte) ([]byte, error) {
 	data = append(data, envelope...)
 	appendSection(11, data)
 
-	return module, nil
+	return module
 }
 
 func appendModuleName(destination []byte, name string) []byte {

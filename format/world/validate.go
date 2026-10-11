@@ -15,6 +15,9 @@ func Validate(document *Document) error {
 	if document.Version < LegacyVersion || document.Version > Version {
 		return ErrVersion
 	}
+	if err := validateDocumentEnvironment(document); err != nil {
+		return err
+	}
 	if document.Lighting != nil {
 		if document.Version != Version {
 			return fmt.Errorf("lighting requires compiled world version %d: %w", Version, ErrVersion)

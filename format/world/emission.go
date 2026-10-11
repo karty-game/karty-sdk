@@ -17,23 +17,23 @@ const (
 // linear-albedo multiplier, decoded as code*8/255. Pulse is independent of the
 // material's optional flipbook/liquid animation; these are two bounded effects.
 type Emission struct {
-	Version   uint32             `json:"version"`
-	Materials []MaterialEmission `json:"materials"`
+	Version   uint32
+	Materials []MaterialEmission
 }
 
 type MaterialEmission struct {
-	Material  uint32         `json:"material"`
-	Intensity uint8          `json:"intensity"`
-	Pulse     *EmissionPulse `json:"pulse,omitempty"`
-	Lights    []string       `json:"lights,omitempty"`
+	Material  uint32
+	Intensity uint8
+	Pulse     *EmissionPulse
+	Lights    []string
 }
 
 // EmissionPulse has depth is the fraction of intensity removed at the dimmest point.
 // A cosine pulse begins at full brightness and reaches its minimum after half a period.
 type EmissionPulse struct {
-	Depth         float64 `json:"depth"`
-	PeriodSeconds float64 `json:"period_seconds"`
-	PhaseSeconds  float64 `json:"phase_seconds,omitempty"`
+	Depth         float64
+	PeriodSeconds float64
+	PhaseSeconds  float64
 }
 
 func (p EmissionPulse) Validate() error {
@@ -94,11 +94,11 @@ func ValidateEmission(document *Document) error {
 				return err
 			}
 		}
-		if len(m.Lights) > MaxLights {
+		if len(m.Lights) > MaxRuntimeLights {
 			return ErrBounds
 		}
 		for _, id := range m.Lights {
-			if !validIdentifier(id) || linkedLights[id] || document.Lighting == nil || len(linkedLights) >= MaxLights {
+			if !validIdentifier(id) || linkedLights[id] || document.Lighting == nil || len(linkedLights) >= MaxRuntimeLights {
 				return ErrContent
 			}
 			found := false

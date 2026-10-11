@@ -11,17 +11,17 @@ import (
 // Optional UV controls inherit root horizontal defaults for
 // caps; sides accept only an explicit planar/world mapping in version 6.
 type Solid struct {
-	ID             string      `json:"id"                  yaml:"id"`
-	Footprint      []Vec2      `json:"footprint"           yaml:"footprint"`
-	Bottom         Plane       `json:"bottom"              yaml:"bottom"`
-	Top            Plane       `json:"top"                 yaml:"top"`
-	SideMaterial   string      `json:"side_material"       yaml:"side_material"`
-	TopMaterial    string      `json:"top_material"        yaml:"top_material"`
-	BottomMaterial string      `json:"bottom_material"     yaml:"bottom_material"`
-	SideUV         *UVSettings `json:"side_uv,omitempty"   yaml:"side_uv,omitempty"`
-	TopUV          *UVSettings `json:"top_uv,omitempty"    yaml:"top_uv,omitempty"`
-	BottomUV       *UVSettings `json:"bottom_uv,omitempty" yaml:"bottom_uv,omitempty"`
-	Collision      bool        `json:"collision,omitempty" yaml:"collision,omitempty"`
+	ID             string      `yaml:"id"`
+	Footprint      []Vec2      `yaml:"footprint"`
+	Bottom         Plane       `yaml:"bottom"`
+	Top            Plane       `yaml:"top"`
+	SideMaterial   string      `yaml:"side_material"`
+	TopMaterial    string      `yaml:"top_material"`
+	BottomMaterial string      `yaml:"bottom_material"`
+	SideUV         *UVSettings `yaml:"side_uv,omitempty"`
+	TopUV          *UVSettings `yaml:"top_uv,omitempty"`
+	BottomUV       *UVSettings `yaml:"bottom_uv,omitempty"`
+	Collision      bool        `yaml:"collision,omitempty"`
 }
 
 func validateSolids(document *Document) error {

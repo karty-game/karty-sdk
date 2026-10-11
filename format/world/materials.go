@@ -21,13 +21,13 @@ const (
 )
 
 type MaterialLayers struct {
-	Version uint32 `json:"version"`
+	Version uint32
 }
 
 type SurfaceSecondary struct {
-	Material uint32     `json:"material"`
-	Strength float64    `json:"strength"`
-	UV       *SurfaceUV `json:"uv"`
+	Material uint32
+	Strength float64
+	UV       *SurfaceUV
 }
 
 // WallFrameRegion is one complete, nonoverlapping wall partition, already
@@ -36,12 +36,12 @@ type SurfaceSecondary struct {
 // Main regions retain the wall's mapping and have no region UV. Opaque regions
 // sample their sole material; masked regions blend over the wall's main material.
 type WallFrameRegion struct {
-	Vertices []Vec2     `json:"vertices"`
-	Material uint32     `json:"material"`
-	UV       *SurfaceUV `json:"uv,omitempty"`
-	Coverage string     `json:"coverage"`
-	RepeatU  bool       `json:"repeat_u,omitempty"`
-	RepeatV  bool       `json:"repeat_v,omitempty"`
+	Vertices []Vec2
+	Material uint32
+	UV       *SurfaceUV
+	Coverage string
+	RepeatU  bool
+	RepeatV  bool
 }
 
 // MaterialIDs returns canonical deduplicated atlas order. All legacy primary

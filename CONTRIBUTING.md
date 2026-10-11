@@ -58,7 +58,8 @@ and lint run through hk with golangci-lint, yamllint, Taplo and Prettier. The 32
 x86 Linux host capable of executing 386 binaries; cross-compilation alone does
 not validate integer-width behavior. `fuzz` gives each target five seconds of
 actual exploration with two workers, beyond the seed corpus used in ordinary
-tests. To investigate a target further, run the corresponding `go test -fuzz`
+tests. The task rejects missing or renamed targets before starting exploration.
+To investigate a target further, run the corresponding `go test -fuzz`
 command through `mise exec` with a longer budget.
 
 The pinned Node tool runs Prettier and Go's Wasm tests through the official Go

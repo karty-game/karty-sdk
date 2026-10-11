@@ -27,7 +27,7 @@ func TestVideoCatalogRoundTripAndBounds(t *testing.T) {
 			t.Fatal("accepted invalid video")
 		}
 	}
-	for _, bad := range [][]byte{append(bytes.Clone(data), 'x'), bytes.Replace(data, []byte(`"version":1`), []byte(`"version":2`), 1)} {
+	for _, bad := range [][]byte{append(bytes.Clone(data), 'x'), func() []byte { bad := bytes.Clone(data); bad[4] = 1; return bad }(), []byte(`{"version":1,"videos":[]}`)} {
 		if _, err := DecodeVideos(bad); err == nil {
 			t.Fatal("accepted invalid catalog")
 		}

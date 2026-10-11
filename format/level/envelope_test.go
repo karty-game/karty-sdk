@@ -12,7 +12,7 @@ import (
 func TestEnvelopeGoldenAndBoundedReads(t *testing.T) {
 	t.Parallel()
 
-	encoded, err := level.Encode([]byte(`{"schema":"game.map@1"}`), []level.SourceEntry{
+	encoded, err := level.Encode(metadataBytes(t, level.Metadata{"schema": level.StringValue("game.map@1")}), []level.SourceEntry{
 		{Name: "spawn", Kind: level.EntryData, Data: []byte{9, 8, 7}},
 		{Name: "map", Kind: level.EntryData, Data: []byte{1, 2, 3, 4}},
 	})
@@ -20,7 +20,7 @@ func TestEnvelopeGoldenAndBoundedReads(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const golden = "4b54594c01000000170000000200000020000000070000005e000000000000007b22736368656d61223a2267616d652e6d61704031227d0100030000000000040000006d6170010005000400000003000000737061776e01020304090807"
+	const golden = "4b54594c02000000260000000200000020000000070000006d000000000000004b54594d02000000080100000006000000736368656d61060a00000067616d652e6d617040310100030000000000040000006d6170010005000400000003000000737061776e01020304090807"
 	if hex.EncodeToString(encoded) != golden {
 		t.Fatalf("wire ABI changed:\n got %x\nwant %s", encoded, golden)
 	}
@@ -30,7 +30,9 @@ func TestEnvelopeGoldenAndBoundedReads(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if string(decoded.Metadata) != `{"schema":"game.map@1"}` || len(decoded.Entries) != 2 || decoded.Entries[0].Name != "map" {
+	metadata, metadataErr := level.DecodeMetadata(decoded.Metadata)
+	schema, _ := metadata.String("schema")
+	if metadataErr != nil || schema != "game.map@1" || len(decoded.Entries) != 2 || decoded.Entries[0].Name != "map" {
 		t.Fatalf("decoded envelope = %+v", decoded)
 	}
 
@@ -70,7 +72,7 @@ func TestEnvelopeEncodeRejectsInvalidInputs(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := level.Encode([]byte(`{}`), entries); !errors.Is(err, level.ErrEntry) {
+			if _, err := level.Encode(metadataBytes(t, level.Metadata{}), entries); !errors.Is(err, level.ErrEntry) {
 				t.Fatalf("Encode() error = %v", err)
 			}
 		})
@@ -89,7 +91,7 @@ func TestEnvelopeEntryNamesAndKindsAgree(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := level.Encode([]byte(`{}`), []level.SourceEntry{entry}); !errors.Is(err, level.ErrEntry) {
+			if _, err := level.Encode(metadataBytes(t, level.Metadata{}), []level.SourceEntry{entry}); !errors.Is(err, level.ErrEntry) {
 				t.Fatalf("Encode() error = %v, want ErrEntry", err)
 			}
 		})
@@ -100,7 +102,7 @@ func TestEnvelopeEntryNamesAndKindsAgree(t *testing.T) {
 		{Name: level.TextureEntryName(1), Kind: level.EntryTexture, Data: []byte{1}},
 		{Name: level.TextureEntryName(^uint32(0)), Kind: level.EntryTexture, Data: []byte{1}},
 	} {
-		encoded, err := level.Encode([]byte(`{}`), []level.SourceEntry{entry})
+		encoded, err := level.Encode(metadataBytes(t, level.Metadata{}), []level.SourceEntry{entry})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -108,7 +110,7 @@ func TestEnvelopeEntryNamesAndKindsAgree(t *testing.T) {
 			t.Fatal(err)
 		}
 		// The wire decoder must reject the same name/kind mismatches.
-		kindOffset := level.HeaderSize + 2
+		kindOffset := level.HeaderSize + 13
 		if entry.Kind == level.EntryData {
 			encoded[kindOffset] = byte(level.EntryTexture)
 		} else {
@@ -136,14 +138,14 @@ func TestEnvelopeDecodeRejectsMalformedHeadersAndEntries(t *testing.T) {
 
 	tests := map[string]func([]byte){
 		"magic":       func(encoded []byte) { encoded[0] = 0 },
-		"version":     func(encoded []byte) { binary.LittleEndian.PutUint16(encoded[4:6], 2) },
+		"version":     func(encoded []byte) { binary.LittleEndian.PutUint16(encoded[4:6], 1) },
 		"flags":       func(encoded []byte) { encoded[6] = 1 },
 		"reserved":    func(encoded []byte) { encoded[28] = 1 },
 		"total":       func(encoded []byte) { binary.LittleEndian.PutUint32(encoded[24:28], uint32(len(encoded)-1)) },
 		"entry count": func(encoded []byte) { binary.LittleEndian.PutUint32(encoded[12:16], 2) },
-		"entry kind":  func(encoded []byte) { encoded[level.HeaderSize+2] = 2 },
+		"entry kind":  func(encoded []byte) { encoded[level.HeaderSize+13] = 2 },
 		"entry offset": func(encoded []byte) {
-			binary.LittleEndian.PutUint32(encoded[level.HeaderSize+2+4:level.HeaderSize+2+8], 1)
+			binary.LittleEndian.PutUint32(encoded[level.HeaderSize+13+4:level.HeaderSize+13+8], 1)
 		},
 	}
 
@@ -165,8 +167,8 @@ func TestEnvelopeDecodeRejectsOverflowingLengths(t *testing.T) {
 
 	for name, offset := range map[string]int{
 		"metadata": 8, "entry count": 12, "table": 16, "payload": 20, "total": 24,
-		"entry offset": level.HeaderSize + 2 + 4,
-		"entry length": level.HeaderSize + 2 + 8,
+		"entry offset": level.HeaderSize + 13 + 4,
+		"entry length": level.HeaderSize + 13 + 8,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -182,7 +184,7 @@ func TestEnvelopeDecodeRejectsOverflowingLengths(t *testing.T) {
 	t.Run("negative table with compensating payload", func(t *testing.T) {
 		encoded := validEnvelope(t)
 		binary.LittleEndian.PutUint32(encoded[16:20], 0xffffffff)
-		binary.LittleEndian.PutUint32(encoded[20:24], uint32(len(encoded)-level.HeaderSize-2+1))
+		binary.LittleEndian.PutUint32(encoded[20:24], uint32(len(encoded)-level.HeaderSize-13+1))
 		if _, err := level.Decode(encoded); err == nil {
 			t.Fatal("Decode() accepted wrapped table/payload arithmetic")
 		}
@@ -212,7 +214,9 @@ type testHelper interface {
 func validEnvelope(t testHelper) []byte {
 	t.Helper()
 
-	encoded, err := level.Encode([]byte(`{}`), []level.SourceEntry{{Name: "a", Kind: level.EntryData, Data: []byte{1}}})
+	encoded, err := level.Encode(metadataBytes(t, level.Metadata{}), []level.SourceEntry{
+		{Name: "a", Kind: level.EntryData, Data: []byte{1}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

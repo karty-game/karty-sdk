@@ -1,7 +1,6 @@
 package worldlightmap
 
 import (
-	"bytes"
 	"fmt"
 	"slices"
 	"testing"
@@ -39,9 +38,6 @@ func TestDirectRecipeOrderedSelectionAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(encoded, []byte(`"runtime_bake":{"encoding":"direct-rnm3@1","light_ids":["blue","red"],"shadow_size":128}`)) {
-		t.Fatalf("unexpected recipe encoding: %s", encoded)
-	}
 	decoded, err := Decode(encoded, &document)
 	if err != nil || !slices.Equal(decoded.RuntimeBake.LightIDs, recipe.LightIDs) {
 		t.Fatalf("round trip: %v", err)
@@ -51,7 +47,9 @@ func TestDirectRecipeOrderedSelectionAndOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	old, err := Encode(first, &document)
-	if err != nil || !bytes.Contains(old, []byte(`"runtime_bake":{"encoding":"point-visibility@1","light_id":"red","shadow_size":128}`)) {
+	decodedFirst, decodeErr := Decode(old, &document)
+	if err != nil || decodeErr != nil || decodedFirst.RuntimeBake.Encoding != PointVisibilityEncoding ||
+		decodedFirst.RuntimeBake.LightID != "red" {
 		t.Fatalf("existing visibility recipe changed: %v", err)
 	}
 }
@@ -63,7 +61,9 @@ func TestDirectRecipeRejectsWholeMalformedSelection(t *testing.T) {
 		"last unknown":     {Lights: []string{"red", "missing"}},
 		"last duplicate":   {Lights: []string{"red", "blue", "red"}},
 		"empty identifier": {Lights: []string{"red", ""}},
-		"too many":         {Lights: []string{"red", "blue", "a", "b", "c", "d", "e", "f", "g"}},
+		"too many":         {Lights: make([]string, MaxBakeLights+1)},
+		"auto and single":  {AllStatic: true, Light: "red"},
+		"auto and list":    {AllStatic: true, Lights: []string{"red"}},
 		"shadow below":     {Lights: []string{"red"}, ShadowSize: 31},
 		"shadow above":     {Lights: []string{"red"}, ShadowSize: 513},
 	} {
@@ -89,40 +89,22 @@ func TestDirectRecipeCanonicalFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encoded, err := Encode(layout, &document)
-	if err != nil {
-		t.Fatal(err)
-	}
-	const ids = `"light_ids":["red","blue"]`
-	for name, replacement := range map[string]string{
-		"null": `"light_ids":null`, "empty": `"light_ids":[]`,
-		"unknown":            `"light_ids":["red","missing"]`,
-		"duplicate value":    `"light_ids":["red","red"]`,
-		"duplicate field":    ids + `,` + ids,
-		"both selectors":     ids + `,"light_id":"red"`,
-		"empty old selector": ids + `,"light_id":""`,
-		"null old selector":  ids + `,"light_id":null`,
-		"unknown field":      ids + `,"range":8`,
+	for name, mutate := range map[string]func(*RuntimeBake){
+		"nil selection": func(r *RuntimeBake) { r.LightIDs = nil },
+		"unknown":       func(r *RuntimeBake) { r.LightIDs = []string{"red", "missing"} }, "duplicate": func(r *RuntimeBake) { r.LightIDs = []string{"red", "red"} },
+		"both selectors": func(r *RuntimeBake) { r.LightID = "red" }, "encoding": func(r *RuntimeBake) { r.Encoding = "direct-rnm3@2" }, "shadow": func(r *RuntimeBake) { r.ShadowSize = 0 },
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := Decode(bytes.Replace(encoded, []byte(ids), []byte(replacement), 1), &document); err == nil {
-				t.Fatal("noncanonical or malformed recipe accepted")
+			bad := layout
+			recipe := *layout.RuntimeBake
+			bad.RuntimeBake = &recipe
+			mutate(&recipe)
+			encoded, err := encodeLayoutBinary(bad)
+			if err != nil {
+				t.Fatal(err)
 			}
-		})
-	}
-	if _, err := Decode(bytes.Replace(encoded, []byte(ids+`,`), nil, 1), &document); err == nil {
-		t.Fatal("missing light selection accepted")
-	}
-	for name, mutation := range map[string][2]string{
-		"missing encoding": {`"encoding":"direct-rnm3@1",`, ``},
-		"null encoding":    {`"encoding":"direct-rnm3@1"`, `"encoding":null`},
-		"unknown encoding": {`"direct-rnm3@1"`, `"direct-rnm3@2"`},
-		"missing shadow":   {`,"shadow_size":512`, ``},
-		"null shadow":      {`"shadow_size":512`, `"shadow_size":null`},
-	} {
-		t.Run(name, func(t *testing.T) {
-			if _, err := Decode(bytes.Replace(encoded, []byte(mutation[0]), []byte(mutation[1]), 1), &document); err == nil {
-				t.Fatal("incomplete or unsupported directional recipe accepted")
+			if _, err := Decode(encoded, &document); err == nil {
+				t.Fatal("malformed recipe accepted")
 			}
 		})
 	}
@@ -130,16 +112,14 @@ func TestDirectRecipeCanonicalFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encoded, err = Encode(point, &document)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, extra := range []string{`,"light_ids":null`, `,"light_ids":[]`, `,"light_ids":["blue"]`} {
-		if _, err := Decode(
-			bytes.Replace(encoded, []byte(`"light_id":"red"`), []byte(`"light_id":"red"`+extra), 1),
-			&document,
-		); err == nil {
-			t.Fatal("visibility recipe accepted directional selector")
+	for _, ids := range [][]string{{}, {"blue"}} {
+		point.RuntimeBake.LightIDs = ids
+		encoded, err := encodeLayoutBinary(point)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Decode(encoded, &document); err == nil {
+			t.Fatal("point recipe accepted directional selectors")
 		}
 	}
 }

@@ -1,31 +1,36 @@
-# Authored actions format v1
+# Binary action documents
 
-`actions@1` is an optional level data entry named `karty/actions@1`. It contains
-an actions document with version 1 and named sequences. The canonical
-`schema.json` defines the serialized shape and supplies editor metadata; the
-CLI derives action-specific argument and actor-choice schemas from game
-declarations. This package validates format structure and bounds independently
-of game declarations or private engine source.
+Candidate SDK 0.0.11 stores `karty/actions@1` as binary `KTYA` version 2.
+`Encode`, `Decode` and `Validate` use typed `Document`, `Sequence` and `Step`
+values; arguments use `level.Metadata`. JSON payloads are rejected without a
+compatibility fallback. YAML authoring belongs to the CLI; the editor JSON
+Schema lives separately in `authoring/actions` and is not linked by this package.
 
-Each step specifies an action with typed argument literals, a condition with
-then/else branches, or a positive `waitFrames`. Actions/conditions may provide
-onFailure steps. Actor literals are `{ "actor": "compiled/content/id" }`, scoped
-to the current level mount. Go function names and runtime ECS IDs are absent.
-Named repetition is ignore (default), restart or parallel. Runtime dispatch,
-cancellation and activation belong to the engine; catalog extraction and
-static target/type checking belong to the CLI.
+A step specifies one action with typed literals, one condition with then/else
+branches, or a positive wait. Action/condition failures can run onFailure steps.
+Actor arguments are typed objects with one string `actor` naming the authored
+content in the current level mount. Go function names and runtime ECS IDs are
+absent. Repetition is ignore (default), restart or parallel.
 
-Documents are bounded at 65536 bytes, 64 sequences, 1024 total steps and 16 branch
-levels. Identifiers have at most 128 ASCII bytes, start with a letter and continue
-with letters, digits, dots, underscores or hyphens. Arguments have at most 16
-named values; strings and actor IDs have at most 1024 UTF-8 bytes. Waits range
-from 1 to 1000000000 simulation frames. Duplicate names/JSON keys, unsupported
-fields/types, invalid UTF-8, non-finite numbers and deeper/larger documents fail.
-Go declaration-specific integer/float ranges are checked by the CLI.
+`ActorRef` describes this level-scoped name for callers. It is not a runtime ECS
+handle and has no separate binary encoding. To include it in `Step.Args`, use
+`level.ObjectValue(level.Metadata{"actor": level.StringValue(ref.Actor)})`.
 
-The SDK 0.0.9 candidate adds this optional feature; older level/world layouts
-remain unchanged. Clients must select a supporting SDK bundle and matching host.
+The little-endian header is `KTYA`, u16 binary version 2, u16 reserved zero.
+It carries u32 document version 1, a u32-length UTF-8 schema string and u32
+sequence count. Each sequence carries length-prefixed name/repetition strings
+and a step list. Lists encode u32(length+1), with zero representing nil; empty
+and absent condition branches stay distinct. Each step carries action and
+condition strings, u64 wait frames, a length-prefixed binary metadata argument
+object (zero length for absent), then/else/onFailure lists in that order.
 
-`go run ./cmd/karty-actions-schema --out PATH` exports an exact schema snapshot.
-Engine bundles and CLI test fixtures track generated copies. Optional sibling
-parity tests detect drift without making public builds depend on those siblings.
+Limits are 64 KiB encoded, 64 sequences, 1024 total steps, 16 branch levels,
+16 arguments, and 1024 UTF-8 bytes per literal string or actor ID. Argument
+objects also obey level metadata bounds. Names have at most 128 ASCII bytes;
+waits range from 1 to 1000000000 frames. Decoding scans all nested counts and
+argument objects before allocating branch arrays and validates the complete
+batch before returning it. Invalid UTF-8, nonfinite numbers, malformed counts,
+truncations, trailing bytes and invalid final steps are rejected.
+
+`go run ./cmd/karty-actions-schema --out PATH` exports the standard editor
+schema snapshot. Consumer snapshots can be checked without engine credentials.

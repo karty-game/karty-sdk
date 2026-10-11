@@ -5,10 +5,10 @@ import "math"
 // Strengths scales material effects independently. An omitted Strengths pointer
 // means one for every channel; explicit zero disables that effect.
 type Strengths struct {
-	Normal float64 `json:"normal"`
-	Height float64 `json:"height"`
-	AO     float64 `json:"ao"`
-	Rim    float64 `json:"rim"`
+	Normal float64
+	Height float64
+	AO     float64
+	Rim    float64
 }
 
 func (s Strengths) Validate() error {
@@ -24,11 +24,11 @@ func (s Strengths) Validate() error {
 // a raw data tile for each material in the L0 first-use order. Coordinates and
 // dimensions are derived rather than repeating hundreds of per-material rects.
 type MipLevel struct {
-	Level   int `json:"level"`
-	Size    int `json:"size"`
-	Gutter  int `json:"gutter"`
-	Y       int `json:"y"`
-	Columns int `json:"columns"`
+	Level   int
+	Size    int
+	Gutter  int
+	Y       int
+	Columns int
 }
 
 func canonicalMips(count int) (records [MipLevels]MipLevel, width, height int) {

@@ -16,25 +16,25 @@ const (
 // StaticSolids contains independently placed opaque volumes. They never alter
 // the sector/portal graph. Hosts must advertise FeatureStaticSolids.
 type StaticSolids struct {
-	Version uint32  `json:"version"`
-	Items   []Solid `json:"items"`
+	Version uint32
+	Items   []Solid
 }
 
 // Solid is a strictly convex CCW extrusion between two elevation planes.
 // Collision blocks movement but never makes Top a walkable floor. Optional
 // mappings are shared by the indicated surface group; SideUV is not per-edge.
 type Solid struct {
-	ID             string     `json:"id"`
-	Footprint      []Vec2     `json:"footprint"`
-	Bottom         Plane      `json:"bottom"`
-	Top            Plane      `json:"top"`
-	SideMaterial   uint32     `json:"side_material"`
-	TopMaterial    uint32     `json:"top_material"`
-	BottomMaterial uint32     `json:"bottom_material"`
-	SideUV         *SurfaceUV `json:"side_uv,omitempty"`
-	TopUV          *SurfaceUV `json:"top_uv,omitempty"`
-	BottomUV       *SurfaceUV `json:"bottom_uv,omitempty"`
-	Collision      bool       `json:"collision,omitempty"`
+	ID             string
+	Footprint      []Vec2
+	Bottom         Plane
+	Top            Plane
+	SideMaterial   uint32
+	TopMaterial    uint32
+	BottomMaterial uint32
+	SideUV         *SurfaceUV
+	TopUV          *SurfaceUV
+	BottomUV       *SurfaceUV
+	Collision      bool
 }
 
 // ValidateStaticSolids validates every item, including the last, before mounting.

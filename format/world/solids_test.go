@@ -2,7 +2,6 @@ package world_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -59,25 +58,23 @@ func TestStaticSolidsThousandPillarsAndCountBoundary(t *testing.T) {
 	if _, err := world.Encode(oversized); !errors.Is(err, world.ErrBounds) {
 		t.Fatalf("1,025 pillars passed canonical encoding: %v", err)
 	}
-	encoded, err := json.Marshal(oversized)
-	if err != nil {
-		t.Fatal(err)
+	oversized.StaticSolids.Items = oversized.StaticSolids.Items[:world.MaxStaticSolids]
+	encoded := uncheckedWorld(t, oversized)
+	marker := append(word32(uint32(world.MaxStaticSolids+1)), append(word32(11), []byte("pillar-0000")...)...)
+	at := bytes.Index(encoded, marker)
+	if at < 0 {
+		t.Fatal("missing solid count")
 	}
+	copy(encoded[at:], word32(world.MaxStaticSolids+2))
 	decoded, err := world.Decode(encoded)
 	if !errors.Is(err, world.ErrBounds) || len(decoded.Sectors) != 0 || decoded.StaticSolids != nil {
-		t.Fatalf("oversized canonical input published partial world: %v", err)
+		t.Fatalf("oversized partial world: %v", err)
 	}
+
 }
 
 func TestStaticSolidsCanonicalOptionalContract(t *testing.T) {
 	document := lightingWorld()
-	old, err := world.Encode(document)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Contains(old, []byte("static_solids")) {
-		t.Fatal("absent field changes encoding")
-	}
 	document.StaticSolids = &world.StaticSolids{Version: 1, Items: []world.Solid{validSolid()}}
 	encoded, err := world.Encode(document)
 	if err != nil {
@@ -87,25 +84,11 @@ func TestStaticSolidsCanonicalOptionalContract(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(decoded, document) {
 		t.Fatalf("roundtrip: %v", err)
 	}
+	assertBinaryMalformed(t, encoded)
 	for _, version := range []uint16{1, 2} {
 		document.Version = version
-		if err := world.Validate(&document); !errors.Is(err, world.ErrVersion) {
+		if _, err := world.Decode(uncheckedWorld(t, document)); !errors.Is(err, world.ErrVersion) {
 			t.Fatalf("v%d accepted solids: %v", version, err)
-		}
-	}
-	document.Version = 3
-	for name, malformed := range map[string][]byte{
-		"null":           bytes.Replace(old, []byte(`"contents":`), []byte(`"static_solids":null,"contents":`), 1),
-		"unknown":        bytes.Replace(encoded, []byte(`"collision"`), []byte(`"oops"`), 1),
-		"missing top":    bytes.Replace(encoded, []byte(`"top":{"a":0,"b":0,"c":3},`), nil, 1),
-		"explicit false": bytes.Replace(encoded, []byte(`"bottom_material":4`), []byte(`"bottom_material":4,"collision":false`), 1),
-		"duplicate":      bytes.Replace(encoded, []byte(`"static_solids":`), []byte(`"static_solids":null,"static_solids":`), 1),
-	} {
-		if bytes.Equal(malformed, encoded) && name == "unknown" {
-			malformed = bytes.Replace(encoded, []byte(`"bottom_material":4`), []byte(`"bottom_material":4,"oops":1`), 1)
-		}
-		if _, err := world.Decode(malformed); err == nil {
-			t.Fatalf("accepted %s", name)
 		}
 	}
 }
@@ -150,29 +133,20 @@ func TestStaticSolidsValidateCompleteBounds(t *testing.T) {
 }
 
 func TestStaticSolidsPresenceVersionAndNullRejection(t *testing.T) {
-	for _, version := range []uint16{1, 2, 3} {
-		document := validWorld()
-		if version == 3 {
-			document = lightingWorld()
+	for version := uint16(1); version <= world.Version; version++ {
+		d := validWorld()
+		if version == world.Version {
+			d = lightingWorld()
 		}
-		document.Version = version
-		absent, err := world.Encode(document)
-		if err != nil {
-			t.Fatal(err)
-		}
-		explicitNull := append(append([]byte(nil), absent[:len(absent)-1]...), []byte(`,"static_solids":null}`)...)
-		decoded, err := world.Decode(explicitNull)
-		if err == nil || decoded.StaticSolids != nil || len(decoded.Sectors) != 0 {
-			t.Fatalf("v%d accepted null/published partial world: %v", version, err)
-		}
-		// A real payload is valid only in v3, even when it declares no items.
-		emptyPayload := append(append([]byte(nil), absent[:len(absent)-1]...), []byte(`,"static_solids":{"version":1,"items":[]}}`)...)
-		_, err = world.Decode(emptyPayload)
-		if version < 3 && !errors.Is(err, world.ErrVersion) {
-			t.Fatalf("v%d accepted payload: %v", version, err)
-		}
-		if version == 3 && err != nil {
-			t.Fatalf("v3 rejected empty payload: %v", err)
+		d.Version = version
+		d.StaticSolids = &world.StaticSolids{Version: 1, Items: []world.Solid{}}
+		decoded, err := world.Decode(uncheckedWorld(t, d))
+		if version < world.Version {
+			if !errors.Is(err, world.ErrVersion) || len(decoded.Sectors) != 0 {
+				t.Fatalf("v%d accepted solids: %v", version, err)
+			}
+		} else if err != nil || decoded.StaticSolids == nil || decoded.StaticSolids.Items == nil {
+			t.Fatalf("v3 empty presence lost: %v", err)
 		}
 	}
 }

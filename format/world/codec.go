@@ -1,66 +1,63 @@
 package world
 
+//go:generate go run ../../internal/codegen/binary ../..
+
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+
+	"github.com/karty-game/karty-sdk/internal/binwire"
 )
 
-// Encode validates and deterministically encodes one compiled world.
+const BinaryMagic = "KWR1"
+
+// Encode validates and encodes one compiled world as canonical typed binary.
 func Encode(document Document) ([]byte, error) {
 	if err := Validate(&document); err != nil {
 		return nil, err
 	}
+	return encodeBinary(document)
+}
 
-	encoded, err := json.Marshal(document)
+func encodeBinary(document Document) ([]byte, error) {
+	w := binwire.NewWriter(BinaryMagic, MaxEncodedSize)
+	writeWorldDocument(w, &document)
+	encoded, err := w.Bytes()
 	if err != nil {
-		return nil, fmt.Errorf("encode world: %w", ErrSyntax)
+		return nil, fmt.Errorf("encode world: %w", ErrSize)
 	}
-	if len(encoded) == 0 || len(encoded) > MaxEncodedSize {
-		return nil, ErrSize
-	}
-
 	return encoded, nil
 }
 
-// Decode requires the exact canonical representation produced by Encode. This
-// rejects duplicate/unknown fields, alternate number spellings and trailing data.
+// Decode rejects JSON, unsupported binary versions, trailing bytes and malformed
+// records. A complete allocation-free scan bounds all typed allocations first.
 func Decode(encoded []byte) (Document, error) {
 	if len(encoded) == 0 || len(encoded) > MaxEncodedSize {
 		return Document{}, ErrSize
 	}
-
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.DisallowUnknownFields()
-	var document Document
-	if err := decoder.Decode(&document); err != nil {
-		return Document{}, fmt.Errorf("decode world: %w", ErrSyntax)
+	scan := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
+	scanWorldDocument(scan)
+	if err := scan.Done(); err != nil {
+		return Document{}, decodeError(err)
 	}
-	if err := requireJSONEnd(decoder); err != nil {
-		return Document{}, err
+	reader := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
+	var document Document
+	readWorldDocument(reader, &document)
+	if err := reader.Done(); err != nil {
+		return Document{}, decodeError(err)
 	}
 	if err := Validate(&document); err != nil {
 		return Document{}, err
 	}
-
-	canonical, err := json.Marshal(document)
-	if err != nil {
-		return Document{}, fmt.Errorf("encode canonical world: %w", ErrSyntax)
-	}
-	if !bytes.Equal(encoded, canonical) {
-		return Document{}, ErrCanonical
-	}
-
 	return document, nil
 }
 
-func requireJSONEnd(decoder *json.Decoder) error {
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		return ErrSyntax
+func decodeError(err error) error {
+	if errors.Is(err, binwire.ErrVersion) {
+		return ErrVersion
 	}
-
-	return nil
+	if errors.Is(err, binwire.ErrCount) {
+		return ErrBounds
+	}
+	return ErrSyntax
 }

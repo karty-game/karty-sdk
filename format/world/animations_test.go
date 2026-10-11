@@ -1,9 +1,6 @@
 package world_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
 	"math"
 	"testing"
 
@@ -77,13 +74,15 @@ func TestAnimationMaterialIDsAndLegacyEncoding(t *testing.T) {
 	if len(world.MaterialIDs(&d)) != 4 {
 		t.Fatal("actor-only frames entered world material atlas")
 	}
-	data, err := json.Marshal(world.Document{Version: 1})
+	encoded, err := world.Encode(validWorld())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != "{\"version\":1,\"sectors\":null,\"contents\":null}" {
-		t.Fatalf("legacy encoding changed: %s", data)
+	decoded, err := world.Decode(encoded)
+	if err != nil || decoded.Animations != nil {
+		t.Fatal("absent animation changed", err)
 	}
+
 }
 
 func TestLiquidSurfaceBoundsAndTarget(t *testing.T) {
@@ -155,13 +154,11 @@ func TestLiquidOpacityCanonicalEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(encoded, []byte(`"opacity"`)) {
-		t.Fatal("omitted opacity encoded")
+	decodedAbsent, err := world.Decode(encoded)
+	if err != nil || decodedAbsent.Animations.Presets[0].Opacity != nil {
+		t.Fatal("absent opacity lost", err)
 	}
-	null := bytes.Replace(encoded, []byte(`"name":"acid"`), []byte(`"name":"acid","opacity":null`), 1)
-	if _, err := world.Decode(null); !errors.Is(err, world.ErrCanonical) {
-		t.Fatalf("null opacity accepted: %v", err)
-	}
+	assertBinaryMalformed(t, encoded)
 	d.Animations.Presets[0].Opacity = new(0.0)
 	encoded, err = world.Encode(d)
 	if err != nil {

@@ -12,39 +12,39 @@ import (
 // Ambient and Color use linear RGB intensities in [0,1]. Lights retain authored
 // order and global positions; prefab-local lights are not supported.
 type Lighting struct {
-	Version     uint32       `json:"version"                yaml:"version"`
-	Ambient     Vec3         `json:"ambient"                yaml:"ambient"`
-	Lights      []PointLight `json:"lights"                 yaml:"lights"`
-	AmbientCube *AmbientCube `json:"ambient_cube,omitempty" yaml:"ambient_cube,omitempty"`
-	Actors      bool         `json:"actors,omitempty"       yaml:"actors,omitempty"`
+	Version     uint32       `yaml:"version"`
+	Ambient     Vec3         `yaml:"ambient"`
+	Lights      []PointLight `yaml:"lights"`
+	AmbientCube *AmbientCube `yaml:"ambient_cube,omitempty"`
+	Actors      bool         `yaml:"actors,omitempty"`
 }
 
 // AmbientCube supplies six world-space directional ambient colors. It replaces
 // Ambient when present; squared unit-normal components weight each selected face.
 // Colors are finite linear RGB intensities in [0,1].
 type AmbientCube struct {
-	PositiveX Vec3 `json:"positive_x" yaml:"positive_x"`
-	NegativeX Vec3 `json:"negative_x" yaml:"negative_x"`
-	PositiveY Vec3 `json:"positive_y" yaml:"positive_y"`
-	NegativeY Vec3 `json:"negative_y" yaml:"negative_y"`
-	PositiveZ Vec3 `json:"positive_z" yaml:"positive_z"`
-	NegativeZ Vec3 `json:"negative_z" yaml:"negative_z"`
+	PositiveX Vec3 `yaml:"positive_x"`
+	NegativeX Vec3 `yaml:"negative_x"`
+	PositiveY Vec3 `yaml:"positive_y"`
+	NegativeY Vec3 `yaml:"negative_y"`
+	PositiveZ Vec3 `yaml:"positive_z"`
+	NegativeZ Vec3 `yaml:"negative_z"`
 }
 
 // PointLight has the same bounds and semantics as sdkworld.PointLight.
 type PointLight struct {
-	ID       string       `json:"id"               yaml:"id"`
-	Position Vec3         `json:"position"         yaml:"position"`
-	Color    Vec3         `json:"color"            yaml:"color"`
-	Radius   float64      `json:"radius"           yaml:"radius"`
-	Motion   *LightMotion `json:"motion,omitempty" yaml:"motion,omitempty"`
+	ID       string       `yaml:"id"`
+	Position Vec3         `yaml:"position"`
+	Color    Vec3         `yaml:"color"`
+	Radius   float64      `yaml:"radius"`
+	Motion   *LightMotion `yaml:"motion,omitempty"`
 }
 
 // LightMotion authors the bounded version-1 runtime light path.
 type LightMotion struct {
-	Version       uint32  `json:"version"        yaml:"version"`
-	Offset        Vec3    `json:"offset"         yaml:"offset"`
-	PeriodSeconds float64 `json:"period_seconds" yaml:"period_seconds"`
+	Version       uint32  `yaml:"version"`
+	Offset        Vec3    `yaml:"offset"`
+	PeriodSeconds float64 `yaml:"period_seconds"`
 }
 
 func validateLighting(lighting *Lighting) error {
@@ -56,8 +56,14 @@ func validateLighting(lighting *Lighting) error {
 	}
 	// Reuse the compiled contract's validation without a dependency on any
 	// authoring parser or compiler, and bound conversion storage before copying.
-	var lights [MaxLights]sdkworld.PointLight
-	var motions [MaxLights]sdkworld.LightMotion
+	lights := make([]sdkworld.PointLight, len(lighting.Lights))
+	var motions []sdkworld.LightMotion
+	for _, light := range lighting.Lights {
+		if light.Motion != nil {
+			motions = make([]sdkworld.LightMotion, len(lighting.Lights))
+			break
+		}
+	}
 	for index, light := range lighting.Lights {
 		lights[index] = sdkworld.PointLight{
 			ID: light.ID, Position: sdkworld.Vec3(light.Position),

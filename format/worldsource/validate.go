@@ -16,6 +16,12 @@ func Validate(document *Document) error {
 	if document.Version < LegacyVersion || document.Version > Version {
 		return ErrVersion
 	}
+	if err := validateParticles(document); err != nil {
+		return err
+	}
+	if err := validateEnvironment(document); err != nil {
+		return err
+	}
 	if document.Version < ActorVersion && usesActorFields(document) {
 		return ErrVersion
 	}
@@ -57,7 +63,7 @@ func Validate(document *Document) error {
 		return err
 	}
 	for _, prefab := range document.Prefabs {
-		if len(prefab.Rooms)+len(prefab.Instances)+len(prefab.Solids)+len(prefab.Contents) == 0 {
+		if len(prefab.Rooms)+len(prefab.Instances)+len(prefab.Solids)+len(prefab.Contents)+len(prefab.ParticleEmitters) == 0 {
 			return fmt.Errorf("prefab %q: %w", prefab.ID, ErrBounds)
 		}
 		index, err := validateScope(prefab.ID, prefab.Rooms, prefab.Instances, prefab.Connections, prefab.Ports, prefabs, &counts)

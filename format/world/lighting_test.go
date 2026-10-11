@@ -2,7 +2,6 @@ package world_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -22,10 +21,6 @@ func TestLightingCanonicalRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `,"lighting":{"version":1,"ambient":{"x":0.1,"y":0.2,"z":0.3},"lights":[{"id":"lamp","position":{"x":2,"y":3,"z":4},"color":{"x":1,"y":0.5,"z":0},"radius":8}]}}`
-	if !bytes.HasSuffix(encoded, []byte(want)) {
-		t.Fatalf("lighting encoding changed: %s", encoded)
-	}
 	decoded, err := world.Decode(encoded)
 	if err != nil {
 		t.Fatal(err)
@@ -37,60 +32,33 @@ func TestLightingCanonicalRoundTrip(t *testing.T) {
 
 func TestLightingAbsentPreservesAllCompiledVersions(t *testing.T) {
 	t.Parallel()
-
-	if world.Version != 3 || world.LightingVersion != 1 || world.MaxLights != 50 {
-		t.Fatal("world/lighting@1 changed its version or bounds")
-	}
-	for _, version := range []uint16{1, 2, 3} {
-		t.Run(fmt.Sprint(version), func(t *testing.T) {
-			t.Parallel()
-			document := validWorld()
-			if version == world.Version {
-				document = lightingWorld()
+	for version := uint16(1); version <= world.Version; version++ {
+		document := validWorld()
+		if version == world.Version {
+			document = lightingWorld()
+		}
+		document.Version = version
+		encoded, err := world.Encode(document)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := world.Decode(encoded)
+		if err != nil || decoded.Lighting != nil || !reflect.DeepEqual(document, decoded) {
+			t.Fatalf("v%d roundtrip: %v", version, err)
+		}
+		if version < world.Version {
+			document.Lighting = validLighting()
+			if _, err := world.Decode(uncheckedWorld(t, document)); !errors.Is(err, world.ErrVersion) {
+				t.Fatalf("v%d lighting: %v", version, err)
 			}
-			document.Version = version
-			// This is the complete pre-lighting public layout, in wire order.
-			legacy := struct {
-				Version  uint16          `json:"version"`
-				Sectors  []world.Sector  `json:"sectors"`
-				Contents []world.Content `json:"contents"`
-			}{document.Version, document.Sectors, document.Contents}
-			want, err := json.Marshal(legacy)
-			if err != nil {
-				t.Fatal(err)
-			}
-			encoded, err := world.Encode(document)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !bytes.Equal(encoded, want) || bytes.Contains(encoded, []byte(`"lighting"`)) {
-				t.Fatalf("legacy v%d wire changed: %s", version, encoded)
-			}
-			decoded, err := world.Decode(want)
-			if err != nil || decoded.Lighting != nil {
-				t.Fatalf("legacy decode changed: lighting=%+v err=%v", decoded.Lighting, err)
-			}
-			if version < world.Version {
-				document.Lighting = validLighting()
-				if err := world.Validate(&document); !errors.Is(err, world.ErrVersion) {
-					t.Fatalf("v%d accepted lighting: %v", version, err)
-				}
-				payload, err := json.Marshal(document)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if _, err := world.Decode(payload); !errors.Is(err, world.ErrVersion) {
-					t.Fatalf("v%d decoded lighting: %v", version, err)
-				}
-			}
-		})
+		}
 	}
 }
 
 func TestLightingBoundsOrderAndGlobalCoordinates(t *testing.T) {
 	t.Parallel()
 
-	for _, count := range []int{0, 1, 49, 50, 51} {
+	for _, count := range []int{0, 1, 49, 50, 51, 1000, world.MaxLights, world.MaxLights + 1} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			t.Parallel()
 			document := lightingWorld()
@@ -109,10 +77,7 @@ func TestLightingBoundsOrderAndGlobalCoordinates(t *testing.T) {
 				if err := world.Validate(&document); !errors.Is(err, world.ErrBounds) {
 					t.Fatalf("count %d: %v", count, err)
 				}
-				payload, err := json.Marshal(document)
-				if err != nil {
-					t.Fatal(err)
-				}
+				payload := lightCountOverflow(t, document)
 				if _, err := world.Decode(payload); !errors.Is(err, world.ErrBounds) {
 					t.Fatalf("decoded count %d: %v", count, err)
 				}
@@ -198,7 +163,7 @@ func TestLightingRejectsInvalidPayloads(t *testing.T) {
 				if !math.IsNaN(value) && !math.IsInf(value, 0) {
 					document := lightingWorld()
 					document.Lighting = lighting
-					encoded, err := json.Marshal(document)
+					encoded, err := world.EncodeUncheckedForTest(document)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -213,55 +178,17 @@ func TestLightingRejectsInvalidPayloads(t *testing.T) {
 
 func TestLightingStrictDecode(t *testing.T) {
 	t.Parallel()
-
 	document := lightingWorld()
 	document.Lighting = validLighting()
 	encoded, err := world.Encode(document)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, change := range map[string][2]string{
-		"unknown lighting field": {`"lighting":{"version":1`, `"lighting":{"shadow":true,"version":1`},
-		"unknown light field":    {`"id":"lamp"`, `"id":"lamp","intensity":1`},
-		"duplicate version":      {`"lighting":{"version":1`, `"lighting":{"version":1,"version":1`},
-		"duplicate ID field":     {`"id":"lamp"`, `"id":"lamp","id":"lamp"`},
-		"duplicate ambient":      {`"ambient":{"x":0.1,"y":0.2,"z":0.3}`, `"ambient":{"x":0.1,"y":0.2,"z":0.3},"ambient":{"x":0.1,"y":0.2,"z":0.3}`},
-		"missing version":        {`"lighting":{"version":1,`, `"lighting":{`},
-		"missing ambient":        {`"ambient":{"x":0.1,"y":0.2,"z":0.3},`, ``},
-		"missing lights":         {`,"lights":[{"id":"lamp","position":{"x":2,"y":3,"z":4},"color":{"x":1,"y":0.5,"z":0},"radius":8}]`, ``},
-		"missing color":          {`"color":{"x":1,"y":0.5,"z":0},`, ``},
-		"missing coordinate":     {`"position":{"x":2,"y":3,"z":4}`, `"position":{"x":2,"y":3}`},
-		"null ambient":           {`"ambient":{"x":0.1,"y":0.2,"z":0.3}`, `"ambient":null`},
-		"unknown version":        {`"lighting":{"version":1`, `"lighting":{"version":2`},
-		"duplicate lights":       {`"lights":[`, `"lights":[{"id":"lamp","position":{"x":2,"y":3,"z":4},"color":{"x":1,"y":0.5,"z":0},"radius":8},`},
-		"number spelling":        {`"radius":8`, `"radius":8.0`},
-		"NaN":                    {`"radius":8`, `"radius":NaN`},
-		"overflow":               {`"radius":8`, `"radius":1e999`},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			payload := bytes.Replace(encoded, []byte(change[0]), []byte(change[1]), 1)
-			if bytes.Equal(payload, encoded) {
-				t.Fatal("test did not alter the payload")
-			}
-			if _, err := world.Decode(payload); err == nil {
-				t.Fatalf("decoded malformed lighting: %s", payload)
-			}
-		})
-	}
+	assertBinaryMalformed(t, encoded)
 	for size := range len(encoded) {
 		if _, err := world.Decode(encoded[:size]); err == nil {
-			t.Fatalf("accepted lighting truncation at %d", size)
+			t.Fatalf("lighting truncation at%d", size)
 		}
-	}
-	document.Lighting = nil
-	absent, err := world.Encode(document)
-	if err != nil {
-		t.Fatal(err)
-	}
-	null := append(bytes.Clone(absent[:len(absent)-1]), []byte(`,"lighting":null}`)...)
-	if _, err := world.Decode(null); !errors.Is(err, world.ErrCanonical) {
-		t.Fatalf("explicit null silently treated as absent: %v", err)
 	}
 }
 
@@ -327,16 +254,15 @@ func TestLightingDirectionalAmbientAndActorsContract(t *testing.T) {
 		PositiveY: world.Vec3{Z: 1}, NegativeY: world.Vec3{X: 1, Y: 1},
 		PositiveZ: world.Vec3{Y: 1, Z: 1}, NegativeZ: world.Vec3{X: 1, Z: 1},
 	}
-	encoded, err := json.Marshal(lighting)
+	document := lightingWorld()
+	document.Lighting = lighting
+	encoded, err := world.Encode(document)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(encoded, []byte(`"actors":true`)) || !bytes.Contains(encoded, []byte(`"negative_z":{"x":1,"y":0,"z":1}`)) {
-		t.Fatalf("optional contract fields missing: %s", encoded)
-	}
-	var decoded world.Lighting
-	if err := json.Unmarshal(encoded, &decoded); err != nil || !reflect.DeepEqual(lighting, &decoded) {
-		t.Fatalf("contract roundtrip %v", err)
+	decoded, err := world.Decode(encoded)
+	if err != nil || !reflect.DeepEqual(lighting, decoded.Lighting) {
+		t.Fatalf("lighting binary roundtrip: %v", err)
 	}
 	if err := world.ValidateLighting(lighting); err != nil {
 		t.Fatal(err)

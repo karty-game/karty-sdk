@@ -15,6 +15,9 @@ func validateRoom(scope string, room *Room, counts *totals) error {
 	edgeIDs := make(map[string]struct{}, len(room.Boundary))
 	area := 0.0
 	for edgeIndex, edge := range room.Boundary {
+		if edge.Sky && !room.Sky {
+			return fmt.Errorf("scope %q room %q sky edge requires sky room: %w", scope, room.ID, ErrEnvironment)
+		}
 		next := room.Boundary[(edgeIndex+1)%len(room.Boundary)]
 		if !validIdentifier(edge.ID) || !validIdentifier(edge.Material) || !validVec2(edge.Start) || !validVec2(edge.End) ||
 			edge.End != next.Start || distanceSquared(edge.Start, edge.End) < MinEdgeLength*MinEdgeLength {

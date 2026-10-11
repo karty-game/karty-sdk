@@ -3,9 +3,7 @@
 package level
 
 import (
-	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -15,7 +13,7 @@ import (
 )
 
 const (
-	EnvelopeVersion  = uint16(1)
+	EnvelopeVersion  = uint16(2)
 	HeaderSize       = 32
 	EntryHeaderSize  = 12
 	MaxEnvelopeSize  = 16 * 1024 * 1024
@@ -310,12 +308,7 @@ func validEntryName(name string, kind EntryKind) bool {
 }
 
 func validateMetadata(metadata []byte) error {
-	if len(metadata) == 0 || len(metadata) > MaxMetadataSize || !utf8.Valid(metadata) || !json.Valid(metadata) {
-		return ErrMetadata
-	}
-
-	trimmed := bytes.TrimSpace(metadata)
-	if len(trimmed) < 2 || trimmed[0] != '{' || trimmed[len(trimmed)-1] != '}' {
+	if !validMetadataBytes(metadata) {
 		return ErrMetadata
 	}
 

@@ -10,7 +10,8 @@ import (
 // Validate checks every record, rectangle, semantic binding and receiver before
 // a caller can allocate GPU resources. The geometry digest prevents stale UVs.
 func Validate(layout *Layout, document *world.Document) error {
-	if layout == nil || layout.Schema != Schema || layout.Algorithm != Algorithm || !finite(layout.TexelsPerUnit) ||
+	if layout == nil || layout.Schema != Schema || (layout.Algorithm != Algorithm && layout.Algorithm != ReceiverAlgorithm) ||
+		(layout.Algorithm == ReceiverAlgorithm) != (layout.Receivers != nil) || !finite(layout.TexelsPerUnit) ||
 		layout.TexelsPerUnit <= 0 ||
 		layout.TexelsPerUnit > 64 ||
 		layout.Padding < 1 ||
@@ -35,6 +36,16 @@ func Validate(layout *Layout, document *world.Document) error {
 	if err != nil {
 		return err
 	}
+	if layout.Receivers != nil {
+		if _, _, err := ReceiverScope(document, layout.Receivers); err != nil {
+			return err
+		}
+		for i := range surfaces {
+			if !receiverSelected(surfaces[i].Binding, layout.Receivers) {
+				surfaces[i].Polygons = nil
+			}
+		}
+	}
 	return validatePrepared(layout, document, digest, surfaces)
 }
 
@@ -45,7 +56,7 @@ func validatePrepared(layout *Layout, document *world.Document, digest string, s
 	if digest != layout.GeometrySHA256 {
 		return fmt.Errorf("geometry digest mismatch: %w", ErrLayout)
 	}
-	if err := validateBake(layout.RuntimeBake, document); err != nil {
+	if err := validateLayoutBake(layout, document); err != nil {
 		return err
 	}
 	if len(layout.Bindings) != len(surfaces) {
@@ -159,7 +170,11 @@ func validatePrepared(layout *Layout, document *world.Document, digest string, s
 	return nil
 }
 
-func validateBake(recipe *RuntimeBake, document *world.Document) error {
+func validateLayoutBake(layout *Layout, document *world.Document) error {
+	return validateBakeScope(layout.RuntimeBake, document, layout.Receivers)
+}
+
+func validateBakeScope(recipe *RuntimeBake, document *world.Document, selection *ReceiverSelection) error {
 	if recipe == nil {
 		return nil
 	}
@@ -174,50 +189,55 @@ func validateBake(recipe *RuntimeBake, document *world.Document) error {
 		}
 		ids = []string{recipe.LightID}
 	case DirectRNMEncoding:
-		if recipe.LightID != "" || len(recipe.LightIDs) == 0 || len(recipe.LightIDs) > MaxBakeLights {
-			return fmt.Errorf("direct RNM requires 1..8 light_ids only: %w", ErrLayout)
+		if recipe.LightID != "" || recipe.LightIDs == nil || len(recipe.LightIDs) > MaxBakeLights {
+			return fmt.Errorf("direct RNM requires a bounded light_ids list only: %w", ErrLayout)
 		}
 		ids = recipe.LightIDs
 	default:
 		return fmt.Errorf("unsupported bake encoding: %w", ErrLayout)
 	}
-	if err := validateRuntimeScope(document); err != nil {
-		return err
+	componentDocument := document
+	if selection == nil {
+		if err := validateRuntimeScope(document); err != nil {
+			return err
+		}
+	} else {
+		sectors, _, err := ReceiverScope(document, selection)
+		if err != nil {
+			return err
+		}
+		copyDocument := *document
+		copyDocument.Sectors = nil
+		for i, included := range sectors {
+			if included {
+				copyDocument.Sectors = append(copyDocument.Sectors, document.Sectors[i])
+			}
+		}
+		componentDocument = &copyDocument
 	}
-	for index, id := range ids {
-		for previous := 0; previous < index; previous++ {
-			if ids[previous] == id {
-				return fmt.Errorf("duplicate bake light %q: %w", id, ErrLayout)
-			}
+	seen := make(map[string]bool, len(ids))
+	sources := make(map[string]world.PointLight, len(document.Lighting.Lights))
+	for _, light := range document.Lighting.Lights {
+		sources[light.ID] = light
+	}
+	pulsing := pulsingLightIDs(document)
+	for _, id := range ids {
+		if seen[id] {
+			return fmt.Errorf("duplicate bake light %q: %w", id, ErrLayout)
 		}
-		found := false
-		for _, light := range document.Lighting.Lights {
-			if light.ID != id {
-				continue
-			}
-			if light.Motion != nil {
-				return fmt.Errorf("bake light %q has runtime motion: %w", id, ErrLayout)
-			}
-			if emission := document.Emission; emission != nil {
-				for _, material := range emission.Materials {
-					if material.Pulse == nil || material.Pulse.Depth == 0 {
-						continue
-					}
-					for _, linked := range material.Lights {
-						if linked == id {
-							return fmt.Errorf("bake light %q has an emission pulse: %w", id, ErrLayout)
-						}
-					}
-				}
-			}
-			if !runtimeEmitterInside(document, light.Position) {
-				return fmt.Errorf("bake emitter %q is outside the physical component: %w", id, ErrLayout)
-			}
-			found = true
-			break
-		}
+		seen[id] = true
+		light, found := sources[id]
 		if !found {
 			return fmt.Errorf("bake light %q is not an authored point light: %w", id, ErrLayout)
+		}
+		if light.Motion != nil {
+			return fmt.Errorf("bake light %q has runtime motion: %w", id, ErrLayout)
+		}
+		if pulsing[id] {
+			return fmt.Errorf("bake light %q has an emission pulse: %w", id, ErrLayout)
+		}
+		if !runtimeEmitterInside(componentDocument, light.Position) {
+			return fmt.Errorf("bake emitter %q is outside the physical component: %w", id, ErrLayout)
 		}
 	}
 	return nil

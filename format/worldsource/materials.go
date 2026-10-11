@@ -5,26 +5,26 @@ import "fmt"
 // SecondarySettings describes one colour-only detail image in source v7.
 // Nil fields inherit room settings; Enabled=false disables the resolved layer.
 type SecondarySettings struct {
-	Enabled  *bool       `json:"enabled,omitempty"  yaml:"enabled,omitempty"`
-	Texture  string      `json:"texture,omitempty"  yaml:"texture,omitempty"`
-	Strength *float64    `json:"strength,omitempty" yaml:"strength,omitempty"`
-	UV       *UVSettings `json:"uv,omitempty"       yaml:"uv,omitempty"`
+	Enabled  *bool       `yaml:"enabled,omitempty"`
+	Texture  string      `yaml:"texture,omitempty"`
+	Strength *float64    `yaml:"strength,omitempty"`
+	UV       *UVSettings `yaml:"uv,omitempty"`
 }
 
 // BandSettings adds optional horizontal trim textures to visible wall spans.
 // Builders resolve texture references, coverage and UVs before packaging.
 type BandSettings struct {
-	Enabled *bool                   `json:"enabled,omitempty" yaml:"enabled,omitempty"`
-	Top     *HorizontalBandSettings `json:"top,omitempty"     yaml:"top,omitempty"`
-	Bottom  *HorizontalBandSettings `json:"bottom,omitempty"  yaml:"bottom,omitempty"`
+	Enabled *bool                   `yaml:"enabled,omitempty"`
+	Top     *HorizontalBandSettings `yaml:"top,omitempty"`
+	Bottom  *HorizontalBandSettings `yaml:"bottom,omitempty"`
 }
 
 type HorizontalBandSettings struct {
-	Enabled     *bool    `json:"enabled,omitempty"      yaml:"enabled,omitempty"`
-	Texture     string   `json:"texture,omitempty"      yaml:"texture,omitempty"`
-	Height      *float64 `json:"height,omitempty"       yaml:"height,omitempty"`
-	RepeatWidth *float64 `json:"repeat_width,omitempty" yaml:"repeat_width,omitempty"`
-	Offset      *Vec2    `json:"offset,omitempty"       yaml:"offset,omitempty"`
+	Enabled     *bool    `yaml:"enabled,omitempty"`
+	Texture     string   `yaml:"texture,omitempty"`
+	Height      *float64 `yaml:"height,omitempty"`
+	RepeatWidth *float64 `yaml:"repeat_width,omitempty"`
+	Offset      *Vec2    `yaml:"offset,omitempty"`
 }
 
 func ValidateBandSettings(b *BandSettings) error {

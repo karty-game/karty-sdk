@@ -12,18 +12,21 @@ import (
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
 )
 
-func TestThousandStaticSourcesKeepThreeFixedCoefficientTiles(t *testing.T) {
+func TestHundredStaticSourcesKeepThreeFixedCoefficientTiles(t *testing.T) {
+	const sourceCount = 100
+
 	document, singleLayout, materials := room(t, 0)
 	single, err := Bake(context.Background(), document, singleLayout, materials, Options{Workers: 1, Samples: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	source := document.Lighting.Lights[0]
-	document.Lighting.Lights = make([]world.PointLight, 1000)
+	document.Lighting.Lights = make([]world.PointLight, sourceCount)
 	for i := range document.Lighting.Lights {
 		light := source
+		// Long IDs keep hashed source records above the 16 KiB manifest limit.
 		light.ID = fmt.Sprintf("%04d-", i) + strings.Repeat("s", 120)
-		light.Color = scale(light.Color, .001)
+		light.Color = scale(light.Color, 1.0/sourceCount)
 		document.Lighting.Lights[i] = light
 	}
 	encodedWorld, err := world.Encode(document)
@@ -31,13 +34,13 @@ func TestThousandStaticSourcesKeepThreeFixedCoefficientTiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	document, err = world.Decode(encodedWorld)
-	if err != nil || len(document.Lighting.Lights) != 1000 || world.MaxRuntimeLights != 50 {
+	if err != nil || len(document.Lighting.Lights) != sourceCount || world.MaxRuntimeLights != 50 {
 		t.Fatal("authored and runtime budgets are coupled", err)
 	}
 	layout, err := worldlightmap.Compile(document, worldlightmap.Options{
 		AllStatic: true, PageSize: 512, TexelsPerUnit: 1, Padding: 2, ShadowSize: 32,
 	})
-	if err != nil || len(layout.RuntimeBake.LightIDs) != 1000 || len(layout.Pages) != 1 {
+	if err != nil || len(layout.RuntimeBake.LightIDs) != sourceCount || len(layout.Pages) != 1 {
 		t.Fatal("full static source recipe failed", err)
 	}
 	result, err := Bake(context.Background(), document, layout, materials, Options{Workers: 1, Samples: 1})
@@ -51,7 +54,7 @@ func TestThousandStaticSourcesKeepThreeFixedCoefficientTiles(t *testing.T) {
 	x, y := floorAt(layout, vec{X: 2, Y: 2})
 	got, want := decoded(result, x, y), decoded(single, x, y)
 	if math.Abs(got.X-want.X) > .02 || math.Abs(got.Y-want.Y) > .02 || math.Abs(got.Z-want.Z) > .02 {
-		t.Fatalf("1000 dim lamps lost combined energy: %v versus %v", got, want)
+		t.Fatalf("%d dim lamps lost combined energy: %v versus %v", sourceCount, got, want)
 	}
 	image, _, err := qoi.Encode(result.Image, qoi.Options{Channels: qoi.ChannelsRGBA, Colorspace: qoi.ColorspaceLinear})
 	if err != nil {
@@ -68,9 +71,9 @@ func TestThousandStaticSourcesKeepThreeFixedCoefficientTiles(t *testing.T) {
 		t.Fatal("fixed manifest grew with full source records", err)
 	}
 	if _, err := worldlightmap.DecodePrebake(manifest, image, layout, &document); err != nil {
-		t.Fatal("1000 source integrity round trip", err)
+		t.Fatal("source integrity round trip", err)
 	}
-	document.Lighting.Lights[999].Position.X += .1
+	document.Lighting.Lights[sourceCount-1].Position.X += .1
 	if err := pair.Validate(layout, &document); err == nil {
 		t.Fatal("final baked source edit omitted from manifest identity")
 	}

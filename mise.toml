@@ -55,7 +55,11 @@ run = "go test -timeout=9s ./bake/worldlightmap"
 
 [tasks.test-32]
 env = { GOARCH = "386", CGO_ENABLED = "0" }
-run = "go test -timeout=9s ./..."
+# The 386 SIMD fallback also needs an isolated producer compatibility budget.
+run = [
+  "go test -p=1 -timeout=9s ./... -skip='^TestProducerCompatibility$'",
+  "go test -timeout=9s ./bake/worldlightmap -run='^TestProducerCompatibility$'",
+]
 
 # Execute packages one at a time to bound Node processes and Wasm memory use.
 [tasks.test-wasm]

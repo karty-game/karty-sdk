@@ -71,11 +71,11 @@ baker. Direct Go builds importing that package require `GOEXPERIMENT=simd`;
 format-only imports are unaffected. `test-simd-emulated` exercises Go's built-in
 fallback rather than a second production implementation.
 
-`test-race` runs one package at a time to bound instrumentation overhead. Dense
+`test-race` and `test-32` run one package at a time to bound CPU contention. Dense
 baker producer compatibility fixtures run in a separate process with the same
-nine-second timeout; both invocations retain race detection.
+nine-second timeout. Both `test-race` invocations retain race detection;
 `test-32` executes native 386 tests on an x86 Linux host with 32-bit execution
-support. `fuzz` verifies each configured target exists before exploring it for a
+support, including Go's SIMD fallback. `fuzz` verifies each configured target exists before exploring it for a
 bounded budget; normal tests also run the seed corpus. `test-wasm` executes Go
 Wasm tests using the official Go runner
 and pinned Node, running one package at a time to bound memory use. Its launcher

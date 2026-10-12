@@ -1,9 +1,14 @@
-# GPU sprite particles, version 1
+# GPU sprite particles
 
 Candidate SDK 0.0.11 defines `world/particles@1` alongside
 `world/sectors@1`. Compilers stage one `@world/particles` data entry in the level
 module. This separate resource leaves compiled world versions 1–3 intact.
 Hosts must advertise both capabilities to mount the feature.
+
+Candidate SDK 0.0.12 adds document version 2 and `world/particles@2` for smooth
+alpha and premultiplied particles. Version 1 remains strict: it accepts only additive/cutout
+blends. `Version` and `Feature` retain their version-1 values; `AlphaVersion`,
+`FeatureV2` and `FeatureForVersion` select the newer contract explicitly.
 
 The `KWP1` typed binary codec uses the common version-1 bounded binary header.
 Decode scans the complete payload without materializing arrays before decoding;
@@ -23,7 +28,7 @@ can flush to zero on portable GPUs. Curves have 2–4 keys, start at normalized 
 0 and end at age 1. Size is the square billboard's edge length in world units;
 RGBA components lie in `[0,1]`. Frames must be square, with identical dimensions
 within each preset. Accepted facing modes are `camera-facing` and `upright`;
-blend modes are `additive` and `cutout`. Flipbooks use `once` (clamp final frame)
+blend modes are `additive` and `cutout`, with `alpha` and `premultiplied` added in version 2. Flipbooks use `once` (clamp final frame)
 or `cycle`, with FPS remaining at least the smallest normal float32 (`2^-126`)
 when more than one frame is present. A single frame permits FPS zero.
 
@@ -33,7 +38,7 @@ or private engine dependency. Source fields and zero defaults map to these types
 
 | Field                                            | Meaning and bounds                                                                                                                                                                                      |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Document.Version`                               | Must be 1.                                                                                                                                                                                              |
+| `Document.Version`                               | 1 or 2; selects its exact particle capability and accepted material enum.                                                                                                                               |
 | `Document.Presets`                               | 1–64 uniquely named presets. All presets are validated, including unused ones.                                                                                                                          |
 | `Document.Emitters`                              | 1–256 unique expanded emitter IDs; each refers to a preset.                                                                                                                                             |
 | `Preset.Name` / `Emitter.ID`, `Preset`           | Nonempty UTF-8 identifiers, at most 128 bytes.                                                                                                                                                          |
@@ -44,7 +49,7 @@ or private engine dependency. Source fields and zero defaults map to these types
 | `Preset.VelocityMin`, `VelocityMax`              | Per-axis independent uniform velocity range, −1,000–1,000 world units/second, minimum no greater than maximum. Default zero.                                                                            |
 | `Preset.Acceleration`                            | Constant local acceleration components −1,000–1,000 world units/second²; default zero.                                                                                                                  |
 | `Preset.Drag`                                    | Linear damping 0–1,000 per second; default zero.                                                                                                                                                        |
-| `Preset.Sprite`                                  | 1–16 nonzero texture IDs in `Frames`, `FPS` 0–1,000, `Playback` once/cycle, `Facing` camera-facing/upright, `Blend` additive/cutout. All enum fields must be explicit.                                  |
+| `Preset.Sprite`                                  | 1–16 nonzero texture IDs in `Frames`, `FPS` 0–1,000, `Playback` once/cycle, `Facing` camera-facing/upright, `Blend` additive/cutout; v2 also accepts alpha/premultiplied. All enums must be explicit.   |
 | `Preset.SizeOverLife`                            | 2–4 `ScalarKey` values; normalized `Age` 0–1 and square edge length `Value` 0–1,000 world units.                                                                                                        |
 | `Preset.ColorOverLife`                           | 2–4 `ColorKey` values; normalized `Age` 0–1, exactly four RGBA components in 0–1.                                                                                                                       |
 | `Preset.RotationDegrees`, `RotationSpeedDegrees` | Minimum/maximum ranges −360,000–360,000 degrees or degrees/second around the billboard normal. Default zero.                                                                                            |
@@ -120,3 +125,37 @@ pages within renderer storage bounds. Packing failure is rejected before readine
 Version 1 is presentation-only and provides automatic authored playback.
 Gameplay emitter control, simulation history, collisions, general force fields,
 smooth alpha/OIT and cross-sector movement require later versioned work.
+
+## Version 2 alpha blending
+
+Version 2 retains the `KWP1` binary layout, common binary header, fields,
+resource limits, schedules and analytical motion. Its document version is 2,
+and each preset additionally accepts `sprite.blend: alpha` or `premultiplied`. The exact required
+cartridge/SDK feature is `world/particles@2`, alongside `world/sectors@1`.
+Version 2 does not implicitly declare version 1; a cartridge containing levels
+of both versions advertises both features.
+
+Alpha particles use premultiplied source-over blending, test opaque depth and
+leave depth unchanged. The engine draws this pass after cutout particles,
+ordinary scene transparency and additive particles. Alpha emitters follow
+stable authored submission order; individual particles are not sorted and
+there is no order-independent transparency. Intersecting coloured translucent
+layers therefore have approximate ordering. A constant charcoal RGB with
+varying opacity works well for smoke because overlapping same-colour layers
+commute. Alpha smoke can attenuate additive fire drawn behind it in this pass.
+
+`premultiplied` shares this pass and its ordering/depth rules. For straight-alpha
+texture sample `T` and lifetime colour `C`, its output is RGB
+`T.rgb * T.a * C.rgb`, alpha `T.a * C.a`. Ordinary `alpha` also multiplies RGB
+by `C.a`. Premultiplied particles can therefore add RGB at zero lifetime opacity,
+while texture alpha continues to confine their support. RGB and opacity curves
+remain independently authored 0–1 values; no HDR range or additional layer is
+required for a combined flame/smoke material. Input textures remain straight-alpha.
+
+A single static frame can be reused for every particle in a layer. Births,
+seeded variation, movement, rotation, size, colour and opacity remain animated
+from the GPU lifecycle; version 2 does not require an actor, flipbook or guest
+per-particle updates. Existing multi-frame support remains available in the
+format. No new simulation fields, CPU particle state or allocation limits are
+introduced. `ValidatePreset` remains a strict version-1 helper;
+`ValidatePresetForVersion` validates either contract explicitly.

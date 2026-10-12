@@ -10,8 +10,10 @@ import (
 
 const (
 	Version          = uint16(1)
+	AlphaVersion     = uint16(2)
 	EntryName        = "@world/particles"
 	Feature          = cartridge.FeatureWorldParticlesV1
+	FeatureV2        = cartridge.FeatureWorldParticlesV2
 	BinaryMagic      = "KWP1"
 	MaxEncodedSize   = 1024 * 1024
 	MaxPresets       = 64
@@ -27,6 +29,19 @@ const (
 	MaxAcceleration  = 1000.0
 	MaxSize          = 1000.0
 )
+
+// FeatureForVersion resolves the exact runtime capability for the document.
+// Version and Feature retain their version-1 meanings for existing clients.
+func FeatureForVersion(version uint16) (string, error) {
+	switch version {
+	case Version:
+		return Feature, nil
+	case AlphaVersion:
+		return FeatureV2, nil
+	default:
+		return "", ErrVersion
+	}
+}
 
 var (
 	ErrVersion     = errors.New("particle version is unsupported")

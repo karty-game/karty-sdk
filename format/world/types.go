@@ -87,6 +87,7 @@ type Document struct {
 	Animations      *Animations
 	Emission        *Emission
 	Environment     *Environment
+	SolidRenderers  *SolidRenderers
 }
 
 // Sector is a strictly convex CCW cell. SourceRoom and Instance retain the

@@ -82,6 +82,13 @@ func ValidateEmission(document *Document) error {
 			used[s.SideMaterial], used[s.TopMaterial], used[s.BottomMaterial] = true, true, true
 		}
 	}
+	if document.SolidRenderers != nil {
+		for _, prefab := range document.SolidRenderers.Prefabs {
+			for _, s := range prefab.Solids {
+				used[s.SideMaterial], used[s.TopMaterial], used[s.BottomMaterial] = true, true, true
+			}
+		}
+	}
 	seen := map[uint32]bool{}
 	linkedLights := map[string]bool{}
 	for _, m := range e.Materials {

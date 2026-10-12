@@ -24,7 +24,7 @@ func TestParticleSourceCompilerRejectsUnboundedSlicesBeforeCloning(t *testing.T)
 
 func TestParticleSourceVersionAndAbsentCompatibility(t *testing.T) {
 	t.Parallel()
-	if worldsource.Version != 10 || worldsource.ParticlesVersion != 10 {
+	if worldsource.Version != 11 || worldsource.ParticlesVersion != 10 {
 		t.Fatal("particle source version changed")
 	}
 	for version := uint16(1); version <= worldsource.Version; version++ {

@@ -27,6 +27,7 @@ const (
 	FeatureSoundQOAv1                 = "sound/qoa@1"
 	FeatureAudioStreamQOAv1           = "audio-stream/qoa@1"
 	FeatureWorldParticlesV1           = "world/particles@1"
+	FeatureWorldParticlesV2           = "world/particles@2"
 	FeatureWorldAnimationsV1          = "world/animations@1"
 	FeatureWorldEmissionV1            = "world/emission@1"
 	FeatureWorldEnvironmentV1         = "world/environment@1"
@@ -36,6 +37,7 @@ const (
 	FeatureWorldLightmapsV1           = "world/lightmaps@1"
 	FeatureWorldLightmapsPrebakedV1   = "world/lightmaps-prebaked@1"
 	FeatureWorldMaterialMappingV1     = "world/material-mapping@1"
+	FeatureWorldSolidRenderersV1      = "world/solid-renderers@1"
 	FeatureWorldStaticSolidsV1        = "world/static-solids@1"
 	FeatureWorldMaterialAtlasV1       = "world/material-atlas@1"
 	FeatureWorldMaterialAtlasV2       = "world/material-atlas@2"
@@ -322,7 +324,7 @@ func validManifestFeatures(features []string) bool {
 			(!slices.Contains(features, FeatureWorldMaterialAtlasV1) && !slices.Contains(features, FeatureWorldMaterialAtlasV2))) {
 		return false
 	}
-	if (slices.Contains(features, FeatureWorldParticlesV1) || slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
+	if (slices.Contains(features, FeatureWorldSolidRenderersV1) || slices.Contains(features, FeatureWorldParticlesV1) || slices.Contains(features, FeatureWorldParticlesV2) || slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
 		!slices.Contains(features, FeatureWorldSectorsV1) {
 		return false
 	}
@@ -344,12 +346,12 @@ func validManifestFeatures(features []string) bool {
 
 func validManifestFeature(feature string) bool {
 	switch feature {
-	case FeatureWorldChunksV1, FeatureAudioStreamQOAv1, FeatureSoundQOAv1, FeatureTextureQOIv1,
+	case FeatureWorldSolidRenderersV1, FeatureWorldChunksV1, FeatureAudioStreamQOAv1, FeatureSoundQOAv1, FeatureTextureQOIv1,
 		FeatureVideoMPEG1v1, FeatureWorldMaterialReflectanceV1,
 		FeatureWorldSectorsV1, FeatureWorldLightingV1, FeatureWorldLightmapsV1, FeatureWorldLightmapsPrebakedV1,
 		FeatureWorldMaterialAtlasV1, FeatureWorldMaterialMappingV1, FeatureWorldStaticSolidsV1,
 		FeatureWorldMaterialAtlasV2, FeatureWorldMaterialLayersV1, FeatureWorldAnimationsV1,
-		FeatureWorldEmissionV1, FeatureWorldEnvironmentV1, FeatureWorldParticlesV1:
+		FeatureWorldEmissionV1, FeatureWorldEnvironmentV1, FeatureWorldParticlesV1, FeatureWorldParticlesV2:
 		return true
 	default:
 		return false

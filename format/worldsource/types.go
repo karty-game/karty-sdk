@@ -10,35 +10,36 @@ import (
 )
 
 const (
-	LegacyVersion        = uint16(1)
-	ActorVersion         = uint16(2)
-	PortalVersion        = uint16(3)
-	LightingVersion      = uint16(4)
-	MappingVersion       = uint16(5)
-	SolidsVersion        = uint16(6)
-	MaterialsVersion     = uint16(7)
-	AnimationsVersion    = uint16(8)
-	EnvironmentVersion   = uint16(9)
-	ParticlesVersion     = uint16(10)
-	Version              = ParticlesVersion
-	MaxRooms             = 1024
-	MaxPrefabs           = 256
-	MaxInstances         = 4096
-	MaxConnections       = 8192
-	MaxPorts             = 4096
-	MaxEdges             = 8192
-	MaxEdgesPerRoom      = 256
-	MaxContents          = 4096
-	MaxLights            = sdkworld.MaxLights
-	MinLightRadius       = sdkworld.MinLightRadius
-	MaxMaterialOverrides = 256
-	MaxIdentifierBytes   = 128
-	MaxTags              = 8
-	MaxTagBytes          = 64
-	MaxCoordinate        = 1_000_000.0
-	MinEdgeLength        = 1e-6
-	MinClearance         = 1e-6
-	geometryEpsilon      = 1e-9
+	LegacyVersion         = uint16(1)
+	ActorVersion          = uint16(2)
+	PortalVersion         = uint16(3)
+	LightingVersion       = uint16(4)
+	MappingVersion        = uint16(5)
+	SolidsVersion         = uint16(6)
+	MaterialsVersion      = uint16(7)
+	AnimationsVersion     = uint16(8)
+	EnvironmentVersion    = uint16(9)
+	ParticlesVersion      = uint16(10)
+	SolidRenderersVersion = uint16(11)
+	Version               = SolidRenderersVersion
+	MaxRooms              = 1024
+	MaxPrefabs            = 256
+	MaxInstances          = 4096
+	MaxConnections        = 8192
+	MaxPorts              = 4096
+	MaxEdges              = 8192
+	MaxEdgesPerRoom       = 256
+	MaxContents           = 4096
+	MaxLights             = sdkworld.MaxLights
+	MinLightRadius        = sdkworld.MinLightRadius
+	MaxMaterialOverrides  = 256
+	MaxIdentifierBytes    = 128
+	MaxTags               = 8
+	MaxTagBytes           = 64
+	MaxCoordinate         = 1_000_000.0
+	MinEdgeLength         = 1e-6
+	MinClearance          = 1e-6
+	geometryEpsilon       = 1e-9
 )
 
 var (
@@ -133,13 +134,14 @@ type Content struct {
 }
 
 type Actor struct {
-	YawDegrees   float64           `yaml:"yaw_degrees"`
-	PitchDegrees float64           `yaml:"pitch_degrees"`
-	RollDegrees  float64           `yaml:"roll_degrees"`
-	Scale        Vec3              `yaml:"scale"`
-	Sprite       *Sprite           `yaml:"sprite,omitempty"`
-	Tags         []string          `yaml:"tags,omitempty"`
-	Animation    *AnimationBinding `yaml:"animation,omitempty"`
+	YawDegrees    float64           `yaml:"yaw_degrees"`
+	PitchDegrees  float64           `yaml:"pitch_degrees"`
+	RollDegrees   float64           `yaml:"roll_degrees"`
+	Scale         Vec3              `yaml:"scale"`
+	SolidRenderer string            `yaml:"solid_renderer,omitempty"`
+	Sprite        *Sprite           `yaml:"sprite,omitempty"`
+	Tags          []string          `yaml:"tags,omitempty"`
+	Animation     *AnimationBinding `yaml:"animation,omitempty"`
 }
 
 type Sprite struct {
@@ -153,6 +155,7 @@ type Sprite struct {
 }
 
 type Prefab struct {
+	Renderable       bool              `yaml:"renderable,omitempty"`
 	ID               string            `yaml:"id"`
 	Rooms            []Room            `yaml:"rooms"`
 	Instances        []Instance        `yaml:"instances"`

@@ -29,8 +29,11 @@ func validRange(r Range, lo, hi float64) bool {
 // Validate checks all resources, references, fixed-slot scheduling and derived
 // bounds before allocation by a host. Geometry confinement is checked separately.
 func Validate(d *Document) error {
-	if d == nil || d.Version != Version {
+	if d == nil {
 		return ErrVersion
+	}
+	if _, err := FeatureForVersion(d.Version); err != nil {
+		return err
 	}
 	if len(d.Presets) == 0 || len(d.Presets) > MaxPresets || len(d.Emitters) == 0 || len(d.Emitters) > MaxEmitters {
 		return ErrBounds
@@ -38,7 +41,7 @@ func Validate(d *Document) error {
 	presets := make(map[string]*Preset, len(d.Presets))
 	for i := range d.Presets {
 		p := &d.Presets[i]
-		if err := ValidatePreset(p); err != nil {
+		if err := ValidatePresetForVersion(p, d.Version); err != nil {
 			return fmt.Errorf("preset %q: %w", p.Name, err)
 		}
 		if presets[p.Name] != nil {
@@ -77,6 +80,15 @@ func Validate(d *Document) error {
 }
 
 func ValidatePreset(p *Preset) error {
+	return ValidatePresetForVersion(p, Version)
+}
+
+// ValidatePresetForVersion preserves strict version-1 blend validation while
+// version 2 additionally accepts alpha and premultiplied particle materials.
+func ValidatePresetForVersion(p *Preset, version uint16) error {
+	if _, err := FeatureForVersion(version); err != nil {
+		return err
+	}
 	if p == nil || !identifier(p.Name) {
 		return ErrIdentity
 	}
@@ -100,7 +112,8 @@ func ValidatePreset(p *Preset) error {
 	if !number(p.Sprite.FPS, 0, 1000) || len(p.Sprite.Frames) > 1 && float32(p.Sprite.FPS) < minNormalFloat32 ||
 		!slices.Contains([]string{"once", "cycle"}, p.Sprite.Playback) ||
 		!slices.Contains([]string{"camera-facing", "upright"}, p.Sprite.Facing) ||
-		!slices.Contains([]string{"additive", "cutout"}, p.Sprite.Blend) {
+		!slices.Contains([]string{"additive", "cutout"}, p.Sprite.Blend) &&
+			!(version == AlphaVersion && slices.Contains([]string{"alpha", "premultiplied"}, p.Sprite.Blend)) {
 		return ErrParticle
 	}
 	for _, id := range p.Sprite.Frames {

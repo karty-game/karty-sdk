@@ -1183,6 +1183,120 @@ func scanWorldSolid(r *binwire.Reader) {
 	}
 	r.Bool()
 }
+func writeWorldSolidAttachment(w *binwire.Writer, v *SolidAttachment) {
+	if w.Err() != nil {
+		return
+	}
+	w.String(string((*v).Actor), 4096)
+	w.String(string((*v).Prefab), 4096)
+}
+func readWorldSolidAttachment(r *binwire.Reader, v *SolidAttachment) {
+	(*v).Actor = r.String(4096)
+	(*v).Prefab = r.String(4096)
+}
+func scanWorldSolidAttachment(r *binwire.Reader) {
+	r.SkipString(4096)
+	r.SkipString(4096)
+}
+func writeWorldSolidPrefab(w *binwire.Writer, v *SolidPrefab) {
+	if w.Err() != nil {
+		return
+	}
+	w.String(string((*v).ID), 4096)
+	w.Count(len((*v).Solids), (*v).Solids == nil, 1024)
+	if w.Err() != nil {
+		return
+	}
+	for i34 := range (*v).Solids {
+		writeWorldSolid(w, &(*v).Solids[i34])
+	}
+}
+func readWorldSolidPrefab(r *binwire.Reader, v *SolidPrefab) {
+	(*v).ID = r.String(4096)
+	ni35, pi35 := r.Count(1024, 72, 144)
+	if r.Err() != nil {
+		return
+	}
+	if pi35 {
+		(*v).Solids = make([]Solid, ni35)
+	}
+	for i35 := range (*v).Solids {
+		readWorldSolid(r, &(*v).Solids[i35])
+	}
+}
+func scanWorldSolidPrefab(r *binwire.Reader) {
+	r.SkipString(4096)
+	ni36, pi36 := r.Count(1024, 72, 144)
+	if r.Err() != nil {
+		return
+	}
+	_ = pi36
+	for i36 := 0; i36 < ni36 && r.Err() == nil; i36++ {
+		scanWorldSolid(r)
+	}
+}
+func writeWorldSolidRenderers(w *binwire.Writer, v *SolidRenderers) {
+	if w.Err() != nil {
+		return
+	}
+	w.U32((*v).Version)
+	w.Count(len((*v).Prefabs), (*v).Prefabs == nil, 64)
+	if w.Err() != nil {
+		return
+	}
+	for i37 := range (*v).Prefabs {
+		writeWorldSolidPrefab(w, &(*v).Prefabs[i37])
+	}
+	w.Count(len((*v).Actors), (*v).Actors == nil, 4096)
+	if w.Err() != nil {
+		return
+	}
+	for i38 := range (*v).Actors {
+		writeWorldSolidAttachment(w, &(*v).Actors[i38])
+	}
+}
+func readWorldSolidRenderers(r *binwire.Reader, v *SolidRenderers) {
+	(*v).Version = r.U32()
+	ni39, pi39 := r.Count(64, 8, 40)
+	if r.Err() != nil {
+		return
+	}
+	if pi39 {
+		(*v).Prefabs = make([]SolidPrefab, ni39)
+	}
+	for i39 := range (*v).Prefabs {
+		readWorldSolidPrefab(r, &(*v).Prefabs[i39])
+	}
+	ni40, pi40 := r.Count(4096, 8, 32)
+	if r.Err() != nil {
+		return
+	}
+	if pi40 {
+		(*v).Actors = make([]SolidAttachment, ni40)
+	}
+	for i40 := range (*v).Actors {
+		readWorldSolidAttachment(r, &(*v).Actors[i40])
+	}
+}
+func scanWorldSolidRenderers(r *binwire.Reader) {
+	r.U32()
+	ni41, pi41 := r.Count(64, 8, 40)
+	if r.Err() != nil {
+		return
+	}
+	_ = pi41
+	for i41 := 0; i41 < ni41 && r.Err() == nil; i41++ {
+		scanWorldSolidPrefab(r)
+	}
+	ni42, pi42 := r.Count(4096, 8, 32)
+	if r.Err() != nil {
+		return
+	}
+	_ = pi42
+	for i42 := 0; i42 < ni42 && r.Err() == nil; i42++ {
+		scanWorldSolidAttachment(r)
+	}
+}
 func writeWorldSprite(w *binwire.Writer, v *Sprite) {
 	if w.Err() != nil {
 		return
@@ -1246,31 +1360,31 @@ func writeWorldStaticSolids(w *binwire.Writer, v *StaticSolids) {
 	if w.Err() != nil {
 		return
 	}
-	for i34 := range (*v).Items {
-		writeWorldSolid(w, &(*v).Items[i34])
+	for i43 := range (*v).Items {
+		writeWorldSolid(w, &(*v).Items[i43])
 	}
 }
 func readWorldStaticSolids(r *binwire.Reader, v *StaticSolids) {
 	(*v).Version = r.U32()
-	ni35, pi35 := r.Count(1024, 72, 144)
+	ni44, pi44 := r.Count(1024, 72, 144)
 	if r.Err() != nil {
 		return
 	}
-	if pi35 {
-		(*v).Items = make([]Solid, ni35)
+	if pi44 {
+		(*v).Items = make([]Solid, ni44)
 	}
-	for i35 := range (*v).Items {
-		readWorldSolid(r, &(*v).Items[i35])
+	for i44 := range (*v).Items {
+		readWorldSolid(r, &(*v).Items[i44])
 	}
 }
 func scanWorldStaticSolids(r *binwire.Reader) {
 	r.U32()
-	ni36, pi36 := r.Count(1024, 72, 144)
+	ni45, pi45 := r.Count(1024, 72, 144)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi36
-	for i36 := 0; i36 < ni36 && r.Err() == nil; i36++ {
+	_ = pi45
+	for i45 := 0; i45 < ni45 && r.Err() == nil; i45++ {
 		scanWorldSolid(r)
 	}
 }
@@ -1316,54 +1430,54 @@ func writeWorldSurfaceUV(w *binwire.Writer, v *SurfaceUV) {
 	if w.Err() != nil {
 		return
 	}
-	for i37 := range (*v).Projections {
-		writeWorldUVProjection(w, &(*v).Projections[i37])
+	for i46 := range (*v).Projections {
+		writeWorldUVProjection(w, &(*v).Projections[i46])
 	}
 	w.Count(len((*v).Weights), (*v).Weights == nil, 3)
 	if w.Err() != nil {
 		return
 	}
-	for i38 := range (*v).Weights {
-		w.F64((*v).Weights[i38])
+	for i47 := range (*v).Weights {
+		w.F64((*v).Weights[i47])
 	}
 }
 func readWorldSurfaceUV(r *binwire.Reader, v *SurfaceUV) {
-	ni39, pi39 := r.Count(3, 64, 64)
+	ni48, pi48 := r.Count(3, 64, 64)
 	if r.Err() != nil {
 		return
 	}
-	if pi39 {
-		(*v).Projections = make([]UVProjection, ni39)
+	if pi48 {
+		(*v).Projections = make([]UVProjection, ni48)
 	}
-	for i39 := range (*v).Projections {
-		readWorldUVProjection(r, &(*v).Projections[i39])
+	for i48 := range (*v).Projections {
+		readWorldUVProjection(r, &(*v).Projections[i48])
 	}
-	ni40, pi40 := r.Count(3, 8, 8)
+	ni49, pi49 := r.Count(3, 8, 8)
 	if r.Err() != nil {
 		return
 	}
-	if pi40 {
-		(*v).Weights = make([]float64, ni40)
+	if pi49 {
+		(*v).Weights = make([]float64, ni49)
 	}
-	for i40 := range (*v).Weights {
-		(*v).Weights[i40] = r.F64()
+	for i49 := range (*v).Weights {
+		(*v).Weights[i49] = r.F64()
 	}
 }
 func scanWorldSurfaceUV(r *binwire.Reader) {
-	ni41, pi41 := r.Count(3, 64, 64)
+	ni50, pi50 := r.Count(3, 64, 64)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi41
-	for i41 := 0; i41 < ni41 && r.Err() == nil; i41++ {
+	_ = pi50
+	for i50 := 0; i50 < ni50 && r.Err() == nil; i50++ {
 		scanWorldUVProjection(r)
 	}
-	ni42, pi42 := r.Count(3, 8, 8)
+	ni51, pi51 := r.Count(3, 8, 8)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi42
-	for i42 := 0; i42 < ni42 && r.Err() == nil; i42++ {
+	_ = pi51
+	for i51 := 0; i51 < ni51 && r.Err() == nil; i51++ {
 		r.F64()
 	}
 }
@@ -1458,8 +1572,8 @@ func writeWorldWall(w *binwire.Writer, v *Wall) {
 	if w.Err() != nil {
 		return
 	}
-	for i43 := range (*v).FrameRegions {
-		writeWorldWallFrameRegion(w, &(*v).FrameRegions[i43])
+	for i52 := range (*v).FrameRegions {
+		writeWorldWallFrameRegion(w, &(*v).FrameRegions[i52])
 	}
 	w.Bool((*v).FrameCompiled)
 	w.Bool((*v).Sky)
@@ -1487,15 +1601,15 @@ func readWorldWall(r *binwire.Reader, v *Wall) {
 		(*v).Secondary = new(SurfaceSecondary)
 		readWorldSurfaceSecondary(r, &(*(*v).Secondary))
 	}
-	ni44, pi44 := r.Count(252, 15, 72)
+	ni53, pi53 := r.Count(252, 15, 72)
 	if r.Err() != nil {
 		return
 	}
-	if pi44 {
-		(*v).FrameRegions = make([]WallFrameRegion, ni44)
+	if pi53 {
+		(*v).FrameRegions = make([]WallFrameRegion, ni53)
 	}
-	for i44 := range (*v).FrameRegions {
-		readWorldWallFrameRegion(r, &(*v).FrameRegions[i44])
+	for i53 := range (*v).FrameRegions {
+		readWorldWallFrameRegion(r, &(*v).FrameRegions[i53])
 	}
 	(*v).FrameCompiled = r.Bool()
 	(*v).Sky = r.Bool()
@@ -1521,12 +1635,12 @@ func scanWorldWall(r *binwire.Reader) {
 		}
 		scanWorldSurfaceSecondary(r)
 	}
-	ni45, pi45 := r.Count(252, 15, 72)
+	ni54, pi54 := r.Count(252, 15, 72)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi45
-	for i45 := 0; i45 < ni45 && r.Err() == nil; i45++ {
+	_ = pi54
+	for i54 := 0; i54 < ni54 && r.Err() == nil; i54++ {
 		scanWorldWallFrameRegion(r)
 	}
 	r.Bool()
@@ -1540,8 +1654,8 @@ func writeWorldWallFrameRegion(w *binwire.Writer, v *WallFrameRegion) {
 	if w.Err() != nil {
 		return
 	}
-	for i46 := range (*v).Vertices {
-		writeWorldVec2(w, &(*v).Vertices[i46])
+	for i55 := range (*v).Vertices {
+		writeWorldVec2(w, &(*v).Vertices[i55])
 	}
 	w.U32((*v).Material)
 	w.Bool((*v).UV != nil)
@@ -1553,15 +1667,15 @@ func writeWorldWallFrameRegion(w *binwire.Writer, v *WallFrameRegion) {
 	w.Bool((*v).RepeatV)
 }
 func readWorldWallFrameRegion(r *binwire.Reader, v *WallFrameRegion) {
-	ni47, pi47 := r.Count(4, 16, 16)
+	ni56, pi56 := r.Count(4, 16, 16)
 	if r.Err() != nil {
 		return
 	}
-	if pi47 {
-		(*v).Vertices = make([]Vec2, ni47)
+	if pi56 {
+		(*v).Vertices = make([]Vec2, ni56)
 	}
-	for i47 := range (*v).Vertices {
-		readWorldVec2(r, &(*v).Vertices[i47])
+	for i56 := range (*v).Vertices {
+		readWorldVec2(r, &(*v).Vertices[i56])
 	}
 	(*v).Material = r.U32()
 	if r.Bool() {
@@ -1577,12 +1691,12 @@ func readWorldWallFrameRegion(r *binwire.Reader, v *WallFrameRegion) {
 	(*v).RepeatV = r.Bool()
 }
 func scanWorldWallFrameRegion(r *binwire.Reader) {
-	ni48, pi48 := r.Count(4, 16, 16)
+	ni57, pi57 := r.Count(4, 16, 16)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi48
-	for i48 := 0; i48 < ni48 && r.Err() == nil; i48++ {
+	_ = pi57
+	for i57 := 0; i57 < ni57 && r.Err() == nil; i57++ {
 		scanWorldVec2(r)
 	}
 	r.U32()

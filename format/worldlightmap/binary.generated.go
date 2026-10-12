@@ -142,57 +142,57 @@ func writeWorldlightmapChart(w *binwire.Writer, v *Chart) {
 	}
 	w.I32((*v).ID)
 	w.I32((*v).Page)
-	for i49 := range (*v).Rect {
-		w.I32((*v).Rect[i49])
+	for i58 := range (*v).Rect {
+		w.I32((*v).Rect[i58])
 	}
-	for i50 := range (*v).ReceiverRect {
-		w.I32((*v).ReceiverRect[i50])
+	for i59 := range (*v).ReceiverRect {
+		w.I32((*v).ReceiverRect[i59])
 	}
 	writeWorldVec3(w, &(*v).Normal)
 	writeWorldVec3(w, &(*v).Tangent)
 	writeWorldVec3(w, &(*v).Bitangent)
-	for i51 := range (*v).UPlane {
-		w.F64((*v).UPlane[i51])
+	for i60 := range (*v).UPlane {
+		w.F64((*v).UPlane[i60])
 	}
-	for i52 := range (*v).VPlane {
-		w.F64((*v).VPlane[i52])
+	for i61 := range (*v).VPlane {
+		w.F64((*v).VPlane[i61])
 	}
 }
 func readWorldlightmapChart(r *binwire.Reader, v *Chart) {
 	(*v).ID = r.I32()
 	(*v).Page = r.I32()
-	for i53 := range (*v).Rect {
-		(*v).Rect[i53] = r.I32()
+	for i62 := range (*v).Rect {
+		(*v).Rect[i62] = r.I32()
 	}
-	for i54 := range (*v).ReceiverRect {
-		(*v).ReceiverRect[i54] = r.I32()
+	for i63 := range (*v).ReceiverRect {
+		(*v).ReceiverRect[i63] = r.I32()
 	}
 	readWorldVec3(r, &(*v).Normal)
 	readWorldVec3(r, &(*v).Tangent)
 	readWorldVec3(r, &(*v).Bitangent)
-	for i55 := range (*v).UPlane {
-		(*v).UPlane[i55] = r.F64()
+	for i64 := range (*v).UPlane {
+		(*v).UPlane[i64] = r.F64()
 	}
-	for i56 := range (*v).VPlane {
-		(*v).VPlane[i56] = r.F64()
+	for i65 := range (*v).VPlane {
+		(*v).VPlane[i65] = r.F64()
 	}
 }
 func scanWorldlightmapChart(r *binwire.Reader) {
 	r.I32()
 	r.I32()
-	for i57 := 0; i57 < 4; i57++ {
+	for i66 := 0; i66 < 4; i66++ {
 		r.I32()
 	}
-	for i58 := 0; i58 < 4; i58++ {
+	for i67 := 0; i67 < 4; i67++ {
 		r.I32()
 	}
 	scanWorldVec3(r)
 	scanWorldVec3(r)
 	scanWorldVec3(r)
-	for i59 := 0; i59 < 4; i59++ {
+	for i68 := 0; i68 < 4; i68++ {
 		r.F64()
 	}
-	for i60 := 0; i60 < 4; i60++ {
+	for i69 := 0; i69 < 4; i69++ {
 		r.F64()
 	}
 }
@@ -209,22 +209,22 @@ func writeWorldlightmapLayout(w *binwire.Writer, v *Layout) {
 	if w.Err() != nil {
 		return
 	}
-	for i61 := range (*v).Pages {
-		writeWorldlightmapPage(w, &(*v).Pages[i61])
+	for i70 := range (*v).Pages {
+		writeWorldlightmapPage(w, &(*v).Pages[i70])
 	}
 	w.Count(len((*v).Charts), (*v).Charts == nil, 8192)
 	if w.Err() != nil {
 		return
 	}
-	for i62 := range (*v).Charts {
-		writeWorldlightmapChart(w, &(*v).Charts[i62])
+	for i71 := range (*v).Charts {
+		writeWorldlightmapChart(w, &(*v).Charts[i71])
 	}
 	w.Count(len((*v).Bindings), (*v).Bindings == nil, 76288)
 	if w.Err() != nil {
 		return
 	}
-	for i63 := range (*v).Bindings {
-		writeWorldlightmapBinding(w, &(*v).Bindings[i63])
+	for i72 := range (*v).Bindings {
+		writeWorldlightmapBinding(w, &(*v).Bindings[i72])
 	}
 	w.Bool((*v).RuntimeBake != nil)
 	if (*v).RuntimeBake != nil {
@@ -241,35 +241,35 @@ func readWorldlightmapLayout(r *binwire.Reader, v *Layout) {
 	(*v).GeometrySHA256 = r.String(4096)
 	(*v).TexelsPerUnit = r.F64()
 	(*v).Padding = r.I32()
-	ni64, pi64 := r.Count(1, 8, 16)
+	ni73, pi73 := r.Count(1, 8, 16)
 	if r.Err() != nil {
 		return
 	}
-	if pi64 {
-		(*v).Pages = make([]Page, ni64)
+	if pi73 {
+		(*v).Pages = make([]Page, ni73)
 	}
-	for i64 := range (*v).Pages {
-		readWorldlightmapPage(r, &(*v).Pages[i64])
+	for i73 := range (*v).Pages {
+		readWorldlightmapPage(r, &(*v).Pages[i73])
 	}
-	ni65, pi65 := r.Count(8192, 176, 216)
+	ni74, pi74 := r.Count(8192, 176, 216)
 	if r.Err() != nil {
 		return
 	}
-	if pi65 {
-		(*v).Charts = make([]Chart, ni65)
+	if pi74 {
+		(*v).Charts = make([]Chart, ni74)
 	}
-	for i65 := range (*v).Charts {
-		readWorldlightmapChart(r, &(*v).Charts[i65])
+	for i74 := range (*v).Charts {
+		readWorldlightmapChart(r, &(*v).Charts[i74])
 	}
-	ni66, pi66 := r.Count(76288, 16, 40)
+	ni75, pi75 := r.Count(76288, 16, 40)
 	if r.Err() != nil {
 		return
 	}
-	if pi66 {
-		(*v).Bindings = make([]Binding, ni66)
+	if pi75 {
+		(*v).Bindings = make([]Binding, ni75)
 	}
-	for i66 := range (*v).Bindings {
-		readWorldlightmapBinding(r, &(*v).Bindings[i66])
+	for i75 := range (*v).Bindings {
+		readWorldlightmapBinding(r, &(*v).Bindings[i75])
 	}
 	if r.Bool() {
 		r.Allocate(64)
@@ -294,28 +294,28 @@ func scanWorldlightmapLayout(r *binwire.Reader) {
 	r.SkipString(4096)
 	r.F64()
 	r.I32()
-	ni67, pi67 := r.Count(1, 8, 16)
+	ni76, pi76 := r.Count(1, 8, 16)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi67
-	for i67 := 0; i67 < ni67 && r.Err() == nil; i67++ {
+	_ = pi76
+	for i76 := 0; i76 < ni76 && r.Err() == nil; i76++ {
 		scanWorldlightmapPage(r)
 	}
-	ni68, pi68 := r.Count(8192, 176, 216)
+	ni77, pi77 := r.Count(8192, 176, 216)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi68
-	for i68 := 0; i68 < ni68 && r.Err() == nil; i68++ {
+	_ = pi77
+	for i77 := 0; i77 < ni77 && r.Err() == nil; i77++ {
 		scanWorldlightmapChart(r)
 	}
-	ni69, pi69 := r.Count(76288, 16, 40)
+	ni78, pi78 := r.Count(76288, 16, 40)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi69
-	for i69 := 0; i69 < ni69 && r.Err() == nil; i69++ {
+	_ = pi78
+	for i78 := 0; i78 < ni78 && r.Err() == nil; i78++ {
 		scanWorldlightmapBinding(r)
 	}
 	if r.Bool() {
@@ -422,54 +422,54 @@ func writeWorldlightmapReceiverSelection(w *binwire.Writer, v *ReceiverSelection
 	if w.Err() != nil {
 		return
 	}
-	for i70 := range (*v).Sectors {
-		w.I32((*v).Sectors[i70])
+	for i79 := range (*v).Sectors {
+		w.I32((*v).Sectors[i79])
 	}
 	w.Count(len((*v).Solids), (*v).Solids == nil, 1024)
 	if w.Err() != nil {
 		return
 	}
-	for i71 := range (*v).Solids {
-		w.I32((*v).Solids[i71])
+	for i80 := range (*v).Solids {
+		w.I32((*v).Solids[i80])
 	}
 }
 func readWorldlightmapReceiverSelection(r *binwire.Reader, v *ReceiverSelection) {
-	ni72, pi72 := r.Count(256, 4, 8)
+	ni81, pi81 := r.Count(256, 4, 8)
 	if r.Err() != nil {
 		return
 	}
-	if pi72 {
-		(*v).Sectors = make([]int, ni72)
+	if pi81 {
+		(*v).Sectors = make([]int, ni81)
 	}
-	for i72 := range (*v).Sectors {
-		(*v).Sectors[i72] = r.I32()
+	for i81 := range (*v).Sectors {
+		(*v).Sectors[i81] = r.I32()
 	}
-	ni73, pi73 := r.Count(1024, 4, 8)
+	ni82, pi82 := r.Count(1024, 4, 8)
 	if r.Err() != nil {
 		return
 	}
-	if pi73 {
-		(*v).Solids = make([]int, ni73)
+	if pi82 {
+		(*v).Solids = make([]int, ni82)
 	}
-	for i73 := range (*v).Solids {
-		(*v).Solids[i73] = r.I32()
+	for i82 := range (*v).Solids {
+		(*v).Solids[i82] = r.I32()
 	}
 }
 func scanWorldlightmapReceiverSelection(r *binwire.Reader) {
-	ni74, pi74 := r.Count(256, 4, 8)
+	ni83, pi83 := r.Count(256, 4, 8)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi74
-	for i74 := 0; i74 < ni74 && r.Err() == nil; i74++ {
+	_ = pi83
+	for i83 := 0; i83 < ni83 && r.Err() == nil; i83++ {
 		r.I32()
 	}
-	ni75, pi75 := r.Count(1024, 4, 8)
+	ni84, pi84 := r.Count(1024, 4, 8)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi75
-	for i75 := 0; i75 < ni75 && r.Err() == nil; i75++ {
+	_ = pi84
+	for i84 := 0; i84 < ni84 && r.Err() == nil; i84++ {
 		r.I32()
 	}
 }
@@ -483,35 +483,35 @@ func writeWorldlightmapRuntimeBake(w *binwire.Writer, v *RuntimeBake) {
 	if w.Err() != nil {
 		return
 	}
-	for i76 := range (*v).LightIDs {
-		w.String(string((*v).LightIDs[i76]), 4096)
+	for i85 := range (*v).LightIDs {
+		w.String(string((*v).LightIDs[i85]), 4096)
 	}
 	w.I32((*v).ShadowSize)
 }
 func readWorldlightmapRuntimeBake(r *binwire.Reader, v *RuntimeBake) {
 	(*v).Encoding = r.String(4096)
 	(*v).LightID = r.String(4096)
-	ni77, pi77 := r.Count(4096, 4, 16)
+	ni86, pi86 := r.Count(4096, 4, 16)
 	if r.Err() != nil {
 		return
 	}
-	if pi77 {
-		(*v).LightIDs = make([]string, ni77)
+	if pi86 {
+		(*v).LightIDs = make([]string, ni86)
 	}
-	for i77 := range (*v).LightIDs {
-		(*v).LightIDs[i77] = r.String(4096)
+	for i86 := range (*v).LightIDs {
+		(*v).LightIDs[i86] = r.String(4096)
 	}
 	(*v).ShadowSize = r.I32()
 }
 func scanWorldlightmapRuntimeBake(r *binwire.Reader) {
 	r.SkipString(4096)
 	r.SkipString(4096)
-	ni78, pi78 := r.Count(4096, 4, 16)
+	ni87, pi87 := r.Count(4096, 4, 16)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi78
-	for i78 := 0; i78 < ni78 && r.Err() == nil; i78++ {
+	_ = pi87
+	for i87 := 0; i87 < ni87 && r.Err() == nil; i87++ {
 		r.SkipString(4096)
 	}
 	r.I32()

@@ -69,6 +69,7 @@ func ValidateCatalog(catalog *Catalog, document *world.Document) error {
 		solidCount = len(document.StaticSolids.Items)
 	}
 	solidSeen := make([]bool, solidCount)
+	renderTriangles := uint64(world.SolidRendererTriangles(document.SolidRenderers))
 	for i, chunk := range catalog.Chunks {
 		if chunk.ID != i || !hash(chunk.ContentSHA256) || chunk.Size == 0 || chunk.Size > MaxEncodedBytes || chunk.MeshBytes == 0 ||
 			chunk.MeshBytes > 64*1024*1024 ||
@@ -79,6 +80,12 @@ func ValidateCatalog(catalog *Catalog, document *world.Document) error {
 			!validBounds(chunk.Bounds) ||
 			!connected(document, chunk.Sectors) {
 			return fmt.Errorf("catalog chunk %d: %w", i, ErrChunk)
+		}
+		if document.SolidRenderers != nil {
+			renderTriangles += chunk.MeshBytes / 484
+			if renderTriangles > MaxTriangles {
+				return ErrChunk
+			}
 		}
 		if _, _, err := worldlightmap.ReceiverScope(
 			document,

@@ -26,8 +26,9 @@ format validation and builds do not require the CLI or a YAML parser here.
 | 8              | Reusable actor and material animations                    |
 | 9              | Environment presets, sky ceilings and horizon boundaries  |
 | 10             | GPU sprite particle presets and transformed emitters      |
+| 11             | Renderable solid-only prefabs and actor solid renderers   |
 
-Versions 1–10 remain supported. Optional fields must respect their version gates;
+Versions 1–11 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world
 contract](../world/README.md) for output validation and lighting bounds. Root
 lighting remains in global coordinates and is never transformed by a prefab.
@@ -211,3 +212,28 @@ omission or zero defaults to one; omitted vector components remain zero.
 They stage the separate `@world/particles` resource and declare `world/particles@1`
 alongside `world/sectors@1`. See the [version-1 particle contract](../worldparticles/README.md)
 for exact fields, units, lifecycle rules and resource bounds.
+
+## Solid renderers, source version 11
+
+`Prefab.Renderable` packages a rigid solid-only prefab for runtime creation.
+`Actor.SolidRenderer` references one such prefab and also implicitly packages
+it. Renderer prefabs may nest solid-only instances; rooms, connections, ports,
+contents, emitters and collision-enabled solids are rejected. Actor sprites and
+actor animation bindings cannot coexist with a solid renderer. Public compilers
+retain one local definition per referenced/exported prefab, resolve level
+materials, and emit actor attachments in `world.SolidRenderers`. They must reject
+explicit renderer fields before v11 and null/empty renderer identifiers.
+
+## Alpha GPU particles, source version 11
+
+Candidate SDK 0.0.12 permits `particles.version: 2` in source v11. It adds
+`sprite.blend: alpha` and `premultiplied` using the existing particle fields, and declares the exact
+`world/particles@2` capability. Source v10 retains version-1 semantics and rejects
+version 2. Source v11 can still author version 1, which rejects both new materials.
+The bounded layout, schedules, texture resolution, prefab transforms and
+whole-envelope confinement remain unchanged.
+
+`CompileParticlePreset` remains strict version 1. Public compilers select
+`CompileParticlePresetForVersion` using the enclosing particle document version;
+hosts validate that version against the corresponding declared feature. See
+[alpha rendering and ordering limits](../worldparticles/README.md#version-2-alpha-blending).

@@ -73,6 +73,15 @@ func MaterialIDs(d *Document) []uint32 {
 			add(s.BottomMaterial)
 		}
 	}
+	if d.SolidRenderers != nil {
+		for _, prefab := range d.SolidRenderers.Prefabs {
+			for _, s := range prefab.Solids {
+				add(s.SideMaterial)
+				add(s.TopMaterial)
+				add(s.BottomMaterial)
+			}
+		}
+	}
 	for _, s := range d.Sectors {
 		for _, layer := range []*SurfaceSecondary{s.FloorSecondary, s.CeilingSecondary} {
 			if layer != nil {

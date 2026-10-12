@@ -9,6 +9,8 @@ import (
 	"github.com/karty-game/karty-sdk/format/worldparticles"
 )
 
+const AlphaParticlesVersion = uint16(11)
+
 type Particles struct {
 	Version  uint16            `yaml:"version"`
 	Presets  []ParticlePreset  `yaml:"presets"`
@@ -54,6 +56,15 @@ type ParticleEmitter struct {
 // CompileParticlePreset resolves every named frame, including particle-only
 // textures. Source and runtime share complete analytical configuration validation.
 func CompileParticlePreset(p ParticlePreset, textures map[string]uint32) (worldparticles.Preset, error) {
+	return CompileParticlePresetForVersion(p, textures, worldparticles.Version)
+}
+
+// CompileParticlePresetForVersion resolves frames under the selected particle
+// contract. The legacy CompileParticlePreset helper remains strict version 1.
+func CompileParticlePresetForVersion(p ParticlePreset, textures map[string]uint32, version uint16) (worldparticles.Preset, error) {
+	if _, err := worldparticles.FeatureForVersion(version); err != nil {
+		return worldparticles.Preset{}, ErrVersion
+	}
 	if len(p.Sprite.Frames) > worldparticles.MaxFrames || len(p.Emission.Bursts) > worldparticles.MaxBursts ||
 		len(p.SizeOverLife) > worldparticles.MaxCurveKeys ||
 		len(p.ColorOverLife) > worldparticles.MaxCurveKeys {
@@ -91,7 +102,7 @@ func CompileParticlePreset(p ParticlePreset, textures map[string]uint32) (worldp
 		}
 		result.Sprite.Frames = append(result.Sprite.Frames, id)
 	}
-	if err := worldparticles.ValidatePreset(&result); err != nil {
+	if err := worldparticles.ValidatePresetForVersion(&result, version); err != nil {
 		return result, fmt.Errorf("particle preset: %w: %w", err, ErrContent)
 	}
 	return result, nil
@@ -118,7 +129,8 @@ func validateParticles(d *Document) error {
 		return ErrReference
 	}
 	a := d.Particles
-	if a.Version != worldparticles.Version {
+	if _, err := worldparticles.FeatureForVersion(a.Version); err != nil ||
+		a.Version == worldparticles.AlphaVersion && d.Version < AlphaParticlesVersion {
 		return ErrVersion
 	}
 	if len(a.Presets) == 0 || len(a.Presets) > worldparticles.MaxPresets || len(a.Emitters)+count > worldparticles.MaxEmitters {
@@ -137,7 +149,7 @@ func validateParticles(d *Document) error {
 	}
 	presets := map[string]worldparticles.Preset{}
 	for _, p := range a.Presets {
-		compiled, err := CompileParticlePreset(p, textures)
+		compiled, err := CompileParticlePresetForVersion(p, textures, a.Version)
 		if err != nil {
 			return err
 		}
@@ -172,7 +184,7 @@ func validateParticles(d *Document) error {
 			}
 			compiled.Bounds = worldparticles.ConservativeEmitterBounds(p, compiled)
 			single := worldparticles.Document{
-				Version:  worldparticles.Version,
+				Version:  a.Version,
 				Presets:  []worldparticles.Preset{p},
 				Emitters: []worldparticles.Emitter{compiled},
 			}

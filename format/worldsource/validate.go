@@ -88,6 +88,9 @@ func Validate(document *Document) error {
 		return err
 	}
 
+	if err := validateSolidRenderers(document, prefabs); err != nil {
+		return err
+	}
 	return validateAnimations(document)
 }
 

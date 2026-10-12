@@ -38,3 +38,9 @@ u32 chunk count and that many 64-byte hashes. Audio adds kind u8 (1 music,
 between name and stored size. Numeric fields are little-endian. Complete scans
 check all lengths/counts/digests before allocating catalog and chunk arrays;
 canonical identity/order and media bounds remain mandatory.
+
+Particle documents declare `world/particles@1` or `world/particles@2` according
+to their payload version; either requires `world/sectors@1`. Version 2 belongs
+to candidate SDK 0.0.12 and permits alpha and premultiplied particle materials. Unknown particle
+capability versions, missing sector dependencies, duplicate features and
+noncanonical feature order remain invalid.

@@ -32,9 +32,11 @@ const (
 	CapabilityWorldLightmapsPrebakedV1   Capability = "world/lightmaps-prebaked@1"
 	CapabilityWorldMaterialMappingV1     Capability = "world/material-mapping@1"
 	CapabilityWorldParticlesV1           Capability = "world/particles@1"
+	CapabilityWorldParticlesV2           Capability = "world/particles@2"
 	CapabilityWorldAnimationsV1          Capability = "world/animations@1"
 	CapabilityWorldEmissionV1            Capability = "world/emission@1"
 	CapabilityWorldEnvironmentV1         Capability = "world/environment@1"
+	CapabilityWorldSolidRenderersV1      Capability = "world/solid-renderers@1"
 	CapabilityWorldStaticSolidsV1        Capability = "world/static-solids@1"
 	CapabilityWorldMaterialAtlasV1       Capability = "world/material-atlas@1"
 	CapabilityWorldMaterialAtlasV2       Capability = "world/material-atlas@2"
@@ -87,9 +89,10 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldMaterialLayersV1,
 			CapabilityWorldMaterialMappingV1,
 			CapabilityWorldMaterialReflectanceV1,
-			CapabilityWorldStaticSolidsV1,
+			CapabilityWorldSolidRenderersV1, CapabilityWorldStaticSolidsV1,
 			CapabilityWorldAnimationsV1,
 			CapabilityWorldParticlesV1,
+			CapabilityWorldParticlesV2,
 			CapabilityWorldEmissionV1,
 			CapabilityWorldEnvironmentV1,
 		},

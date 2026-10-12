@@ -10,6 +10,7 @@ import (
 )
 
 const BinaryMagic = "KWR1"
+const SolidBinaryMagic = "KWR2"
 
 // Encode validates and encodes one compiled world as canonical typed binary.
 func Encode(document Document) ([]byte, error) {
@@ -20,8 +21,15 @@ func Encode(document Document) ([]byte, error) {
 }
 
 func encodeBinary(document Document) ([]byte, error) {
-	w := binwire.NewWriter(BinaryMagic, MaxEncodedSize)
+	magic := BinaryMagic
+	if document.SolidRenderers != nil {
+		magic = SolidBinaryMagic
+	}
+	w := binwire.NewWriter(magic, MaxEncodedSize)
 	writeWorldDocument(w, &document)
+	if document.SolidRenderers != nil {
+		writeWorldSolidRenderers(w, document.SolidRenderers)
+	}
 	encoded, err := w.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("encode world: %w", ErrSize)
@@ -35,14 +43,25 @@ func Decode(encoded []byte) (Document, error) {
 	if len(encoded) == 0 || len(encoded) > MaxEncodedSize {
 		return Document{}, ErrSize
 	}
-	scan := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
+	magic := BinaryMagic
+	if len(encoded) >= 4 && string(encoded[:4]) == SolidBinaryMagic {
+		magic = SolidBinaryMagic
+	}
+	scan := binwire.NewReader(encoded, magic, MaxEncodedSize)
 	scanWorldDocument(scan)
+	if magic == SolidBinaryMagic {
+		scanWorldSolidRenderers(scan)
+	}
 	if err := scan.Done(); err != nil {
 		return Document{}, decodeError(err)
 	}
-	reader := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
+	reader := binwire.NewReader(encoded, magic, MaxEncodedSize)
 	var document Document
 	readWorldDocument(reader, &document)
+	if magic == SolidBinaryMagic {
+		document.SolidRenderers = new(SolidRenderers)
+		readWorldSolidRenderers(reader, document.SolidRenderers)
+	}
 	if err := reader.Done(); err != nil {
 		return Document{}, decodeError(err)
 	}

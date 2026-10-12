@@ -93,6 +93,7 @@ func OfflineSurfaceDigest(document *world.Document) (string, error) {
 	}
 	snapshot := *document
 	snapshot.Contents, snapshot.Lighting, snapshot.Animations, snapshot.Emission = nil, nil, nil, nil
+	snapshot.SolidRenderers = nil
 	encoded, err := world.Encode(snapshot)
 	if err != nil {
 		return "", err

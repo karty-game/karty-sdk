@@ -40,6 +40,9 @@ var limits = map[string]int{
 	"world.Sector.Walls":                      256,
 	"world.Actor.Tags":                        8,
 	"world.Lighting.Lights":                   4096,
+	"world.SolidRenderers.Prefabs":            64,
+	"world.SolidRenderers.Actors":             4096,
+	"world.SolidPrefab.Solids":                1024,
 	"world.StaticSolids.Items":                1024,
 	"world.Solid.Footprint":                   64,
 	"world.Wall.FrameRegions":                 252,
@@ -93,7 +96,7 @@ func generate(root string) {
 	for _, config := range []struct {
 		pkg   string
 		roots []string
-	}{{"world", []string{"Document"}}, {"worldlightmap", []string{"Layout", "PrebakeManifest", "world.Vec2", "world.Plane", "world.PointLight"}}, {"worldmaterial", []string{"Layout"}}, {"worldparticles", []string{"Document"}}} {
+	}{{"world", []string{"Document", "SolidRenderers"}}, {"worldlightmap", []string{"Layout", "PrebakeManifest", "world.Vec2", "world.Plane", "world.PointLight"}}, {"worldmaterial", []string{"Layout"}}, {"worldparticles", []string{"Document"}}} {
 		g.current = config.pkg
 		g.needed = make(map[string]bool)
 		for _, root := range config.roots {
@@ -280,6 +283,10 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 		for _, field := range t.Fields.List {
 			for _, name := range field.Names {
 				fieldKey := key + "." + name.Name
+				// KWR2 appends its separately generated extension after the frozen base.
+				if fieldKey == "world.Document.SolidRenderers" {
+					continue
+				}
 				// Revision-1/2 prebake manifests retain their exact bytes. Only
 				// recognized bounded producers append their typed ray distance.
 				if fieldKey == "worldlightmap.PrebakeManifest.Producer" && mode == "scan" {

@@ -16,60 +16,60 @@ func writeWorldmaterialLayout(w *binwire.Writer, v *Layout) {
 	if w.Err() != nil {
 		return
 	}
-	for i79 := range (*v).Materials {
-		writeWorldmaterialRect(w, &(*v).Materials[i79])
+	for i88 := range (*v).Materials {
+		writeWorldmaterialRect(w, &(*v).Materials[i88])
 	}
 	w.Count(len((*v).Mips), (*v).Mips == nil, 8)
 	if w.Err() != nil {
 		return
 	}
-	for i80 := range (*v).Mips {
-		writeWorldmaterialMipLevel(w, &(*v).Mips[i80])
+	for i89 := range (*v).Mips {
+		writeWorldmaterialMipLevel(w, &(*v).Mips[i89])
 	}
 }
 func readWorldmaterialLayout(r *binwire.Reader, v *Layout) {
 	(*v).Schema = r.String(4096)
 	(*v).Width = r.I32()
 	(*v).Height = r.I32()
-	ni81, pi81 := r.Count(196, 29, 72)
+	ni90, pi90 := r.Count(196, 29, 72)
 	if r.Err() != nil {
 		return
 	}
-	if pi81 {
-		(*v).Materials = make([]Rect, ni81)
+	if pi90 {
+		(*v).Materials = make([]Rect, ni90)
 	}
-	for i81 := range (*v).Materials {
-		readWorldmaterialRect(r, &(*v).Materials[i81])
+	for i90 := range (*v).Materials {
+		readWorldmaterialRect(r, &(*v).Materials[i90])
 	}
-	ni82, pi82 := r.Count(8, 20, 40)
+	ni91, pi91 := r.Count(8, 20, 40)
 	if r.Err() != nil {
 		return
 	}
-	if pi82 {
-		(*v).Mips = make([]MipLevel, ni82)
+	if pi91 {
+		(*v).Mips = make([]MipLevel, ni91)
 	}
-	for i82 := range (*v).Mips {
-		readWorldmaterialMipLevel(r, &(*v).Mips[i82])
+	for i91 := range (*v).Mips {
+		readWorldmaterialMipLevel(r, &(*v).Mips[i91])
 	}
 }
 func scanWorldmaterialLayout(r *binwire.Reader) {
 	r.SkipString(4096)
 	r.I32()
 	r.I32()
-	ni83, pi83 := r.Count(196, 29, 72)
+	ni92, pi92 := r.Count(196, 29, 72)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi83
-	for i83 := 0; i83 < ni83 && r.Err() == nil; i83++ {
+	_ = pi92
+	for i92 := 0; i92 < ni92 && r.Err() == nil; i92++ {
 		scanWorldmaterialRect(r)
 	}
-	ni84, pi84 := r.Count(8, 20, 40)
+	ni93, pi93 := r.Count(8, 20, 40)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi84
-	for i84 := 0; i84 < ni84 && r.Err() == nil; i84++ {
+	_ = pi93
+	for i93 := 0; i93 < ni93 && r.Err() == nil; i93++ {
 		scanWorldmaterialMipLevel(r)
 	}
 }

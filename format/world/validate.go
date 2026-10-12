@@ -66,6 +66,9 @@ func Validate(document *Document) error {
 	if err := ValidateEmission(document); err != nil {
 		return err
 	}
+	if err := ValidateSolidRenderers(document); err != nil {
+		return err
+	}
 	return ValidateAnimations(document)
 }
 

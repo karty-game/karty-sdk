@@ -36,6 +36,7 @@ const (
 	CapabilityWorldAnimationsV1          Capability = "world/animations@1"
 	CapabilityWorldEmissionV1            Capability = "world/emission@1"
 	CapabilityWorldEnvironmentV1         Capability = "world/environment@1"
+	CapabilityWorldEnvironmentBackdropV1 Capability = "world/environment-backdrop@1"
 	CapabilityWorldSolidRenderersV1      Capability = "world/solid-renderers@1"
 	CapabilityWorldStaticSolidsV1        Capability = "world/static-solids@1"
 	CapabilityWorldMaterialAtlasV1       Capability = "world/material-atlas@1"
@@ -95,6 +96,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldParticlesV2,
 			CapabilityWorldEmissionV1,
 			CapabilityWorldEnvironmentV1,
+			CapabilityWorldEnvironmentBackdropV1,
 		},
 	); err != nil {
 		return fmt.Errorf("runtime capabilities: %w", err)

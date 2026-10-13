@@ -22,13 +22,13 @@ func Encode(document Document) ([]byte, error) {
 
 func encodeBinary(document Document) ([]byte, error) {
 	magic := BinaryMagic
-	if document.SolidRenderers != nil {
+	if usesWorldExtensions(&document) {
 		magic = SolidBinaryMagic
 	}
 	w := binwire.NewWriter(magic, MaxEncodedSize)
 	writeWorldDocument(w, &document)
-	if document.SolidRenderers != nil {
-		writeWorldSolidRenderers(w, document.SolidRenderers)
+	if usesWorldExtensions(&document) {
+		writeWorldExtensions(w, &document)
 	}
 	encoded, err := w.Bytes()
 	if err != nil {
@@ -50,7 +50,9 @@ func Decode(encoded []byte) (Document, error) {
 	scan := binwire.NewReader(encoded, magic, MaxEncodedSize)
 	scanWorldDocument(scan)
 	if magic == SolidBinaryMagic {
-		scanWorldSolidRenderers(scan)
+		if err := scanWorldExtensions(scan); err != nil {
+			return Document{}, decodeError(err)
+		}
 	}
 	if err := scan.Done(); err != nil {
 		return Document{}, decodeError(err)
@@ -59,8 +61,9 @@ func Decode(encoded []byte) (Document, error) {
 	var document Document
 	readWorldDocument(reader, &document)
 	if magic == SolidBinaryMagic {
-		document.SolidRenderers = new(SolidRenderers)
-		readWorldSolidRenderers(reader, document.SolidRenderers)
+		if err := readWorldExtensions(reader, &document); err != nil {
+			return Document{}, err
+		}
 	}
 	if err := reader.Done(); err != nil {
 		return Document{}, decodeError(err)
@@ -72,6 +75,9 @@ func Decode(encoded []byte) (Document, error) {
 }
 
 func decodeError(err error) error {
+	if errors.Is(err, ErrEnvironment) {
+		return err
+	}
 	if errors.Is(err, binwire.ErrVersion) {
 		return ErrVersion
 	}

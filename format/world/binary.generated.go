@@ -453,7 +453,7 @@ func readWorldDocument(r *binwire.Reader, v *Document) {
 		readWorldEmission(r, &(*(*v).Emission))
 	}
 	if r.Bool() {
-		r.Allocate(64)
+		r.Allocate(80)
 		if r.Err() != nil {
 			return
 		}
@@ -522,7 +522,7 @@ func scanWorldDocument(r *binwire.Reader) {
 		scanWorldEmission(r)
 	}
 	if r.Bool() {
-		r.Allocate(64)
+		r.Allocate(80)
 		if r.Err() != nil {
 			return
 		}
@@ -658,6 +658,18 @@ func scanWorldEnvironment(r *binwire.Reader) {
 		}
 		r.F64()
 	}
+}
+func writeWorldEnvironmentBackdrop(w *binwire.Writer, v *EnvironmentBackdrop) {
+	if w.Err() != nil {
+		return
+	}
+	w.String(string((*v)), 4096)
+}
+func readWorldEnvironmentBackdrop(r *binwire.Reader, v *EnvironmentBackdrop) {
+	(*v) = EnvironmentBackdrop(r.String(4096))
+}
+func scanWorldEnvironmentBackdrop(r *binwire.Reader) {
+	r.SkipString(4096)
 }
 func writeWorldEnvironmentPalette(w *binwire.Writer, v *EnvironmentPalette) {
 	if w.Err() != nil {

@@ -277,6 +277,15 @@ func (r *Reader) Count(maximum int, minimumBytes, itemAllocation uint64) (int, b
 	return int(count), true
 }
 func (r *Reader) Err() error { return r.err }
+
+// Remaining reports the unconsumed bounded payload, or zero after a read error.
+func (r *Reader) Remaining() int {
+	if r.err != nil {
+		return 0
+	}
+	return len(r.data) - r.at
+}
+
 func (r *Reader) Done() error {
 	if r.err != nil {
 		return r.err

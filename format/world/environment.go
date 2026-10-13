@@ -22,6 +22,16 @@ const (
 	EnvironmentPaletteTwilight EnvironmentPalette = "twilight"
 )
 
+// EnvironmentBackdrop selects a decorative horizon layer. Empty selects the
+// preset default; explicit none suppresses the layer. It adds no geometry/light.
+type EnvironmentBackdrop string
+
+const (
+	EnvironmentBackdropNone      EnvironmentBackdrop = "none"
+	EnvironmentBackdropMountains EnvironmentBackdrop = "mountains"
+	EnvironmentBackdropCity      EnvironmentBackdrop = "city"
+)
+
 // Environment is the optional world/environment@1 payload, available in
 // compiled-world v3. Preset defaults are fixed by this payload version. Palette
 // affects sky appearance only, independently of surface illumination.
@@ -32,6 +42,7 @@ type Environment struct {
 	Sun         *EnvironmentSun
 	TimeOfDay   *float64
 	CloudAmount *float64
+	Backdrop    EnvironmentBackdrop
 }
 
 const (
@@ -62,6 +73,7 @@ type EnvironmentSun struct {
 // openings and geometry. Decorative sky elements add no additional lights.
 type ResolvedEnvironment struct {
 	Preset       EnvironmentPreset
+	Backdrop     EnvironmentBackdrop
 	SkyZenith    Vec3
 	SkyHorizon   Vec3
 	SkyNadir     Vec3
@@ -92,6 +104,11 @@ func ValidateEnvironment(environment *Environment) error {
 	case "", EnvironmentPaletteDefault, EnvironmentPaletteViolet, EnvironmentPaletteTwilight:
 	default:
 		return fmt.Errorf("environment palette: %w", ErrEnvironment)
+	}
+	switch environment.Backdrop {
+	case "", EnvironmentBackdropNone, EnvironmentBackdropMountains, EnvironmentBackdropCity:
+	default:
+		return fmt.Errorf("environment backdrop: %w", ErrEnvironment)
 	}
 	if sun := environment.Sun; sun != nil {
 		if !finiteBounded(sun.Azimuth) || !finiteBounded(sun.Elevation) ||
@@ -132,8 +149,14 @@ func ResolveEnvironment(environment *Environment) (ResolvedEnvironment, error) {
 	if err := ValidateEnvironment(environment); err != nil {
 		return ResolvedEnvironment{}, err
 	}
-	result := ResolvedEnvironment{Preset: environment.Preset, SunColor: Vec3{X: 1, Y: .94, Z: .82}, SunIntensity: .72,
-		TimeOfDay: DefaultEnvironmentTimeOfDay, CloudAmount: DefaultEnvironmentCloudAmount}
+	result := ResolvedEnvironment{
+		Preset:       environment.Preset,
+		Backdrop:     EnvironmentBackdropMountains,
+		SunColor:     Vec3{X: 1, Y: .94, Z: .82},
+		SunIntensity: .72,
+		TimeOfDay:    DefaultEnvironmentTimeOfDay,
+		CloudAmount:  DefaultEnvironmentCloudAmount,
+	}
 	sun := EnvironmentSun{Azimuth: 135, Elevation: 40}
 	switch environment.Preset {
 	case EnvironmentDaylight:
@@ -153,6 +176,7 @@ func ResolveEnvironment(environment *Environment) (ResolvedEnvironment, error) {
 		result.CloudColor, result.SunDiskColor = Vec3{X: .94, Y: .96, Z: 1}, Vec3{X: 1, Y: .96, Z: .78}
 		result.Ambient = Vec3{X: .10, Y: .13, Z: .18}
 	case EnvironmentSpace:
+		result.Backdrop = EnvironmentBackdropCity
 		sun.Elevation = 25
 		result.SkyZenith, result.SkyHorizon, result.SkyNadir = Vec3{
 			X: .004,
@@ -171,6 +195,7 @@ func ResolveEnvironment(environment *Environment) (ResolvedEnvironment, error) {
 		result.SunColor, result.SunIntensity = Vec3{X: .86, Y: .93, Z: 1}, .85
 		result.Ambient = Vec3{X: .025, Y: .03, Z: .05}
 	case EnvironmentCartoon:
+		result.Backdrop = EnvironmentBackdropCity
 		sun.Elevation = 50
 		result.SkyZenith, result.SkyHorizon, result.SkyNadir = Vec3{
 			X: .06,
@@ -238,6 +263,9 @@ func ResolveEnvironment(environment *Environment) (ResolvedEnvironment, error) {
 			Z: .07,
 		}
 		result.CloudColor, result.SunDiskColor = Vec3{X: .74, Y: .40, Z: .39}, Vec3{X: 1, Y: .62, Z: .33}
+	}
+	if environment.Backdrop != "" {
+		result.Backdrop = environment.Backdrop
 	}
 	if environment.Sun != nil {
 		sun = *environment.Sun

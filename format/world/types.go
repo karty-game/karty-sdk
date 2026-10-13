@@ -38,6 +38,8 @@ const (
 	geometryEpsilon    = 1e-9
 )
 
+const FeatureEnvironmentBackdrop = cartridge.FeatureWorldEnvironmentBackdropV1
+
 var (
 	ErrSize            = errors.New("world payload size is invalid")
 	ErrSyntax          = errors.New("world payload syntax is invalid")

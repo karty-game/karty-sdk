@@ -26,7 +26,7 @@ format validation and builds do not require the CLI or a YAML parser here.
 | 8              | Reusable actor and material animations                    |
 | 9              | Environment presets, sky ceilings and horizon boundaries  |
 | 10             | GPU sprite particle presets and transformed emitters      |
-| 11             | Renderable solid-only prefabs and actor solid renderers   |
+| 11             | Solid prefab renderers and environment backdrop choices   |
 
 Versions 1–11 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world
@@ -89,6 +89,23 @@ and complete graph. Compilers preserve sky markers through expansion and convex
 decomposition, add the compiled version-1 environment payload and declare
 `world/environment@1` with `world/sectors@1`. See the
 [compiled decision](../world/README.md#environment-and-sky-openings-version-1).
+
+## Environment backdrops, source version 11 / SDK 0.0.12
+
+Optional `environment.backdrop` is `none`, `mountains` or `city`. Omission uses
+mountains for daylight/fantasy and city for cartoon/space. The selector is a
+decorative horizon layer; it adds no geometry, collision, lighting or receivers.
+Source versions 1–10 reject explicit choices. Text parsers reject empty and null
+values; typed omission remains the empty string. Time/cloud runtime overrides
+preserve the authored selection and leave illumination independent of it.
+
+An explicit selector declares candidate capability `world/environment-backdrop@1`
+alongside `world/environment@1` and `world/sectors@1`; SDK 0.0.11 does not support
+it. It uses the existing unreleased KWR2 extension after its solid-renderer
+trailer (1 none, 2 mountains, 3 city). Backdrop-only records carry a nil solid
+sentinel before the selector. Omission preserves exact KWR1 bytes and existing
+solid-only KWR2 bytes. Full bounded scans reject invalid selectors, missing
+payloads and trailing data before publishing any world.
 
 ## Material mapping, version 1
 

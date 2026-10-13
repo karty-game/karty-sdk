@@ -284,7 +284,7 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 			for _, name := range field.Names {
 				fieldKey := key + "." + name.Name
 				// KWR2 appends its separately generated extension after the frozen base.
-				if fieldKey == "world.Document.SolidRenderers" {
+				if fieldKey == "world.Document.SolidRenderers" || fieldKey == "world.Environment.Backdrop" {
 					continue
 				}
 				// Revision-1/2 prebake manifests retain their exact bytes. Only

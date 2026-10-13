@@ -42,6 +42,8 @@ const (
 	geometryEpsilon       = 1e-9
 )
 
+const EnvironmentBackdropVersion = uint16(11)
+
 var (
 	ErrVersion     = errors.New("world source version is unsupported")
 	ErrBounds      = errors.New("world source exceeds a declared bound")

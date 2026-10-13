@@ -11,11 +11,12 @@ import (
 // present; omission uses the preset direction. Environment is global and never
 // transformed by a prefab instance.
 type Environment struct {
-	Preset      sdkworld.EnvironmentPreset  `yaml:"preset"`
-	Palette     sdkworld.EnvironmentPalette `yaml:"palette,omitempty"`
-	Sun         *sdkworld.EnvironmentSun    `yaml:"sun,omitempty"`
-	TimeOfDay   *float64                    `yaml:"time_of_day,omitempty"`
-	CloudAmount *float64                    `yaml:"cloud_amount,omitempty"`
+	Preset      sdkworld.EnvironmentPreset   `yaml:"preset"`
+	Palette     sdkworld.EnvironmentPalette  `yaml:"palette,omitempty"`
+	Sun         *sdkworld.EnvironmentSun     `yaml:"sun,omitempty"`
+	TimeOfDay   *float64                     `yaml:"time_of_day,omitempty"`
+	Backdrop    sdkworld.EnvironmentBackdrop `yaml:"backdrop,omitempty"`
+	CloudAmount *float64                     `yaml:"cloud_amount,omitempty"`
 }
 
 func validateEnvironment(document *Document) error {
@@ -38,9 +39,12 @@ func validateEnvironment(document *Document) error {
 		return fmt.Errorf("sky ceiling requires environment: %w", ErrEnvironment)
 	}
 	environment := document.Environment
+	if environment.Backdrop != "" && document.Version < EnvironmentBackdropVersion {
+		return fmt.Errorf("environment backdrop requires source version %d: %w", EnvironmentBackdropVersion, ErrVersion)
+	}
 	if err := sdkworld.ValidateEnvironment(&sdkworld.Environment{
 		Version: sdkworld.EnvironmentVersion, Preset: environment.Preset, Palette: environment.Palette, Sun: environment.Sun,
-		TimeOfDay: environment.TimeOfDay, CloudAmount: environment.CloudAmount,
+		TimeOfDay: environment.TimeOfDay, CloudAmount: environment.CloudAmount, Backdrop: environment.Backdrop,
 	}); err != nil {
 		//nolint:errorlint // Preserve the source sentinel while retaining shared validation details.
 		return fmt.Errorf("environment: %v: %w", err, ErrEnvironment)

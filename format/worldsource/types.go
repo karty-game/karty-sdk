@@ -21,7 +21,8 @@ const (
 	EnvironmentVersion    = uint16(9)
 	ParticlesVersion      = uint16(10)
 	SolidRenderersVersion = uint16(11)
-	Version               = SolidRenderersVersion
+	SkyVersion            = uint16(12)
+	Version               = SkyVersion
 	MaxRooms              = 1024
 	MaxPrefabs            = 256
 	MaxInstances          = 4096

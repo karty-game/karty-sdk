@@ -104,6 +104,13 @@ type Options struct {
 	// It is build policy, not an additional runtime wire field.
 	AllStatic  bool
 	ShadowSize int
+	// CapsWithinSourceRoom prevents cap charts from spanning authored room or
+	// prefab-instance boundaries, while retaining efficient cap merging inside
+	// each room. It is optional build policy; canonical layouts remain unchanged.
+	CapsWithinSourceRoom bool
+	// CompactPacking uses bounded free-rectangle packing and optional90-degree
+	// chart turns instead of default shelves. Density and limits are retained.
+	CompactPacking bool
 }
 
 func Encode(layout Layout, document *world.Document) ([]byte, error) {

@@ -27,8 +27,9 @@ format validation and builds do not require the CLI or a YAML parser here.
 | 9              | Environment presets, sky ceilings and horizon boundaries  |
 | 10             | GPU sprite particle presets and transformed emitters      |
 | 11             | Solid prefab renderers and environment backdrop choices   |
+| 12             | Project-owned sky textures and presentation settings      |
 
-Versions 1–11 remain supported. Optional fields must respect their version gates;
+Versions 1–12 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world
 contract](../world/README.md) for output validation and lighting bounds. Root
 lighting remains in global coordinates and is never transformed by a prefab.
@@ -92,8 +93,9 @@ decomposition, add the compiled version-1 environment payload and declare
 
 ## Environment backdrops, source version 11 / SDK 0.0.12
 
-Optional `environment.backdrop` is `none`, `mountains` or `city`. Omission uses
-mountains for daylight/fantasy and city for cartoon/space. The selector is a
+Optional `environment.backdrop` is `none`, `mountains` or `city`. The versioned
+selector and its encoding remain valid; current hosts draw decorative art from
+project-owned source v12 sky resources. The selector is a
 decorative horizon layer; it adds no geometry, collision, lighting or receivers.
 Source versions 1–10 reject explicit choices. Text parsers reject empty and null
 values; typed omission remains the empty string. Time/cloud runtime overrides
@@ -106,6 +108,36 @@ trailer (1 none, 2 mountains, 3 city). Backdrop-only records carry a nil solid
 sentinel before the selector. Omission preserves exact KWR1 bytes and existing
 solid-only KWR2 bytes. Full bounded scans reject invalid selectors, missing
 payloads and trailing data before publishing any world.
+
+## Project-owned sky, source version 12 / SDK 0.0.12
+
+Optional `environment.sky` authors a separate `world/sky@1` level resource. Its
+`cloud_sparse`, `cloud_dense`, `background` and `horizon` fields reference PNGs
+relative to the owning level directory. References must be clean, confined paths:
+no absolute paths, parent traversal, backslashes, NULs or drive/URL prefixes, and
+at most 1,024 UTF-8 bytes. The CLI also checks filesystem path confinement before
+opening each source file. Omitted images contribute no artwork; an empty sky
+object is valid. Source versions 1–11 reject explicit sky fields.
+
+```yaml
+version: 12
+environment:
+  preset: daylight
+  sky:
+    cloud_sparse: sky/clouds.png
+    horizon: sky/horizon.png
+    settings:
+      horizon_haze: 0.2
+```
+
+`settings` is optional and overrides fields independently, preserving explicit
+zero. Omitted fields use `worldsky.DefaultSettings`: cloud UV scale `[1, 1]`,
+dense scroll scale `1`, horizon UV scale `1`, and zero offsets, parallax, haze and emission. Available
+fields and bounds are documented in the [sky resource contract](../worldsky/README.md).
+A supplied horizon renders regardless of the legacy backdrop choice. Without a
+sky sidecar the host renders an asset-free gradient and sun. Project images and
+presentation settings never modify environment lighting or runtime clock/cloud
+controls; those remain in the frozen compiled environment record.
 
 ## Material mapping, version 1
 

@@ -173,3 +173,28 @@ func TestConditionalStringScanKeepsAllocationAndMalformedBounds(t *testing.T) {
 		t.Fatal("conditional string bypassed allocation limit")
 	}
 }
+
+func TestRawBytesBorrowAndRetainBounds(t *testing.T) {
+	w := NewWriter("TEST", 32)
+	w.Raw([]byte{1, 2, 3, 4})
+	encoded, err := w.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := NewReader(encoded, "TEST", 32)
+	value := r.Raw(4)
+	if r.Done() != nil || len(value) != 4 || &value[0] != &encoded[HeaderSize] {
+		t.Fatal("raw read copied or misread bounded input")
+	}
+	for _, size := range []int{-1, 5, math.MaxInt} {
+		r := NewReader(encoded, "TEST", 32)
+		if r.Raw(size) != nil || !errors.Is(r.Done(), ErrWire) {
+			t.Fatalf("raw read accepted size %d", size)
+		}
+	}
+	w = NewWriter("TEST", HeaderSize)
+	w.Raw([]byte{1})
+	if _, err := w.Bytes(); !errors.Is(err, ErrCount) {
+		t.Fatal("raw writer bypassed encoded limit")
+	}
+}

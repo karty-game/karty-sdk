@@ -22,27 +22,29 @@ const (
 type Capability string
 
 const (
-	CapabilityTextureQOIv1               Capability = "texture/qoi@1"
-	CapabilitySoundQOAv1                 Capability = "sound/qoa@1"
-	CapabilityAudioStreamQOAv1           Capability = "audio-stream/qoa@1"
-	CapabilityVideoMPEG1v1               Capability = "video/mpeg1@1"
-	CapabilityWorldLightingV1            Capability = "world/lighting@1"
-	CapabilityWorldChunksV1              Capability = "world/chunks@1"
-	CapabilityWorldLightmapsV1           Capability = "world/lightmaps@1"
-	CapabilityWorldLightmapsPrebakedV1   Capability = "world/lightmaps-prebaked@1"
-	CapabilityWorldMaterialMappingV1     Capability = "world/material-mapping@1"
-	CapabilityWorldParticlesV1           Capability = "world/particles@1"
-	CapabilityWorldParticlesV2           Capability = "world/particles@2"
-	CapabilityWorldAnimationsV1          Capability = "world/animations@1"
-	CapabilityWorldEmissionV1            Capability = "world/emission@1"
-	CapabilityWorldEnvironmentV1         Capability = "world/environment@1"
-	CapabilityWorldEnvironmentBackdropV1 Capability = "world/environment-backdrop@1"
-	CapabilityWorldSolidRenderersV1      Capability = "world/solid-renderers@1"
-	CapabilityWorldStaticSolidsV1        Capability = "world/static-solids@1"
-	CapabilityWorldMaterialAtlasV1       Capability = "world/material-atlas@1"
-	CapabilityWorldMaterialAtlasV2       Capability = "world/material-atlas@2"
-	CapabilityWorldMaterialLayersV1      Capability = "world/material-layers@1"
-	CapabilityWorldMaterialReflectanceV1 Capability = "world/material-reflectance@1"
+	CapabilityTextureQOIv1                        Capability = "texture/qoi@1"
+	CapabilitySoundQOAv1                          Capability = "sound/qoa@1"
+	CapabilityAudioStreamQOAv1                    Capability = "audio-stream/qoa@1"
+	CapabilityVideoMPEG1v1                        Capability = "video/mpeg1@1"
+	CapabilityWorldLightingV1                     Capability = "world/lighting@1"
+	CapabilityWorldChunksV1                       Capability = "world/chunks@1"
+	CapabilityWorldLightmapsV1                    Capability = "world/lightmaps@1"
+	CapabilityWorldLightmapsPrebakedV1            Capability = "world/lightmaps-prebaked@1"
+	CapabilityWorldLightmapsEnvironmentVariantsV1 Capability = "world/lightmaps-environment-variants@1"
+	CapabilityWorldMaterialMappingV1              Capability = "world/material-mapping@1"
+	CapabilityWorldParticlesV1                    Capability = "world/particles@1"
+	CapabilityWorldParticlesV2                    Capability = "world/particles@2"
+	CapabilityWorldAnimationsV1                   Capability = "world/animations@1"
+	CapabilityWorldEmissionV1                     Capability = "world/emission@1"
+	CapabilityWorldEnvironmentV1                  Capability = "world/environment@1"
+	CapabilityWorldEnvironmentBackdropV1          Capability = "world/environment-backdrop@1"
+	CapabilityWorldSkyV1                          Capability = "world/sky@1"
+	CapabilityWorldSolidRenderersV1               Capability = "world/solid-renderers@1"
+	CapabilityWorldStaticSolidsV1                 Capability = "world/static-solids@1"
+	CapabilityWorldMaterialAtlasV1                Capability = "world/material-atlas@1"
+	CapabilityWorldMaterialAtlasV2                Capability = "world/material-atlas@2"
+	CapabilityWorldMaterialLayersV1               Capability = "world/material-layers@1"
+	CapabilityWorldMaterialReflectanceV1          Capability = "world/material-reflectance@1"
 )
 
 const (
@@ -85,6 +87,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldChunksV1,
 			CapabilityWorldLightmapsV1,
 			CapabilityWorldLightmapsPrebakedV1,
+			CapabilityWorldLightmapsEnvironmentVariantsV1,
 			CapabilityWorldMaterialAtlasV1,
 			CapabilityWorldMaterialAtlasV2,
 			CapabilityWorldMaterialLayersV1,
@@ -97,6 +100,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldEmissionV1,
 			CapabilityWorldEnvironmentV1,
 			CapabilityWorldEnvironmentBackdropV1,
+			CapabilityWorldSkyV1,
 		},
 	); err != nil {
 		return fmt.Errorf("runtime capabilities: %w", err)

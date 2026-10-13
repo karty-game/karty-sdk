@@ -125,6 +125,9 @@ func (w *Writer) Count(length int, absent bool, maximum int) {
 }
 func (w *Writer) Err() error { return w.err }
 
+// Raw writes already bounded bytes without a per-byte primitive loop.
+func (w *Writer) Raw(value []byte) { copy(w.put(len(value)), value) }
+
 func (w *Writer) Bytes() ([]byte, error) {
 	if w.err != nil {
 		return nil, w.err
@@ -277,6 +280,10 @@ func (r *Reader) Count(maximum int, minimumBytes, itemAllocation uint64) (int, b
 	return int(count), true
 }
 func (r *Reader) Err() error { return r.err }
+
+// Raw borrows an exact bounded byte range. Callers must copy before publishing
+// decoded ownership, after the complete input has passed their preflight.
+func (r *Reader) Raw(size int) []byte { return r.take(size) }
 
 // Remaining reports the unconsumed bounded payload, or zero after a read error.
 func (r *Reader) Remaining() int {

@@ -17,6 +17,7 @@ type Environment struct {
 	TimeOfDay   *float64                     `yaml:"time_of_day,omitempty"`
 	Backdrop    sdkworld.EnvironmentBackdrop `yaml:"backdrop,omitempty"`
 	CloudAmount *float64                     `yaml:"cloud_amount,omitempty"`
+	Sky         *Sky                         `yaml:"sky,omitempty"`
 }
 
 func validateEnvironment(document *Document) error {
@@ -39,6 +40,14 @@ func validateEnvironment(document *Document) error {
 		return fmt.Errorf("sky ceiling requires environment: %w", ErrEnvironment)
 	}
 	environment := document.Environment
+	if environment.Sky != nil {
+		if document.Version < SkyVersion {
+			return fmt.Errorf("environment sky requires source version %d: %w", SkyVersion, ErrVersion)
+		}
+		if err := validateSky(environment.Sky); err != nil {
+			return err
+		}
+	}
 	if environment.Backdrop != "" && document.Version < EnvironmentBackdropVersion {
 		return fmt.Errorf("environment backdrop requires source version %d: %w", EnvironmentBackdropVersion, ErrVersion)
 	}

@@ -7,6 +7,12 @@ build time; generated files remain checked into Git. Run
 `mise exec -- go generate ./format/world` after changing an owned contract.
 The regeneration test checks world, lightmap and material snapshots together.
 
+The `worldsky` sidecar uses a handwritten static typed codec over these bounded
+primitives. Its bulk packed-image fields use exact length prefixes and borrowed
+`Raw` reads during complete preflight, then copy into owned decoded storage only
+after every gzip member and aggregate resource bound passes. It keeps the
+existing generated world codecs and frozen environment payload unchanged.
+
 Each payload begins with 16 little-endian bytes: four-byte magic, uint16 binary
 version 1, uint16 zero flags, uint32 exact payload byte length and uint32 zero
 reserved. Readers reject unsupported versions, nonzero reserved fields,

@@ -14,7 +14,7 @@ import (
 
 func TestEnvironmentSourceVersionAndAbsentCompatibility(t *testing.T) {
 	t.Parallel()
-	if worldsource.EnvironmentVersion != 9 || worldsource.Version != 11 {
+	if worldsource.EnvironmentVersion != 9 || worldsource.Version != 12 {
 		t.Fatal("source environment version changed")
 	}
 	for version := uint16(1); version < worldsource.EnvironmentVersion; version++ {

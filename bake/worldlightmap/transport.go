@@ -18,6 +18,7 @@ type scene struct {
 	chartFrames    []sampleFrame
 	samples        []initialSample
 	maxRayDistance float64
+	environment    *world.ResolvedEnvironment
 }
 type preparedLight struct {
 	world.PointLight
@@ -33,6 +34,9 @@ func (s *scene) visible(p, n, d vec, distance float64, c *counters) bool {
 }
 func (s *scene) direct(p vec, chart worldlightmap.Chart, c *counters) [3]vec {
 	var result [3]vec
+	if s.environment != nil {
+		result = s.environmentSun(p, chart, c)
+	}
 	candidates := s.lightIndex.query(p, len(s.lights))
 	for index := candidates.next(); index >= 0; index = candidates.next() {
 		l := s.lights[index]
@@ -62,6 +66,13 @@ func (s *scene) direct(p vec, chart worldlightmap.Chart, c *counters) [3]vec {
 }
 func (s *scene) lambertDirect(p, n vec, c *counters) vec {
 	result := vec{}
+	if s.environment != nil {
+		e := s.environment
+		cosine := dot(n, e.SunDirection)
+		if cosine > 0 && e.SunIntensity > 0 && e.CloudAmount < 1 && s.visible(p, n, e.SunDirection, math.Inf(1), c) {
+			result = scale(e.SunColor, e.SunIntensity*(1-e.CloudAmount)*cosine)
+		}
+	}
 	candidates := s.lightIndex.query(p, len(s.lights))
 	for index := candidates.next(); index >= 0; index = candidates.next() {
 		l := s.lights[index]
@@ -90,6 +101,9 @@ func (s *scene) indirect(
 	c *counters,
 	result *[3]vec,
 ) float32 {
+	if s.environment != nil {
+		return s.environmentIndirect(ctx, p, chart, sampling, index, options, c, result)
+	}
 	mean, moment := 0.0, 0.0
 	measure := options.Denoise != "" && options.Denoise != "off"
 	seed := options.Seed ^ uint64(index)*0xd6e8feb86659fd93

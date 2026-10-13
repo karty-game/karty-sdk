@@ -87,12 +87,14 @@ run = [
   "bash scripts/go-fuzz ./format/actions FuzzBinaryActionsDecode",
   "bash scripts/go-fuzz ./format/world FuzzDecode",
   "bash scripts/go-fuzz ./format/worldparticles FuzzParticleDecode",
+  "bash scripts/go-fuzz ./format/worldsky FuzzDecode",
   "bash scripts/go-fuzz ./format/world FuzzDecodeLighting",
   "bash scripts/go-fuzz ./format/worldchunk FuzzBinaryChunkCanonicalRoundTrip",
   "bash scripts/go-fuzz ./format/performance FuzzBinaryPerformance",
   "bash scripts/go-fuzz ./format/worldmaterial FuzzDecodeLayout",
   "bash scripts/go-fuzz ./format/worldlightmap FuzzDecodeLayout",
   "bash scripts/go-fuzz ./format/worldlightmap FuzzDecodePrebake",
+  "bash scripts/go-fuzz ./format/worldlightmap FuzzDecodeEnvironmentVariants",
 ]
 
 [tasks.install-hooks]

@@ -27,8 +27,9 @@ format validation and builds do not require the CLI or a YAML parser here.
 | 9              | Environment presets, sky ceilings and horizon boundaries  |
 | 10             | GPU sprite particle presets and transformed emitters      |
 | 11             | Solid prefab renderers and environment backdrop choices   |
+| 12             | Project-owned sky textures and presentation settings      |
 
-Versions 1–11 remain supported. Optional fields must respect their version gates;
+Versions 1–12 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world
 contract](../world/README.md) for output validation and lighting bounds. Root
 lighting remains in global coordinates and is never transformed by a prefab.
@@ -92,8 +93,9 @@ decomposition, add the compiled version-1 environment payload and declare
 
 ## Environment backdrops, source version 11 / SDK 0.0.12
 
-Optional `environment.backdrop` is `none`, `mountains` or `city`. Omission uses
-mountains for daylight/fantasy and city for cartoon/space. The selector is a
+Optional `environment.backdrop` is `none`, `mountains` or `city`. The versioned
+selector and its encoding remain valid; current hosts draw decorative art from
+project-owned source v12 sky resources. The selector is a
 decorative horizon layer; it adds no geometry, collision, lighting or receivers.
 Source versions 1–10 reject explicit choices. Text parsers reject empty and null
 values; typed omission remains the empty string. Time/cloud runtime overrides
@@ -106,6 +108,14 @@ trailer (1 none, 2 mountains, 3 city). Backdrop-only records carry a nil solid
 sentinel before the selector. Omission preserves exact KWR1 bytes and existing
 solid-only KWR2 bytes. Full bounded scans reject invalid selectors, missing
 payloads and trailing data before publishing any world.
+
+## Project-owned sky, source version 12 / SDK 0.0.12
+
+Source v12 `environment.sky` supplies project-owned textures and presentation in
+the separate [`world/sky@1` sidecar](../worldsky/README.md), without changing the
+compiled `world.Environment` codec. Missing sky resources use the asset-free
+gradient and sun. See [source authoring](../worldsource/README.md#project-owned-sky-source-version-12--sdk-0012)
+for confined PNG references and partial setting overrides.
 
 ## Material mapping, version 1
 

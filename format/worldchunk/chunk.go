@@ -124,6 +124,14 @@ type Options struct {
 	// budget-only grouping. Otherwise every global sector has an ID in [0,256).
 	// Ordinary connectivity and hard budgets can still split an authored area.
 	SectorGroups []int
+	// SolidOwners optionally assigns every static solid to one overlapping
+	// receiver sector. Nil preserves first-overlap ownership. It is build policy
+	// only; complete bounds and ordinary-space validation remain mandatory.
+	SolidOwners []int
+	// CompactLightmaps optionally repacks complete valid receiver groups within
+	// one ordinary physical component. It preserves all hard budgets and never
+	// increases their total decoded lightmap cost. Nil/default policy is unchanged.
+	CompactLightmaps bool
 }
 
 type PlannedChunk struct {

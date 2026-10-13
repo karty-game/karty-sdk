@@ -94,7 +94,17 @@ merge. Opaque bands around partial portals follow the shared pure
 `world.WallProfile` crossing/controller rules; the doorway receives no opaque
 geometry. Solid caps and sides remain separate charts. Deterministic rectangle
 packing sorts by descending height, descending width and stable chart identity.
-Charts are not rotated, and their reserved rectangles cannot overlap.
+Default charts are not rotated, and their reserved rectangles cannot overlap.
+Candidate SDK 0.0.12 adds optional build policies `Options.CapsWithinSourceRoom`
+and `Options.CompactPacking`. The former limits coplanar cap merging to the same
+authored room and prefab instance. The latter packs charts by area into bounded
+maximal free rectangles and can turn a chart by 90 degrees. A turn updates its
+right-handed tangent/bitangent basis and affine UV planes together, preserving
+the surface normal, texel density and RNM interpretation. The existing complete
+layout validator checks every turned receiver and nonoverlapping rectangle.
+Free-rectangle scratch has at most `MaxCharts*4` records in each of two buffers
+(two MiB on 64-bit platforms). Neither policy changes layout fields, page bounds,
+the default compiler output or existing point-light recipes.
 
 The geometry digest covers stable sector/solid identities, coordinates,
 elevation planes, directed portal indexes and reciprocal wall indexes. Actor
@@ -371,3 +381,46 @@ source dependencies, retaining guards for floating-point/raster offsets.
 The separate public baker `BakeInputDigest` allows local pixel-cache reuse;
 full-world layout, selected-source and surface identities remain freshly bound
 and verified when those pixels are packaged into the current level.
+
+### Versioned decision: environment variants v1
+
+Candidate SDK 0.0.12 adds optional `world/lightmaps-environment-variants@1`.
+It requires `world/chunks@1`, `world/environment@1`, `world/lightmaps@1` and
+`world/sectors@1`. Existing layout and point-light prebake formats retain their
+bytes and semantics. Each render chunk uses one plain algorithm-2 receiver
+layout (`RuntimeBake == nil`) and its unchanged RNM UVs for every condition.
+
+The new `KLV1` binary catalog at `EnvironmentVariantsEntryName` uses schema
+`karty.world-lightmap-environment-variants@1` and metadata marker
+`kartyWorldLightmapEnvironmentVariants`. Typed codecs are generated from the
+public declarations. A complete scan precedes record allocation. The catalog
+is bounded to 32 KiB and 32 endpoint records, ordered by increasing clock with
+clear (`CloudAmount == 0`) then overcast (`CloudAmount == 1`) for each clock.
+It binds exact geometry, canonical chart layout, static surface/opacity and
+used reflectance digests, producer `cpu-environment-rnm3@1`, sampling controls
+and default record index. `EnvironmentSurfaceDigest` binds effective translucent
+liquid opacity on static geometry because it changes opaque transport; actor-only
+animations, point lights and authored ambient are excluded. Each record binds exact passive-module SHA256/size,
+straight linear QOI SHA256/size, decoded bytes and the authoritative
+`EnvironmentRGBMRange`. Decoded bytes are exactly `page_width*page_height*12`.
+
+The default image is embedded at `EnvironmentImageEntryName` in the render
+chunk. Every condition also has a separately staged passive module containing
+only that same image entry. Its exact metadata keys are
+`kartyWorldLightmapEnvironmentVariant` (the catalog schema), `layoutSha256` and
+`imageSha256`. These modules are resources of the owning logical level, not
+additional mounted game levels. Content addressing permits identical endpoint
+bytes to share downloads. `ValidateEnvironmentImage` checks length, hash,
+dimensions, colorspace and complete bounded QOI stream before pixel allocation.
+
+`SelectEnvironmentVariants` chooses the nearest authored clock by circular
+24-hour distance; ties choose the first authored clock. Weather interpolates
+the selected clear/overcast endpoints continuously. Decode RGBM to linear
+coefficients before interpolation and re-encode the result if uploading one
+texture: interpolating encoded RGBA is incorrect. A consumer keeps the previous
+verified map while fetching the next conditions and rejects stale completions.
+The catalog default is clear at the authored default clock. Consumers explicitly
+budget resident maps and transition scratch; 1024 RNM pixels occupy 12 MiB per
+map, independent of compressed download size. Static sun/sky diffuse is replaced
+only on covered receivers. Dynamic actors, point lights, authored ambient and
+specular remain separate runtime contributions.

@@ -45,7 +45,7 @@ func Plan(document world.Document, options Options) (PlanResult, error) {
 		options.MaxSectors > world.MaxSectors {
 		return PlanResult{}, ErrChunk
 	}
-	owners, err := solidOwners(&document)
+	owners, err := solidOwners(&document, options.SolidOwners)
 	if err != nil {
 		return PlanResult{}, err
 	}
@@ -173,6 +173,24 @@ func Plan(document world.Document, options Options) (PlanResult, error) {
 		}
 		result.Chunks = append(result.Chunks, chunk)
 	}
+	if options.CompactLightmaps {
+		if options.NoLightmap {
+			return PlanResult{}, ErrChunk
+		}
+		result.Chunks, err = compactLightmapChunks(document, options, result.Chunks, trial)
+		if err != nil {
+			return PlanResult{}, err
+		}
+		for i := range result.SectorChunks {
+			result.SectorChunks[i] = -1
+		}
+		for index := range result.Chunks {
+			result.Chunks[index].ID = index
+			for _, sector := range result.Chunks[index].Sectors {
+				result.SectorChunks[sector] = index
+			}
+		}
+	}
 	result.Candidates = reachableCandidates(&document, result.SectorChunks, len(result.Chunks))
 	return result, nil
 }
@@ -229,20 +247,38 @@ func reachableCandidates(document *world.Document, sectorChunks []int, count int
 	return result
 }
 
-func solidOwners(document *world.Document) ([]int, error) {
+func solidOwners(document *world.Document, override ...[]int) ([]int, error) {
 	if document.StaticSolids == nil {
+		if len(override) > 0 && len(override[0]) != 0 {
+			return nil, ErrChunk
+		}
 		return nil, nil
 	}
 	owners := make([]int, len(document.StaticSolids.Items))
 	for i := range owners {
 		owners[i] = -1
 	}
+	var supplied []int
+	if len(override) > 0 {
+		supplied = override[0]
+	}
+	if supplied != nil && len(supplied) != len(owners) {
+		return nil, ErrChunk
+	}
 	scoped := make([]bool, len(document.Sectors))
 	for solid, item := range document.StaticSolids.Items {
-		for sector, room := range document.Sectors {
-			if overlaps(item, room) {
-				owners[solid] = sector
-				break
+		if supplied != nil {
+			sector := supplied[solid]
+			if sector < 0 || sector >= len(document.Sectors) || !overlaps(item, document.Sectors[sector]) {
+				return nil, ErrChunk
+			}
+			owners[solid] = sector
+		} else {
+			for sector, room := range document.Sectors {
+				if overlaps(item, room) {
+					owners[solid] = sector
+					break
+				}
 			}
 		}
 		if owners[solid] < 0 {

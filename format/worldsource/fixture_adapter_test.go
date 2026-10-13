@@ -53,6 +53,14 @@ func TestAuthoringYAMLVocabularySurvivesRuntimeTagRemoval(t *testing.T) {
 		{reflect.TypeFor[worldsource.AmbientCube](), "NegativeZ", "negative_z"},
 		{reflect.TypeFor[worldsource.UVSettings](), "RotationDegrees", "rotation_degrees,omitempty"},
 		{reflect.TypeFor[worldsource.Environment](), "TimeOfDay", "time_of_day,omitempty"},
+		{reflect.TypeFor[worldsource.Environment](), "Sky", "sky,omitempty"},
+		{reflect.TypeFor[worldsource.Sky](), "CloudSparse", "cloud_sparse,omitempty"},
+		{reflect.TypeFor[worldsource.Sky](), "CloudDense", "cloud_dense,omitempty"},
+		{reflect.TypeFor[worldsource.Sky](), "Background", "background,omitempty"},
+		{reflect.TypeFor[worldsource.Sky](), "Horizon", "horizon,omitempty"},
+		{reflect.TypeFor[worldsource.Sky](), "Settings", "settings,omitempty"},
+		{reflect.TypeFor[worldsource.SkySettings](), "HorizonHaze", "horizon_haze,omitempty"},
+		{reflect.TypeFor[worldsource.SkySettings](), "HorizonUVScale", "horizon_uv_scale,omitempty"},
 	} {
 		f, ok := field.typ.FieldByName(field.name)
 		if !ok || f.Tag.Get("yaml") != field.tag {

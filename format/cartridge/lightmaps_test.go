@@ -47,3 +47,19 @@ func TestPrebakedLightmapsRequiredFeatures(t *testing.T) {
 		}
 	}
 }
+
+func TestEnvironmentVariantsRequiredFeatures(t *testing.T) {
+	features := []string{cartridge.FeatureWorldSectorsV1, cartridge.FeatureWorldEnvironmentV1, cartridge.FeatureWorldChunksV1,
+		cartridge.FeatureWorldLightmapsV1, cartridge.FeatureWorldLightmapsEnvironmentVariantsV1}
+	slices.Sort(features)
+	manifest := cartridge.Manifest{ProjectName: "environment", Compiler: "tinygo", Width: 640, Height: 360, Features: features}
+	if _, err := cartridge.EncodeManifest(manifest); err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{cartridge.FeatureWorldSectorsV1, cartridge.FeatureWorldEnvironmentV1, cartridge.FeatureWorldChunksV1, cartridge.FeatureWorldLightmapsV1} {
+		manifest.Features = slices.DeleteFunc(slices.Clone(features), func(feature string) bool { return feature == required })
+		if _, err := cartridge.EncodeManifest(manifest); err == nil {
+			t.Fatalf("missing dependency %s accepted", required)
+		}
+	}
+}

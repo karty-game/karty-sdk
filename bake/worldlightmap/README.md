@@ -41,7 +41,7 @@ and covered black samples retain nonzero alpha. Runtime recipe validation
 restricts the bake to one ordinary reciprocal physical component. Transformed
 portal transport is not supported.
 
-Candidate environment worlds use the same point-light-only producer. Sky
+The original `Bake` entry point uses the same point-light-only producer in environment worlds. Sky
 ceilings, horizon boundaries and outdoor upper seams contain no polygons, so
 they neither cast shadows nor require albedo images. Escaped transport rays
 receive zero incoming radiance: this producer does not bake directional sun,
@@ -50,6 +50,41 @@ Changing presets has no effect on bake pixels, although the canonical offline
 surface snapshot conservatively retains the environment for artifact identity.
 Sun selection in a point-light recipe is rejected; transformed-portal and
 ordinary physical-component restrictions remain unchanged.
+
+## Environment producer decision, version 1
+
+Candidate SDK 0.0.12 adds the separate `BakeEnvironment(ctx, document, layout,
+materials, settings, options)` producer `cpu-environment-rnm3@1`. It leaves the
+point-light producer and its pixel fixtures unchanged. The input layout has no
+point-light recipe; every authored time/weather variant shares its exact chart
+coordinates. `EnvironmentInputDigest` binds those coordinates, complete static
+transport, used original albedo, time/weather and deterministic sampling.
+
+This producer bakes static directional sun and sky diffuse through actual
+openings. Opaque geometry casts hard sun shadows. Hemisphere rays that escape
+the ordinary physical component receive the resolved directional sky fill;
+blocked rays receive no invented ambient term. Optional diffuse bounces use
+the existing albedo, RNM, deterministic path sampling and indirect denoiser.
+The cloud amount scales sun diffuse by `1-cloud_amount`, so clear and overcast
+endpoint maps can supply continuous weather by blending decoded linear RNM
+coefficients. RGBM bytes themselves must never be interpolated directly.
+
+Closed rooms stay covered black unless light enters an opening and reflects.
+Translucent liquid materials (`opacity < 1`), including static window glass,
+neither block opaque visibility nor receive opaque RNM pixels. This initial
+producer treats their transmitted lighting as unobstructed; it does not model
+glass tint, refraction or partial absorption. Point lights, authored ambient,
+actors and specular remain runtime contributions. A matching renderer must
+suppress live sun/sky diffuse on covered static surfaces to avoid adding it
+twice, while retaining the runtime terms.
+
+The existing page, sample, bounce, worker and material bounds remain in force.
+Environment rays must be unbounded (`MaxRayDistance = 0`): an artificial cutoff
+cannot prove that a ray escaped to the sky. Receiver selections retain complete
+ordinary physical-component geometry as transport context; transformed spaces
+cannot share one environment bake. A 1024 RNM map still occupies 12 MiB decoded,
+so consumer caches must budget maps explicitly rather than retain every clock
+and weather combination.
 
 Primary direct lighting retains the current squared Half-Lambert RNM contract
 and squared falloff in normalized squared distance. Bounced transport instead

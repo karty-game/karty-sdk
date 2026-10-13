@@ -50,6 +50,11 @@ func Bake(
 	materials []Material,
 	options Options,
 ) (Result, error) {
+	return bake(ctx, document, layout, materials, options, nil)
+}
+
+func bake(ctx context.Context, document world.Document, layout worldlightmap.Layout,
+	materials []Material, options Options, environment *world.ResolvedEnvironment) (Result, error) {
 	start := time.Now()
 	if ctx == nil {
 		return Result{}, fmt.Errorf("nil bake context")
@@ -57,15 +62,26 @@ func Bake(
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	inputs, err := prepareBakeInputs(ctx, document, layout, materials, options)
+	var inputs bakeInputs
+	var err error
+	if environment == nil {
+		inputs, err = prepareBakeInputs(ctx, document, layout, materials, options)
+	} else {
+		inputs, err = prepareEnvironmentInputs(ctx, document, layout, materials, options, *environment)
+	}
 	if err != nil {
 		return Result{}, err
 	}
 	options = inputs.options
 	rangeValue, images, surfaces := inputs.rangeValue, inputs.images, inputs.surfaces
 	digest, lightIDs := inputs.reflectance, inputs.lightIDs
-	s := scene{surfaces: surfaces, materials: make([]reflectance, len(surfaces)), maxRayDistance: options.MaxRayDistance}
-	if options.Bounces > 0 {
+	s := scene{
+		surfaces:       surfaces,
+		materials:      make([]reflectance, len(surfaces)),
+		maxRayDistance: options.MaxRayDistance,
+		environment:    environment,
+	}
+	if options.Bounces > 0 || environment != nil {
 		s.samples = initialSamples(options.Samples)
 		s.surfaceFrames = make([]sampleFrame, len(surfaces))
 		for i, surface := range surfaces {
@@ -76,9 +92,11 @@ func Bake(
 			s.chartFrames[i] = newSampleFrame(chart.Normal)
 		}
 	}
-	sources := make(map[string]world.PointLight, len(document.Lighting.Lights))
-	for _, light := range document.Lighting.Lights {
-		sources[light.ID] = light
+	sources := make(map[string]world.PointLight)
+	if document.Lighting != nil {
+		for _, light := range document.Lighting.Lights {
+			sources[light.ID] = light
+		}
 	}
 	for _, id := range lightIDs {
 		light := sources[id]
@@ -136,7 +154,7 @@ func Bake(
 			}
 		}
 	}
-	filtering := options.Bounces > 0 && options.Denoise != "" && options.Denoise != "off"
+	filtering := (options.Bounces > 0 || environment != nil) && options.Denoise != "" && options.Denoise != "off"
 	var lighting [][]filterPixel
 	if filtering {
 		lighting = make([][]filterPixel, len(grids))
@@ -185,7 +203,7 @@ func Bake(
 						}
 						continue
 					}
-					if options.Bounces > 0 {
+					if options.Bounces > 0 || environment != nil {
 						s.indirect(ctx, r.position, chart, s.chartFrames[row.chart], index, options, c, &coeff)
 					}
 					for basis := range 3 {

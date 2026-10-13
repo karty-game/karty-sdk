@@ -29,39 +29,40 @@ type generator struct {
 }
 
 var limits = map[string]int{
-	"worldparticles.Document.Presets":         64,
-	"worldparticles.Document.Emitters":        256,
-	"worldparticles.Emission.Bursts":          16,
-	"worldparticles.Sprite.Frames":            16,
-	"worldparticles.Preset.SizeOverLife":      4,
-	"worldparticles.Preset.ColorOverLife":     4,
-	"world.Document.Sectors":                  256,
-	"world.Document.Contents":                 4096,
-	"world.Sector.Walls":                      256,
-	"world.Actor.Tags":                        8,
-	"world.Lighting.Lights":                   4096,
-	"world.SolidRenderers.Prefabs":            64,
-	"world.SolidRenderers.Actors":             4096,
-	"world.SolidPrefab.Solids":                1024,
-	"world.StaticSolids.Items":                1024,
-	"world.Solid.Footprint":                   64,
-	"world.Wall.FrameRegions":                 252,
-	"world.WallFrameRegion.Vertices":          4,
-	"world.SurfaceUV.Projections":             3,
-	"world.SurfaceUV.Weights":                 3,
-	"world.Animations.Presets":                64,
-	"world.Animations.Materials":              196,
-	"world.AnimationPreset.Frames":            64,
-	"world.Emission.Materials":                196,
-	"world.MaterialEmission.Lights":           50,
-	"worldlightmap.Layout.Pages":              1,
-	"worldlightmap.Layout.Charts":             8192,
-	"worldlightmap.Layout.Bindings":           76288,
-	"worldlightmap.RuntimeBake.LightIDs":      4096,
-	"worldlightmap.ReceiverSelection.Sectors": 256,
-	"worldlightmap.ReceiverSelection.Solids":  1024,
-	"worldmaterial.Layout.Materials":          196,
-	"worldmaterial.Layout.Mips":               8,
+	"worldparticles.Document.Presets":            64,
+	"worldparticles.Document.Emitters":           256,
+	"worldparticles.Emission.Bursts":             16,
+	"worldparticles.Sprite.Frames":               16,
+	"worldparticles.Preset.SizeOverLife":         4,
+	"worldparticles.Preset.ColorOverLife":        4,
+	"world.Document.Sectors":                     256,
+	"world.Document.Contents":                    4096,
+	"world.Sector.Walls":                         256,
+	"world.Actor.Tags":                           8,
+	"world.Lighting.Lights":                      4096,
+	"world.SolidRenderers.Prefabs":               64,
+	"world.SolidRenderers.Actors":                4096,
+	"world.SolidPrefab.Solids":                   1024,
+	"world.StaticSolids.Items":                   1024,
+	"world.Solid.Footprint":                      64,
+	"world.Wall.FrameRegions":                    252,
+	"world.WallFrameRegion.Vertices":             4,
+	"world.SurfaceUV.Projections":                3,
+	"world.SurfaceUV.Weights":                    3,
+	"world.Animations.Presets":                   64,
+	"world.Animations.Materials":                 196,
+	"world.AnimationPreset.Frames":               64,
+	"world.Emission.Materials":                   196,
+	"world.MaterialEmission.Lights":              50,
+	"worldlightmap.Layout.Pages":                 1,
+	"worldlightmap.Layout.Charts":                8192,
+	"worldlightmap.Layout.Bindings":              76288,
+	"worldlightmap.RuntimeBake.LightIDs":         4096,
+	"worldlightmap.ReceiverSelection.Sectors":    256,
+	"worldlightmap.ReceiverSelection.Solids":     1024,
+	"worldlightmap.EnvironmentVariants.Variants": 32,
+	"worldmaterial.Layout.Materials":             196,
+	"worldmaterial.Layout.Mips":                  8,
 }
 
 func main() {
@@ -96,7 +97,7 @@ func generate(root string) {
 	for _, config := range []struct {
 		pkg   string
 		roots []string
-	}{{"world", []string{"Document", "SolidRenderers"}}, {"worldlightmap", []string{"Layout", "PrebakeManifest", "world.Vec2", "world.Plane", "world.PointLight"}}, {"worldmaterial", []string{"Layout"}}, {"worldparticles", []string{"Document"}}} {
+	}{{"world", []string{"Document", "SolidRenderers"}}, {"worldlightmap", []string{"Layout", "PrebakeManifest", "EnvironmentVariants", "world.Vec2", "world.Plane", "world.PointLight"}}, {"worldmaterial", []string{"Layout"}}, {"worldparticles", []string{"Document"}}} {
 		g.current = config.pkg
 		g.needed = make(map[string]bool)
 		for _, root := range config.roots {

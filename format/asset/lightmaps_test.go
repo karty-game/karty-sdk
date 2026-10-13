@@ -30,3 +30,17 @@ func TestPrebakedLightmapsCapabilityVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestEnvironmentVariantsCapabilityVersion(t *testing.T) {
+	if err := (asset.Capabilities{Runtime: []asset.Capability{asset.CapabilityWorldLightmapsEnvironmentVariantsV1}}).Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, capabilities := range []asset.Capabilities{
+		{Runtime: []asset.Capability{"world/lightmaps-environment-variants@2"}},
+		{Runtime: []asset.Capability{asset.CapabilityWorldLightmapsEnvironmentVariantsV1, asset.CapabilityWorldLightmapsEnvironmentVariantsV1}},
+	} {
+		if capabilities.Validate() == nil {
+			t.Fatal("unsupported environment variants capability accepted")
+		}
+	}
+}

@@ -71,6 +71,25 @@ and do not add catalog, child or runtime fields. They affect mesh ownership, whi
 visibility candidates and lighting transport still follow the complete topology
 and physical component across authored-area boundaries.
 
+Candidate SDK 0.0.12 adds `Options.CompactLightmaps`, an optional build policy
+used by environment variant cartridges. After ordinary greedy planning, it
+tries exact page merges of complete receiver groups within one ordinary physical
+component, ordered by occupied chart area. Each accepted merge retains the
+sector, decoded/encoded mesh, page, texel and complete mesh-validation bounds;
+the total decoded lightmap reservation cannot increase. Authored sector groups
+remain boundaries. Resulting sector/chunk indexes and visibility candidates are
+rebuilt deterministically. The default planner produces the same output.
+
+The candidate accepts nonadjacent receiver sectors connected through intervening
+ordinary sectors assigned to other chunks. Both mesh and catalog validators
+traverse the complete physical component with buffers bounded by the validated
+world sector count. Every selected sector must belong to that component;
+transformed portals and disconnected spaces remain rejected. This widens
+receiver-group validation without changing wire fields. Produced environment
+cartridges require `world/lightmaps-environment-variants@1`, so older hosts
+reject the unsupported feature before mounting these resources. See the CLI's
+versioned environment-lightmap-variants-v1 decision for this producer policy.
+
 Candidate sets are **directed graph reachability**, including transformed links.
 They are a conservative worst-case visibility superset, not geometric portal
 PVS pruning. A connected map's candidate set can include every chunk, but it is
@@ -268,3 +287,21 @@ roots without the entry remain valid with the shadow path disabled. A proxy
 does not extend shadow topology support: transformed/directed portal spaces
 and multiple ordinary components still need a separately versioned shadow
 contract.
+
+### Optional solid receiver ownership, version 1
+
+Candidate SDK 0.0.12 adds build-only `Options.SolidOwners`. Nil retains the
+existing first-overlap policy. An explicit list must contain one valid sector
+index per static solid; each chosen sector must conservatively intersect that
+solid in XY and belong to its unambiguous ordinary physical component. Missing,
+out-of-range, nonintersecting and ambiguous assignments fail before planning.
+Geometry, density, page limits and chunk wire formats remain unchanged.
+
+`BalancedSolidOwners(document, lightmapOptions)` supplies an optional
+deterministic policy for buildings with several overlapping roofs, cornices and
+decorations. It considers largest receiver chart sets first, then tries exact
+packing into eligible sectors ordered by occupied texels. Every single-sector
+layout must fit the requested page; inability to place a solid is an explicit
+page-capacity error. It never lowers density or moves geometry. The CLI enables
+this policy for environment lightmap variants so large decorative structures
+do not all consume the first observation sector's receiver page.

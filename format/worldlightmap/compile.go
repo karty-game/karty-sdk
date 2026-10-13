@@ -170,6 +170,12 @@ func compileReceivers(document world.Document, options Options, selection *Recei
 			if !ordinaryPortal(&document, i, edge, wall) {
 				continue
 			}
+			if options.CapsWithinSourceRoom {
+				target := document.Sectors[wall.Portal]
+				if sector.SourceRoom != target.SourceRoom || sector.Instance != target.Instance {
+					continue
+				}
+			}
 			for cap := range 2 {
 				a, b := sectorCaps[i][cap], sectorCaps[wall.Portal][cap]
 				if samePlane(surfaces[a], surfaces[b]) {
@@ -249,6 +255,7 @@ func samePlane(a, b Surface) bool {
 type chartBounds struct {
 	minimum       [2]float64
 	density       [2]float64
+	span          [2]float64
 	width, height int
 }
 type shelf struct{ x, y, height int }
@@ -277,7 +284,7 @@ func pack(layout *Layout, points [][]world.Vec3, options Options) error {
 			height+float64(options.Padding*2) > float64(options.PageSize) {
 			return fmt.Errorf("chart %d is oversized; change density or split surface: %w: %w", i, ErrPageCapacity, ErrLayout)
 		}
-		bounds[i] = chartBounds{minimum, density, int(width), int(height)}
+		bounds[i] = chartBounds{minimum, density, span, int(width), int(height)}
 		order[i] = i
 	}
 	slices.SortFunc(order, func(a, b int) int {
@@ -289,12 +296,34 @@ func pack(layout *Layout, points [][]world.Vec3, options Options) error {
 		}
 		return a - b
 	})
+	var compactPositions []packingPosition
+	if options.CompactPacking {
+		var err error
+		compactPositions, err = packCompactRects(bounds, order, options)
+		if err != nil {
+			return err
+		}
+	}
 	rows := make([]shelf, 0)
 	for _, i := range order {
 		bound := bounds[i]
+		if compactPositions != nil && compactPositions[i].rotated {
+			chart := &layout.Charts[i]
+			tangent, bitangent := chart.Tangent, chart.Bitangent
+			chart.Tangent, chart.Bitangent = bitangent, scale(tangent, -1)
+			bound.minimum = [2]float64{bound.minimum[1], -bound.minimum[0] - bound.span[0]}
+			bound.density = [2]float64{bound.density[1], bound.density[0]}
+			bound.width, bound.height = bound.height, bound.width
+		}
 		width, height := bound.width+2*options.Padding, bound.height+2*options.Padding
 		x, y, placed := 0, 0, false
+		if compactPositions != nil {
+			x, y, placed = compactPositions[i].x, compactPositions[i].y, true
+		}
 		for j, row := range rows {
+			if placed {
+				break
+			}
 			if height <= row.height && row.x+width <= options.PageSize {
 				x, y, placed = row.x, row.y, true
 				rows[j].x += width

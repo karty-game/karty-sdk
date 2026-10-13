@@ -533,20 +533,27 @@ func connected(document *world.Document, sectors []int) bool {
 	if len(sectors) == 0 {
 		return false
 	}
-	seen := make(map[int]bool, len(sectors))
+	// A receiver page may hold nonadjacent sectors whose intervening ordinary
+	// sectors belong to another page. Its selected sectors must still share the
+	// same complete physical component; transformed links never join it.
+	seen := make([]bool, len(document.Sectors))
 	seen[sectors[0]] = true
-	queue := []int{sectors[0]}
+	queue := make([]int, 1, len(document.Sectors))
+	queue[0] = sectors[0]
 	for next := 0; next < len(queue); next++ {
 		sector := queue[next]
 		for edge, wall := range document.Sectors[sector].Walls {
 			if wall.Portal < 0 || seen[int(wall.Portal)] || !ordinary(document, sector, edge) {
 				continue
 			}
-			if _, included := slices.BinarySearch(sectors, int(wall.Portal)); included {
-				seen[int(wall.Portal)] = true
-				queue = append(queue, int(wall.Portal))
-			}
+			seen[int(wall.Portal)] = true
+			queue = append(queue, int(wall.Portal))
 		}
 	}
-	return len(seen) == len(sectors)
+	for _, sector := range sectors {
+		if !seen[sector] {
+			return false
+		}
+	}
+	return true
 }

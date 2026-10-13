@@ -68,3 +68,25 @@ func FuzzDecodePrebake(f *testing.F) {
 		}
 	})
 }
+
+func FuzzDecodeEnvironmentVariants(f *testing.F) {
+	document, layout, catalog, image := environmentCatalogFixture(f)
+	encoded, err := EncodeEnvironmentVariants(catalog, layout, &document)
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(encoded, image)
+	f.Add(append(bytes.Clone(encoded), 0), image)
+	f.Add(encoded, []byte("qoif"))
+	f.Fuzz(func(t *testing.T, data, pixels []byte) {
+		actual, err := DecodeEnvironmentVariants(data, layout, &document)
+		if err != nil {
+			return
+		}
+		canonical, err := EncodeEnvironmentVariants(actual, layout, &document)
+		if err != nil || !bytes.Equal(data, canonical) {
+			t.Fatalf("round trip: %v", err)
+		}
+		_ = ValidateEnvironmentImage(actual.Variants[actual.Default], pixels, layout)
+	})
+}

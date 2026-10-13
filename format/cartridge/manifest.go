@@ -23,27 +23,29 @@ const (
 )
 
 const (
-	FeatureTextureQOIv1               = "texture/qoi@1"
-	FeatureSoundQOAv1                 = "sound/qoa@1"
-	FeatureAudioStreamQOAv1           = "audio-stream/qoa@1"
-	FeatureWorldParticlesV1           = "world/particles@1"
-	FeatureWorldParticlesV2           = "world/particles@2"
-	FeatureWorldAnimationsV1          = "world/animations@1"
-	FeatureWorldEmissionV1            = "world/emission@1"
-	FeatureWorldEnvironmentV1         = "world/environment@1"
-	FeatureWorldEnvironmentBackdropV1 = "world/environment-backdrop@1"
-	FeatureWorldSectorsV1             = "world/sectors@1"
-	FeatureWorldChunksV1              = "world/chunks@1"
-	FeatureWorldLightingV1            = "world/lighting@1"
-	FeatureWorldLightmapsV1           = "world/lightmaps@1"
-	FeatureWorldLightmapsPrebakedV1   = "world/lightmaps-prebaked@1"
-	FeatureWorldMaterialMappingV1     = "world/material-mapping@1"
-	FeatureWorldSolidRenderersV1      = "world/solid-renderers@1"
-	FeatureWorldStaticSolidsV1        = "world/static-solids@1"
-	FeatureWorldMaterialAtlasV1       = "world/material-atlas@1"
-	FeatureWorldMaterialAtlasV2       = "world/material-atlas@2"
-	FeatureWorldMaterialLayersV1      = "world/material-layers@1"
-	FeatureWorldMaterialReflectanceV1 = "world/material-reflectance@1"
+	FeatureTextureQOIv1                        = "texture/qoi@1"
+	FeatureSoundQOAv1                          = "sound/qoa@1"
+	FeatureAudioStreamQOAv1                    = "audio-stream/qoa@1"
+	FeatureWorldParticlesV1                    = "world/particles@1"
+	FeatureWorldParticlesV2                    = "world/particles@2"
+	FeatureWorldAnimationsV1                   = "world/animations@1"
+	FeatureWorldEmissionV1                     = "world/emission@1"
+	FeatureWorldEnvironmentV1                  = "world/environment@1"
+	FeatureWorldEnvironmentBackdropV1          = "world/environment-backdrop@1"
+	FeatureWorldSkyV1                          = "world/sky@1"
+	FeatureWorldSectorsV1                      = "world/sectors@1"
+	FeatureWorldChunksV1                       = "world/chunks@1"
+	FeatureWorldLightingV1                     = "world/lighting@1"
+	FeatureWorldLightmapsV1                    = "world/lightmaps@1"
+	FeatureWorldLightmapsPrebakedV1            = "world/lightmaps-prebaked@1"
+	FeatureWorldLightmapsEnvironmentVariantsV1 = "world/lightmaps-environment-variants@1"
+	FeatureWorldMaterialMappingV1              = "world/material-mapping@1"
+	FeatureWorldSolidRenderersV1               = "world/solid-renderers@1"
+	FeatureWorldStaticSolidsV1                 = "world/static-solids@1"
+	FeatureWorldMaterialAtlasV1                = "world/material-atlas@1"
+	FeatureWorldMaterialAtlasV2                = "world/material-atlas@2"
+	FeatureWorldMaterialLayersV1               = "world/material-layers@1"
+	FeatureWorldMaterialReflectanceV1          = "world/material-reflectance@1"
 )
 
 var ErrManifest = errors.New("game cartridge manifest is invalid")
@@ -314,6 +316,10 @@ func validManifestString(value string) bool {
 }
 
 func validManifestFeatures(features []string) bool {
+	if slices.Contains(features, FeatureWorldSkyV1) &&
+		(!slices.Contains(features, FeatureWorldEnvironmentV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
+		return false
+	}
 	if slices.Contains(features, FeatureWorldEnvironmentBackdropV1) &&
 		(!slices.Contains(features, FeatureWorldEnvironmentV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
 		return false
@@ -338,6 +344,11 @@ func validManifestFeatures(features []string) bool {
 			!slices.Contains(features, FeatureWorldSectorsV1)) {
 		return false
 	}
+	if slices.Contains(features, FeatureWorldLightmapsEnvironmentVariantsV1) &&
+		(!slices.Contains(features, FeatureWorldLightmapsV1) || !slices.Contains(features, FeatureWorldEnvironmentV1) ||
+			!slices.Contains(features, FeatureWorldChunksV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
+		return false
+	}
 	previous := ""
 	for _, feature := range features {
 		if !validManifestFeature(feature) || feature <= previous {
@@ -353,10 +364,10 @@ func validManifestFeature(feature string) bool {
 	switch feature {
 	case FeatureWorldSolidRenderersV1, FeatureWorldChunksV1, FeatureAudioStreamQOAv1, FeatureSoundQOAv1, FeatureTextureQOIv1,
 		FeatureVideoMPEG1v1, FeatureWorldMaterialReflectanceV1,
-		FeatureWorldSectorsV1, FeatureWorldLightingV1, FeatureWorldLightmapsV1, FeatureWorldLightmapsPrebakedV1,
+		FeatureWorldSectorsV1, FeatureWorldLightingV1, FeatureWorldLightmapsV1, FeatureWorldLightmapsPrebakedV1, FeatureWorldLightmapsEnvironmentVariantsV1,
 		FeatureWorldMaterialAtlasV1, FeatureWorldMaterialMappingV1, FeatureWorldStaticSolidsV1,
 		FeatureWorldMaterialAtlasV2, FeatureWorldMaterialLayersV1, FeatureWorldAnimationsV1,
-		FeatureWorldEmissionV1, FeatureWorldEnvironmentV1, FeatureWorldEnvironmentBackdropV1, FeatureWorldParticlesV1, FeatureWorldParticlesV2:
+		FeatureWorldEmissionV1, FeatureWorldEnvironmentV1, FeatureWorldEnvironmentBackdropV1, FeatureWorldSkyV1, FeatureWorldParticlesV1, FeatureWorldParticlesV2:
 		return true
 	default:
 		return false

@@ -11,6 +11,7 @@ This Go module builds independently of engine source and credentials.
 | [`format/actions`](format/actions/README.md)               | Candidate authored sequences, action literals and level-scoped actor references |
 | [`format/world`](format/world/README.md)                   | Canonical compiled convex-sector worlds, lighting, mapping and static solids    |
 | [`format/worldparticles`](format/worldparticles/README.md) | Bounded GPU sprite particle presets, schedules and emitter motion envelopes     |
+| [`format/worldsky`](format/worldsky/README.md)             | Project-owned sky textures and bounded presentation settings                    |
 | [`format/worldsource`](format/worldsource/README.md)       | Separately versioned room, prefab, port and content authoring semantics         |
 | [`format/worldmaterial`](format/worldmaterial/README.md)   | Material atlases, mip tails and strength controls                               |
 | [`format/worldlightmap`](format/worldlightmap/README.md)   | Static receiver charts, bake recipes and completed prebake formats              |
@@ -93,7 +94,7 @@ artifact tags (`sdk-vVERSION`) version downloadable SDK bundles and hosts
 independently. SDK 0.0.8 contracts are documented as available features, rather
 than unfinished proposals; capability declarations still govern host support.
 Compiled worlds support versions 1–3, and authoring documents support versions
-1–11. New optional features retain their explicit version gates and canonical
+1–12. New optional features retain their explicit version gates and canonical
 encoding rules. Incompatible formats or producer behavior need a versioned
 decision and compatibility coverage.
 

@@ -34,7 +34,7 @@ omitting new fields preserves older encodings. See the [compiled world
 contract](../world/README.md) for output validation and lighting bounds. Root
 lighting remains in global coordinates and is never transformed by a prefab.
 
-The unreleased SDK 0.0.11 candidate separates the 4,096 authored-source bound
+The SDK separates the 4,096 authored-source bound
 (`worldsource.MaxLights`) from the 50 live direct-light budget
 (`world.MaxRuntimeLights`). Offline build policy may automatically select every
 fixed light without a nonzero linked emission pulse; motion and pulsing sources
@@ -215,9 +215,8 @@ Horizontal bands follow visible solid-span floor and ceiling profiles with fixed
 vertical thickness. Opposing envelopes on a short span crop at a proportional
 boundary, retaining requested texture density. The builder compiles the complete
 nonoverlapping wall partition, mappings, material IDs and coverage classes. There
-are no vertical-band or frame-sheet authoring fields. The source-v7 simplification
-revises the unreleased SDK 0.0.10 candidate; released source versions and compiled
-world/material-layer formats are unchanged. See the [compiled contract](../world/README.md).
+are no vertical-band or frame-sheet authoring fields. The source-v7 band
+vocabulary and compiled world/material-layer formats have separate version gates. See the [compiled contract](../world/README.md).
 
 ## Source v8 reusable animations
 
@@ -245,7 +244,7 @@ Compilation owns an independent copy of an explicit opacity value.
 
 ## GPU sprite particles, source version 10
 
-Candidate SDK 0.0.11 adds root `particles: {version: 1, presets: [...], emitters: [...]}`
+Source v10 adds root `particles: {version: 1, presets: [...], emitters: [...]}`
 and room/prefab `particle_emitters` arrays. Presets name level textures; emitter
 positions, yaw and uniform scale follow prefab transforms. Source v1–9 rejects
 particle fields, including explicit null. Optional fields should be omitted;

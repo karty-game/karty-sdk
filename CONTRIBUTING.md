@@ -21,12 +21,41 @@ mise run build
 
 `mise install` also installs the repository hk pre-commit hook. Formatting and
 lint use the same pinned hk configuration locally and in CI; see the
-[overview](README.md) for tool ownership and exclusions.
+[formatting and tooling](#formatting-and-tooling) below.
 
 This module builds independently of the private engine. Its two external Go
 dependencies are the pinned QOI and QOA codecs; retain their license notices.
 Public SDK/host release assets are produced by the engine workflow;
 you do not need engine access or signing credentials to contribute format fixes.
+
+## Formatting and tooling
+
+The shared checks in `hk.pkl` use golangci-lint for Go (including `govet`),
+yamllint for YAML, Taplo for TOML, and Prettier for YAML layout, JSON, Markdown
+and web files. Taplo validates syntax without downloading schemas.
+
+Use `mise run install-hooks` to reinstall the hook. It checks staged files and
+applies formatting fixes while preserving unstaged work. `fmt` applies all
+formatters through hk without staging; `check-fmt` reports differences without
+writing files. `lint` runs all format and lint checks; `check` also runs tests
+and build. Generated Go and `*.generated.*` snapshots, derived output, local
+contributor directories and binary fixtures are excluded from formatting.
+Authoring YAML fixtures retain their decoder input format; yamllint checks them.
+
+After changing typed world/lightmap/material declarations, regenerate their
+checked-in codecs with `mise exec -- go generate ./format/world`. Runtime
+formats use bounded typed binary; tests reject JSON/reflection imports in format
+and codec production code. Binary wire formats require rebuilding levels and
+bake caches created with older JSON formats.
+
+After changing `authoring/actions/schema.json`, regenerate consumer snapshots with
+their `mise run generate-action-contract` tasks; public SDK checks remain
+independent of private source.
+
+The pinned mise environment enables Go 1.27 portable SIMD for the offline
+baker. Direct Go builds importing that package require `GOEXPERIMENT=simd`;
+format-only imports are unaffected. `mise run test-simd-emulated` exercises Go's
+built-in fallback rather than a second production implementation.
 
 ## Compatibility
 
@@ -62,11 +91,21 @@ tests. The task rejects missing or renamed targets before starting exploration.
 To investigate a target further, run the corresponding `go test -fuzz`
 command through `mise exec` with a longer budget.
 
-The pinned Node tool runs Prettier and Go's Wasm tests through the official Go
-runner; runtime format/codec packages keep their Go-only dependencies.
+`test-race` and `test-32` run one package at a time to bound CPU contention.
+Dense baker producer compatibility fixtures run separately with the same
+nine-second timeout. Both race invocations retain race detection; native 386
+tests also exercise Go's SIMD fallback.
 
-Use `mise run bench` for fixed allocation and timing fixtures. Record the Go
-version, platform, CPU and exact command when comparing results. `B/op` measures
+`test-wasm` executes Go Wasm tests using the official runner and pinned Node,
+one package at a time to bound memory use. Its launcher passes a minimal
+environment to stay within Go's 8 KiB argument/environment limit, preserving
+temporary paths and the `GODEBUG` and `GOMAXPROCS` controls. It does not exercise
+browser graphics.
+
+Runtime format/codec packages keep their Go-only dependencies.
+
+Use `mise run bench` for fixed codec, material-atlas, connected-world and bake
+allocation and timing fixtures. Record the Go version, platform, CPU and exact command when comparing results. `B/op` measures
 total allocation per operation, not peak process memory. Encoding, actual WASM
 execution and browser graphics are separate checks; report only what ran.
 

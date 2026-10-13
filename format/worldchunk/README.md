@@ -117,6 +117,16 @@ padding and a host's GPU representation. Hosts must account for their upload
 representation separately.
 `LightmapBytes` is zero or exactly 3 times page width times page height times 4;
 RGBA16F GPU storage requires twice that image size in addition to CPU pixels.
+
+Candidate SDK 0.0.12 retains finite upper sky masks between outdoor portal
+sectors with different ceiling heights, matching the ordinary renderer. Both
+plain and compiled-frame upper spans carry `Sky=true` and `Chart=-1`; physical
+lower spans and indoor lintels remain opaque receivers. Complete mesh validation
+requires the sky-mask coverage and correct flags, rejecting missing or mistagged
+upper spans. These render masks remain absent from lightmap transport and shadow
+casters, so existing layout and condition pixels retain their identities. The
+CLI complete-chunk cache revision 3 invalidates earlier mesh containers; pixel
+cache identities and released manifests remain unchanged.
 Hosts reserve both before decoding, rather than estimating from compressed QOI.
 The mesh also binds materials and authored projections with `surface_sha256`,
 using the public offline surface digest independently of its topology digest.
@@ -305,3 +315,14 @@ layout must fit the requested page; inability to place a solid is an explicit
 page-capacity error. It never lowers density or moves geometry. The CLI enables
 this policy for environment lightmap variants so large decorative structures
 do not all consume the first observation sector's receiver page.
+
+Within this opt-in policy, narrow grounded solids then prefer the first
+exact-fitting overlapping sector in authored order. Eligibility uses geometry
+and the current receiver floor: longest XY extent at least 2 units and four
+times the shortest, shortest extent at most 0.6, height at most 1.25, top at most
+1 above that floor, and bottom reaching the floor or buried. IDs and material
+names have no effect. Other balanced owners remain unchanged. Complete owner
+validation still rejects disconnected or transformed physical membership; if
+the concentration cannot fit, the original balanced list is retained. This is
+a bounded candidate 0.0.12 build heuristic, without a wire or default `Plan`
+ownership change.

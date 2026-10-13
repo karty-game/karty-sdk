@@ -68,6 +68,10 @@ the existing albedo, RNM, deterministic path sampling and indirect denoiser.
 The cloud amount scales sun diffuse by `1-cloud_amount`, so clear and overcast
 endpoint maps can supply continuous weather by blending decoded linear RNM
 coefficients. RGBM bytes themselves must never be interpolated directly.
+The CLI defaults to clear-only time images (`weather_variants=false`). It calls
+this producer with cloud amount 0 once per authored clock; cloud cover then
+changes a renderer brightness multiplier while retaining the baked shadows.
+Paired weather baking is an explicit authoring opt-in.
 
 Closed rooms stay covered black unless light enters an opening and reflects.
 Translucent liquid materials (`opacity < 1`), including static window glass,

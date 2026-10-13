@@ -78,6 +78,13 @@ func FuzzDecodeEnvironmentVariants(f *testing.F) {
 	f.Add(encoded, image)
 	f.Add(append(bytes.Clone(encoded), 0), image)
 	f.Add(encoded, []byte("qoif"))
+	catalog.Variants = []EnvironmentVariant{catalog.Variants[0], catalog.Variants[2]}
+	catalog.Default = 1
+	timeOnly, err := EncodeEnvironmentVariants(catalog, layout, &document)
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(timeOnly, image)
 	f.Fuzz(func(t *testing.T, data, pixels []byte) {
 		actual, err := DecodeEnvironmentVariants(data, layout, &document)
 		if err != nil {

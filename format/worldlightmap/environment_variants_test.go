@@ -93,6 +93,67 @@ func TestEnvironmentCatalogRoundTripImageValidationAndSelection(t *testing.T) {
 	}
 }
 
+func TestTimeOnlyEnvironmentCatalogKeepsFourStatesAcrossCloudChanges(t *testing.T) {
+	t.Parallel()
+	document, layout, catalog, _ := environmentCatalogFixture(t)
+	base := catalog.Variants[0]
+	catalog.Variants = nil
+	catalog.Default = 2
+	for _, clock := range []float64{0, 9, 12, 17} {
+		variant := base
+		variant.TimeOfDay = clock
+		variant.RGBMRange, _ = EnvironmentRGBMRange(document.Environment, world.EnvironmentSettings{TimeOfDay: clock}, catalog.Bounces)
+		catalog.Variants = append(catalog.Variants, variant)
+	}
+	encoded, err := EncodeEnvironmentVariants(catalog, layout, &document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := DecodeEnvironmentVariants(encoded, layout, &document)
+	if err != nil || actual.Default != 2 || !slices.Equal(actual.Variants, catalog.Variants) {
+		t.Fatalf("time-only catalog roundtrip: %v", err)
+	}
+	for _, test := range []struct {
+		time  float64
+		index int
+	}{{0, 0}, {9, 1}, {12, 2}, {17, 3}, {23, 0}, {10.5, 1}} {
+		for _, cloud := range []float64{0, .35, .7, 1} {
+			first, second, blend, err := SelectEnvironmentVariants(
+				&actual,
+				world.EnvironmentSettings{TimeOfDay: test.time, CloudAmount: cloud},
+			)
+			if err != nil || first != test.index || second != first || blend != 0 {
+				t.Fatalf(
+					"cloud changed time-only map selection: clock=%g cloud=%g result=%d/%d/%g err=%v",
+					test.time, cloud, first, second, blend, err,
+				)
+			}
+		}
+	}
+	for _, length := range []int{1, 3} {
+		subset := catalog
+		subset.Variants, subset.Default = catalog.Variants[:length], 0
+		if _, err := EncodeEnvironmentVariants(subset, layout, &document); err != nil {
+			t.Fatalf("valid unpaired record count%d rejected: %v", length, err)
+		}
+	}
+	for _, mutate := range []func(*EnvironmentVariants){
+		func(c *EnvironmentVariants) { c.Variants[1].TimeOfDay = c.Variants[0].TimeOfDay },
+		func(c *EnvironmentVariants) { c.Variants[2].CloudAmount = 1 },
+		func(c *EnvironmentVariants) { c.Variants[2].CloudAmount = .35 },
+	} {
+		invalid := catalog
+		invalid.Variants = slices.Clone(catalog.Variants)
+		mutate(&invalid)
+		if _, err := EncodeEnvironmentVariants(invalid, layout, &document); err == nil {
+			t.Fatal("duplicate or mixed time-only/weather records accepted")
+		}
+		if _, _, _, err := SelectEnvironmentVariants(&invalid, world.EnvironmentSettings{TimeOfDay: 12}); err == nil {
+			t.Fatal("malformed records accepted by selector")
+		}
+	}
+}
+
 func TestEnvironmentCatalogRejectsStaleAndMalformedInputs(t *testing.T) {
 	t.Parallel()
 	document, layout, catalog, _ := environmentCatalogFixture(t)

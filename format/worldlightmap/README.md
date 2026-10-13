@@ -394,8 +394,11 @@ The new `KLV1` binary catalog at `EnvironmentVariantsEntryName` uses schema
 `karty.world-lightmap-environment-variants@1` and metadata marker
 `kartyWorldLightmapEnvironmentVariants`. Typed codecs are generated from the
 public declarations. A complete scan precedes record allocation. The catalog
-is bounded to 32 KiB and 32 endpoint records, ordered by increasing clock with
-clear (`CloudAmount == 0`) then overcast (`CloudAmount == 1`) for each clock.
+is bounded to 32 KiB and 32 endpoint records. Time-only catalogs contain one
+clear (`CloudAmount == 0`) record per distinct increasing clock, with 1–32
+clocks. Explicit weather catalogs retain increasing clear/overcast pairs
+(`CloudAmount == 0` then `1`) for 1–16 clocks. Mixed orders and duplicate clocks
+in time-only catalogs are rejected. The default record must be clear.
 It binds exact geometry, canonical chart layout, static surface/opacity and
 used reflectance digests, producer `cpu-environment-rnm3@1`, sampling controls
 and default record index. `EnvironmentSurfaceDigest` binds effective translucent
@@ -414,8 +417,12 @@ bytes to share downloads. `ValidateEnvironmentImage` checks length, hash,
 dimensions, colorspace and complete bounded QOI stream before pixel allocation.
 
 `SelectEnvironmentVariants` chooses the nearest authored clock by circular
-24-hour distance; ties choose the first authored clock. Weather interpolates
-the selected clear/overcast endpoints continuously. Decode RGBM to linear
+24-hour distance; ties choose the first authored clock. A time-only catalog
+returns the same index twice and zero blend for every valid cloud amount.
+Cloud cover can therefore use a cheap brightness multiplier without fetching,
+decoding, blending or baking another image, preserving the selected state's
+shadow pattern and direction. Explicit weather catalogs interpolate the
+selected clear/overcast endpoints continuously. Decode RGBM to linear
 coefficients before interpolation and re-encode the result if uploading one
 texture: interpolating encoded RGBA is incorrect. A consumer keeps the previous
 verified map while fetching the next conditions and rejects stale completions.

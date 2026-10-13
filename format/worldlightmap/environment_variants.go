@@ -148,8 +148,11 @@ func ValidateEnvironmentVariants(catalog *EnvironmentVariants, layout Layout, do
 	if catalog == nil || document == nil || document.Environment == nil || layout.RuntimeBake != nil || layout.Receivers == nil ||
 		catalog.Schema != EnvironmentVariantsSchema || catalog.Producer != EnvironmentPrebakeProducer ||
 		catalog.Samples < 1 || catalog.Samples > MaxOfflineSamples || catalog.Bounces < 0 || catalog.Bounces > MaxOfflineBounces ||
-		len(catalog.Variants) < 2 || len(catalog.Variants) > MaxEnvironmentVariants || len(catalog.Variants)%2 != 0 ||
+		len(catalog.Variants) == 0 || len(catalog.Variants) > MaxEnvironmentVariants ||
 		catalog.Default < 0 || catalog.Default >= len(catalog.Variants) || !validEnvironmentHash(catalog.ReflectanceSHA256) {
+		return ErrLayout
+	}
+	if _, err := environmentVariantStride(catalog); err != nil || catalog.Variants[catalog.Default].CloudAmount != 0 {
 		return ErrLayout
 	}
 	if err := Validate(&layout, document); err != nil {
@@ -170,11 +173,10 @@ func ValidateEnvironmentVariants(catalog *EnvironmentVariants, layout Layout, do
 		return fmt.Errorf("environment variant geometry, surface or chart identity: %w", ErrLayout)
 	}
 	decoded := uint64(layout.Pages[0].Width * layout.Pages[0].Height * 12)
-	for i, variant := range catalog.Variants {
+	for _, variant := range catalog.Variants {
 		if world.ValidateEnvironmentSettings(
 			world.EnvironmentSettings{TimeOfDay: variant.TimeOfDay, CloudAmount: variant.CloudAmount},
 		) != nil ||
-			variant.CloudAmount != float64(i%2) ||
 			!finite(variant.RGBMRange) ||
 			variant.RGBMRange < 1 ||
 			variant.RGBMRange > 256 ||
@@ -186,10 +188,6 @@ func ValidateEnvironmentVariants(catalog *EnvironmentVariants, layout Layout, do
 			variant.ImageSize > MaxPrebakeImageSize ||
 			variant.ImageSize >= variant.Size ||
 			variant.DecodedBytes != decoded {
-			return ErrLayout
-		}
-		if i%2 == 1 && variant.TimeOfDay != catalog.Variants[i-1].TimeOfDay ||
-			i%2 == 0 && i > 0 && variant.TimeOfDay <= catalog.Variants[i-2].TimeOfDay {
 			return ErrLayout
 		}
 		expectedRange, err := EnvironmentRGBMRange(
@@ -233,27 +231,61 @@ func validEnvironmentHash(value string) bool {
 	return true
 }
 
-// SelectEnvironmentVariants chooses one authored clock and its clear/overcast
-// endpoints. Clock distance wraps midnight. Ties retain the first authored time.
-// Continuous weather blends decoded linear RNM coefficients; time is discrete.
+// SelectEnvironmentVariants chooses one authored clock. Clear-only catalogs
+// return the same index twice and zero blend regardless of cloud amount; cloud
+// brightness remains a shader control and does not change the selected image.
+// Paired catalogs return clear/overcast indexes and a linear weather blend.
+// Clock distance wraps midnight. Ties retain the first authored time.
 func SelectEnvironmentVariants(catalog *EnvironmentVariants, settings world.EnvironmentSettings) (int, int, float64, error) {
-	if catalog == nil || len(catalog.Variants) < 2 || len(catalog.Variants) > MaxEnvironmentVariants || len(catalog.Variants)%2 != 0 ||
-		world.ValidateEnvironmentSettings(settings) != nil {
+	if world.ValidateEnvironmentSettings(settings) != nil {
 		return 0, 0, 0, ErrLayout
 	}
+	stride, err := environmentVariantStride(catalog)
+	if err != nil {
+		return 0, 0, 0, err
+	}
 	selected, distance := 0, math.Inf(1)
-	for i := 0; i < len(catalog.Variants); i += 2 {
-		clearSky, overcast := catalog.Variants[i], catalog.Variants[i+1]
-		if world.ValidateEnvironmentSettings(world.EnvironmentSettings{TimeOfDay: clearSky.TimeOfDay}) != nil ||
-			clearSky.CloudAmount != 0 || overcast.CloudAmount != 1 || overcast.TimeOfDay != clearSky.TimeOfDay ||
-			i > 0 && clearSky.TimeOfDay <= catalog.Variants[i-2].TimeOfDay {
-			return 0, 0, 0, ErrLayout
-		}
+	for i := 0; i < len(catalog.Variants); i += stride {
 		delta := math.Abs(settings.TimeOfDay - catalog.Variants[i].TimeOfDay)
 		delta = min(delta, 24-delta)
 		if delta < distance {
 			selected, distance = i, delta
 		}
 	}
+	if stride == 1 {
+		return selected, selected, 0, nil
+	}
 	return selected, selected + 1, settings.CloudAmount, nil
+}
+
+// Clear-only catalogs have one record per clock. Weather catalogs retain the
+// existing clear/overcast pairs. Mixed or ambiguous orders are never accepted.
+func environmentVariantStride(catalog *EnvironmentVariants) (int, error) {
+	if catalog == nil || len(catalog.Variants) == 0 || len(catalog.Variants) > MaxEnvironmentVariants {
+		return 0, ErrLayout
+	}
+	stride := 1
+	for _, variant := range catalog.Variants {
+		if variant.CloudAmount != 0 {
+			stride = 2
+		}
+	}
+	if len(catalog.Variants)%stride != 0 {
+		return 0, ErrLayout
+	}
+	for i := 0; i < len(catalog.Variants); i += stride {
+		clearSky := catalog.Variants[i]
+		clock := world.EnvironmentSettings{TimeOfDay: clearSky.TimeOfDay}
+		if clearSky.CloudAmount != 0 || world.ValidateEnvironmentSettings(clock) != nil ||
+			i > 0 && clearSky.TimeOfDay <= catalog.Variants[i-stride].TimeOfDay {
+			return 0, ErrLayout
+		}
+		if stride == 2 {
+			overcast := catalog.Variants[i+1]
+			if overcast.CloudAmount != 1 || overcast.TimeOfDay != clearSky.TimeOfDay {
+				return 0, ErrLayout
+			}
+		}
+	}
+	return stride, nil
 }

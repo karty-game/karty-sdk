@@ -204,6 +204,9 @@ func emitSurface(
 					}
 				}
 				frame := template
+				if upperSkyWallFrame(document, binding.Index, binding.Edge, polygon, false) {
+					frame.Sky, frame.Chart = true, -1
+				}
 				if region.Coverage != world.FrameCoverageMain {
 					frame.Band = Band{Material: region.Material, Coverage: 1, RepeatU: region.RepeatU, RepeatV: region.RepeatV}
 					if region.Coverage == world.FrameCoverageOpaque {
@@ -215,6 +218,13 @@ func emitSurface(
 				}
 			}
 			return nil
+		}
+		mask := template
+		mask.Sky, mask.Chart = true, -1
+		for _, polygon := range upperSkyWallPolygons(document, binding.Index, binding.Edge) {
+			if err := emitPolygon(mesh, document, layout, junctions, polygon, mask, mapping, secondary, nil); err != nil {
+				return err
+			}
 		}
 	}
 	for _, polygon := range polygons {

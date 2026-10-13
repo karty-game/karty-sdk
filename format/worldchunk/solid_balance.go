@@ -12,7 +12,9 @@ import (
 // BalancedSolidOwners is an opt-in build policy for decorative structures that
 // overlap several receiver sectors. Largest chart sets are placed first, then
 // assigned to the least occupied eligible sector whose exact receiver layout
-// fits. It never changes density, page limits, geometry or physical components.
+// fits. Narrow low solids grounded at the receiver floor then prefer the first
+// exact-fitting owner so perimeter details do not fragment adjacent pages.
+// It never changes density, page limits, geometry or physical components.
 // The returned complete list can be supplied as Options.SolidOwners. The
 // default Plan ownership remains unchanged.
 func BalancedSolidOwners(document world.Document, options worldlightmap.Options) ([]int, error) {
@@ -99,6 +101,10 @@ func BalancedSolidOwners(document world.Document, options worldlightmap.Options)
 				worldlightmap.ErrPageCapacity,
 			)
 		}
+	}
+	owners, err = groundedSolidOwners(document, options, owners)
+	if err != nil {
+		return nil, err
 	}
 	if _, err := solidOwners(&document, owners); err != nil {
 		return nil, err

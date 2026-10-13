@@ -33,6 +33,8 @@ func renderPolygons(document *world.Document, surface worldlightmap.Surface) [][
 			return [][]world.Vec3{{at(wall.Start, sector.Floor), at(wall.End, sector.Floor),
 				at(wall.End, sector.Ceiling), at(wall.Start, sector.Ceiling)}}
 		}
+		polygons := slices.Clone(surface.Polygons)
+		return append(polygons, upperSkyWallPolygons(document, binding.Index, binding.Edge)...)
 	}
 	return surface.Polygons
 }

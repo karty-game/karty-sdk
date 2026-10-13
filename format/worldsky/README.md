@@ -30,7 +30,7 @@ checks; contents are unspecified on failure.
 | Setting                    | Default     | Finite bound         | Meaning                                           |
 | -------------------------- | ----------- | -------------------- | ------------------------------------------------- |
 | `cloud_uv_scale`           | `[1, 1]`    | Each `(0, 4]`        | Panorama UV scale for both cloud images           |
-| `cloud_dense_scroll_scale` | `1`         | `[0, 4]`             | Dense cloud animation offset multiplier           |
+| `cloud_dense_scroll_scale` | `1`         | `[0, 4]`             | Dense cloud camera-parallax offset multiplier     |
 | `cloud_dense_offset`       | `[0, 0]`    | Each `[-1, 1]`       | Dense cloud UV offset                             |
 | `cloud_parallax`           | `[0, 0]`    | Each `[-0.01, 0.01]` | Cloud U offset per X/Y unit of camera movement    |
 | `horizon_uv_scale`         | `1`         | `(0, 4]`             | Vertical panorama UV scale for the horizon layer  |
@@ -40,7 +40,8 @@ checks; contents are unspecified on failure.
 
 Runtime camera delta clamps and cloud coverage blending remain bounded rendering
 logic. These settings customize authored images without changing illumination
-or requiring a host rebuild. Source v12 accepts partial setting overrides;
+or requiring a host rebuild. The current host has no elapsed-time cloud wind;
+cloud offsets change through camera parallax. Source v12 accepts partial setting overrides;
 `worldsource.Sky.ResolvedSettings` merges them onto `DefaultSettings` and produces
 the complete compiled record.
 

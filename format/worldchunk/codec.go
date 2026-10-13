@@ -196,7 +196,7 @@ func ValidateMesh(mesh *Mesh, document *world.Document) error {
 	liquids := displacedLiquidMaterials(document)
 	for i, t := range mesh.Triangles {
 		work.checkpoint(1024)
-		binding, err := triangleBinding(t, mesh, document)
+		binding, err := triangleBinding(t, mesh, document, mesh.Vertices[i*3:i*3+3])
 		if err != nil {
 			return fmt.Errorf("triangle %d: %w", i, err)
 		}
@@ -207,6 +207,7 @@ func ValidateMesh(mesh *Mesh, document *world.Document) error {
 		}
 		if t.Material != material || t.MappingCount != mappingCount || t.Chart < -1 || t.Chart >= worldlightmap.MaxCharts ||
 			!finiteTriangle(t) ||
+			t.Sky && t.Chart != -1 ||
 			math.Abs(dot(unpacked(t.Normal), unpacked(t.Normal))-1) > 1e-5 ||
 			t.Band.Coverage > 2 ||
 			t.Band.Coverage > 0 && t.Band.Material == 0 {
@@ -345,6 +346,9 @@ func ValidateMeshBinding(mesh *Mesh, layout *worldlightmap.Layout) error {
 		}
 		binding := worldlightmap.Binding{Kind: t.Surface, Index: index, Edge: t.SurfaceEdge, Chart: -1}
 		chart, found := bindings[binding]
+		if t.Sky {
+			chart = -1
+		}
 		if !found || chart != t.Chart {
 			return ErrChunk
 		}
@@ -367,7 +371,7 @@ func ValidateMeshBinding(mesh *Mesh, layout *worldlightmap.Layout) error {
 	return nil
 }
 
-func triangleBinding(t Triangle, mesh *Mesh, document *world.Document) (worldlightmap.Binding, error) {
+func triangleBinding(t Triangle, mesh *Mesh, document *world.Document, vertices []Vertex) (worldlightmap.Binding, error) {
 	b := worldlightmap.Binding{Kind: t.Surface, Edge: t.SurfaceEdge, Chart: -1}
 	if strings.HasPrefix(t.Surface, "sector-") {
 		if t.Solid != -1 {
@@ -388,7 +392,7 @@ func triangleBinding(t Triangle, mesh *Mesh, document *world.Document) (worldlig
 				return b, ErrChunk
 			}
 		case "sector-wall":
-			if t.SurfaceEdge < 0 || t.SurfaceEdge >= len(s.Walls) || t.Sky != s.Walls[t.SurfaceEdge].Sky {
+			if t.SurfaceEdge < 0 || t.SurfaceEdge >= len(s.Walls) || t.Sky != skyWallTriangle(document, t, vertices) {
 				return b, ErrChunk
 			}
 		default:

@@ -6,7 +6,7 @@ import (
 )
 
 // Free rectangles may overlap each other but never any placed chart. Explicit
-// bounds keep the two free-rectangle buffers within two MiB on64-bit targets.
+// bounds keep the two free-rectangle buffers within two MiB on 64-bit targets.
 const maxPackingFreeRects = MaxCharts * 4
 
 type packingPosition struct {

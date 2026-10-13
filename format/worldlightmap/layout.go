@@ -108,7 +108,7 @@ type Options struct {
 	// prefab-instance boundaries, while retaining efficient cap merging inside
 	// each room. It is optional build policy; canonical layouts remain unchanged.
 	CapsWithinSourceRoom bool
-	// CompactPacking uses bounded free-rectangle packing and optional90-degree
+	// CompactPacking uses bounded free-rectangle packing and optional 90-degree
 	// chart turns instead of default shelves. Density and limits are retained.
 	CompactPacking bool
 }

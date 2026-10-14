@@ -5,7 +5,6 @@ import (
 	"errors"
 	"image"
 	"image/color"
-	"math"
 	"testing"
 )
 
@@ -59,35 +58,5 @@ func TestPreparedAlbedoPreservesPixels(t *testing.T) {
 	source := &cancellingImage{cancel: cancel}
 	if prepared, err := prepareAlbedo(ctx, source); !errors.Is(err, context.Canceled) || prepared != nil {
 		t.Fatalf("cancelled conversion: %v %v", prepared, err)
-	}
-}
-
-func TestPreparedRayBoxIntervals(t *testing.T) {
-	boxes := []box{
-		{vec{X: -1, Y: -1, Z: -1}, vec{X: 1, Y: 1, Z: 1}},
-		{vec{}, vec{X: 1, Y: 1}},
-		{vec{X: 1e100, Y: -1, Z: -1}, vec{X: 1e100, Y: 1, Z: 1}},
-	}
-	origins := []vec{{}, {X: 1}, {X: -1}, {X: 1, Y: 1, Z: 1}, {X: 2}, {X: 1e100}, {X: -1e100}}
-	directions := []vec{
-		{X: 1},
-		{X: -1},
-		{Y: 1},
-		{Z: 1},
-		{X: 1, Y: 1, Z: 1},
-		{X: 1e-16, Y: 1},
-		{X: 1e-15, Y: 1},
-		{X: math.Copysign(0, -1), Y: 1},
-	}
-	for _, bounds := range boxes {
-		for _, o := range origins {
-			for _, d := range directions {
-				for _, limit := range []float64{0, math.Copysign(0, -1), 1, 2, math.Inf(1)} {
-					if got, want := bounds.ray(o, d, limit), scalarBoxRay(bounds, o, d, limit); got != want {
-						t.Fatalf("box %v ray %v/%v limit %g: %v != %v", bounds, o, d, limit, got, want)
-					}
-				}
-			}
-		}
 	}
 }

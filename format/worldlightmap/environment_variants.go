@@ -19,7 +19,7 @@ const (
 	EnvironmentVariantsMetadataKey = "kartyWorldLightmapEnvironmentVariants"
 	EnvironmentVariantMetadataKey  = "kartyWorldLightmapEnvironmentVariant"
 	EnvironmentVariantsFeature     = cartridge.FeatureWorldLightmapsEnvironmentVariantsV1
-	EnvironmentPrebakeProducer     = "cpu-environment-rnm3@1"
+	EnvironmentPrebakeProducer     = "cpu-environment-rnm3@2"
 	MaxEnvironmentVariants         = 32
 	MaxEnvironmentCatalogSize      = 32 * 1024
 )
@@ -146,7 +146,7 @@ func DecodeEnvironmentVariants(encoded []byte, layout Layout, document *world.Do
 
 func ValidateEnvironmentVariants(catalog *EnvironmentVariants, layout Layout, document *world.Document) error {
 	if catalog == nil || document == nil || document.Environment == nil || layout.RuntimeBake != nil || layout.Receivers == nil ||
-		catalog.Schema != EnvironmentVariantsSchema || catalog.Producer != EnvironmentPrebakeProducer ||
+		catalog.Schema != EnvironmentVariantsSchema || !environmentProducer(catalog.Producer) ||
 		catalog.Samples < 1 || catalog.Samples > MaxOfflineSamples || catalog.Bounces < 0 || catalog.Bounces > MaxOfflineBounces ||
 		len(catalog.Variants) == 0 || len(catalog.Variants) > MaxEnvironmentVariants ||
 		catalog.Default < 0 || catalog.Default >= len(catalog.Variants) || !validEnvironmentHash(catalog.ReflectanceSHA256) {
@@ -288,4 +288,9 @@ func environmentVariantStride(catalog *EnvironmentVariants) (int, error) {
 		}
 	}
 	return stride, nil
+}
+
+// Old completed artifacts remain readable; baking emits only the current producer.
+func environmentProducer(producer string) bool {
+	return producer == EnvironmentPrebakeProducer || producer == "cpu-environment-rnm3@1"
 }

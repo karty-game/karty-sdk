@@ -29,15 +29,10 @@ func prepareBakeInputs(
 	materials []Material,
 	options Options,
 ) (bakeInputs, error) {
-	if options.Samples == 0 {
-		options.Samples = 16
-	}
-	if options.Workers == 0 {
-		options.Workers = min(64, runtime.GOMAXPROCS(0))
-	}
-	if options.Samples < 1 || options.Samples > worldlightmap.MaxOfflineSamples || options.Workers < 1 || options.Workers > 64 ||
-		options.Bounces < 0 || options.Bounces > worldlightmap.MaxOfflineBounces {
-		return bakeInputs{}, fmt.Errorf("offline bake requires samples 1..256, workers 1..64 and bounces 0..4")
+	var err error
+	options, err = normalizeOptions(options)
+	if err != nil {
+		return bakeInputs{}, err
 	}
 	if _, err := worldlightmap.OfflineProducer(options.Denoise, options.MaxRayDistance); err != nil {
 		return bakeInputs{}, err
@@ -68,24 +63,45 @@ func prepareBakeInputs(
 		if scopeErr != nil {
 			return bakeInputs{}, scopeErr
 		}
-		for i := range surfaces {
-			binding := surfaces[i].Binding
-			included := false
-			if binding.Kind == "sector-floor" || binding.Kind == "sector-ceiling" || binding.Kind == "sector-wall" {
-				included = sectors[binding.Index]
-			} else {
-				included = solids[binding.Index]
-			}
-			if !included {
-				surfaces[i].Polygons = nil
-			}
-		}
+		applyReceiverScope(surfaces, sectors, solids)
 	}
 	digest, err := reflectanceDigest(ctx, &document, surfaces, images)
 	if err != nil {
 		return bakeInputs{}, err
 	}
-	return bakeInputs{options, rangeValue, images, surfaces, lightIDs, digest}, nil
+	return bakeInputs{options: options, rangeValue: rangeValue, images: images,
+		surfaces: surfaces, lightIDs: lightIDs, reflectance: digest}, nil
+}
+
+// Both producers use the same work defaults and bounds. Transport and denoise
+// validation remain producer-specific and run before geometry preparation.
+func normalizeOptions(options Options) (Options, error) {
+	if options.Samples == 0 {
+		options.Samples = 16
+	}
+	if options.Workers == 0 {
+		options.Workers = min(64, runtime.GOMAXPROCS(0))
+	}
+	if options.Samples < 1 || options.Samples > worldlightmap.MaxOfflineSamples || options.Workers < 1 || options.Workers > 64 ||
+		options.Bounces < 0 || options.Bounces > worldlightmap.MaxOfflineBounces {
+		return options, fmt.Errorf("offline bake requires samples 1..256, workers 1..64 and bounces 0..4")
+	}
+	return options, nil
+}
+
+func applyReceiverScope(surfaces []worldlightmap.Surface, sectors, solids []bool) {
+	for i := range surfaces {
+		binding := surfaces[i].Binding
+		included := false
+		if binding.Kind == "sector-floor" || binding.Kind == "sector-ceiling" || binding.Kind == "sector-wall" {
+			included = sectors[binding.Index]
+		} else {
+			included = solids[binding.Index]
+		}
+		if !included {
+			surfaces[i].Polygons = nil
+		}
+	}
 }
 
 func applyInfluenceScope(surfaces []worldlightmap.Surface, scope worldlightmap.InfluenceScope) {

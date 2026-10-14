@@ -12,8 +12,8 @@ import (
 
 const (
 	OfflinePrebakeAlgorithm       = 2
-	OfflinePrebakeProducer        = "cpu-rnm3-pathtrace@2"
-	BoundedOfflinePrebakeProducer = "cpu-rnm3-pathtrace@3"
+	OfflinePrebakeProducer        = "cpu-rnm3-pathtrace@4"
+	BoundedOfflinePrebakeProducer = "cpu-rnm3-pathtrace@5"
 	LegacyOfflinePrebakeProducer  = "cpu-rnm3-pathtrace@1"
 	MaxOfflineSamples             = 256
 	MaxOfflineBounces             = 4
@@ -29,11 +29,11 @@ type OfflineBakeInputs struct {
 	ReflectanceSHA256 string
 	RGBMRange         float64
 	Denoise           string  // empty/off, low or medium; encoded in the producer identity
-	MaxRayDistance    float64 // zero is unbounded; positive selects producer revision 3
+	MaxRayDistance    float64 // zero is unbounded; positive selects producer revision 5
 }
 
 // OfflineProducer selects a separately versioned bounded producer only for a
-// finite positive ray limit. Zero preserves the unbounded revision-2 producer.
+// finite positive ray limit. Zero selects the unbounded revision-4 producer.
 func OfflineProducer(mode string, maxRayDistance float64) (string, error) {
 	producer, err := OfflineDenoiseProducer(mode)
 	if err != nil || !validMaxRayDistance(maxRayDistance) {
@@ -45,12 +45,17 @@ func OfflineProducer(mode string, maxRayDistance float64) (string, error) {
 	if mode == "" || mode == "off" {
 		return BoundedOfflinePrebakeProducer, nil
 	}
-	return "cpu-rnm3-pathtrace-atrous-" + mode + "@3", nil
+	return "cpu-rnm3-pathtrace-atrous-" + mode + "@5", nil
 }
 
 func boundedOfflineProducer(producer string) bool {
-	return producer == BoundedOfflinePrebakeProducer || producer == "cpu-rnm3-pathtrace-atrous-low@3" ||
-		producer == "cpu-rnm3-pathtrace-atrous-medium@3"
+	switch producer {
+	case "cpu-rnm3-pathtrace@3", "cpu-rnm3-pathtrace-atrous-low@3", "cpu-rnm3-pathtrace-atrous-medium@3",
+		BoundedOfflinePrebakeProducer, "cpu-rnm3-pathtrace-atrous-low@5", "cpu-rnm3-pathtrace-atrous-medium@5":
+		return true
+	default:
+		return false
+	}
 }
 
 func validMaxRayDistance(distance float64) bool {
@@ -58,13 +63,13 @@ func validMaxRayDistance(distance float64) bool {
 }
 
 // OfflineDenoiseProducer versions the complete filter, including its preset.
-// Empty and off select the same revision-2 producer and manifest identity.
+// Empty and off select the same revision-4 producer and manifest identity.
 func OfflineDenoiseProducer(mode string) (string, error) {
 	switch mode {
 	case "", "off":
 		return OfflinePrebakeProducer, nil
 	case "low", "medium":
-		return "cpu-rnm3-pathtrace-atrous-" + mode + "@2", nil
+		return "cpu-rnm3-pathtrace-atrous-" + mode + "@4", nil
 	default:
 		return "", fmt.Errorf("denoise must be off, low or medium: %w", ErrLayout)
 	}
@@ -73,11 +78,20 @@ func OfflineDenoiseProducer(mode string) (string, error) {
 // OfflineDenoiseMode rejects unknown producer versions before image allocation.
 func OfflineDenoiseMode(producer string) (string, error) {
 	switch producer {
-	case OfflinePrebakeProducer, LegacyOfflinePrebakeProducer, BoundedOfflinePrebakeProducer:
+	case OfflinePrebakeProducer, LegacyOfflinePrebakeProducer, BoundedOfflinePrebakeProducer,
+		"cpu-rnm3-pathtrace@2", "cpu-rnm3-pathtrace@3":
 		return "off", nil
-	case "cpu-rnm3-pathtrace-atrous-low@1", "cpu-rnm3-pathtrace-atrous-low@2", "cpu-rnm3-pathtrace-atrous-low@3":
+	case "cpu-rnm3-pathtrace-atrous-low@1",
+		"cpu-rnm3-pathtrace-atrous-low@2",
+		"cpu-rnm3-pathtrace-atrous-low@3",
+		"cpu-rnm3-pathtrace-atrous-low@4",
+		"cpu-rnm3-pathtrace-atrous-low@5":
 		return "low", nil
-	case "cpu-rnm3-pathtrace-atrous-medium@1", "cpu-rnm3-pathtrace-atrous-medium@2", "cpu-rnm3-pathtrace-atrous-medium@3":
+	case "cpu-rnm3-pathtrace-atrous-medium@1",
+		"cpu-rnm3-pathtrace-atrous-medium@2",
+		"cpu-rnm3-pathtrace-atrous-medium@3",
+		"cpu-rnm3-pathtrace-atrous-medium@4",
+		"cpu-rnm3-pathtrace-atrous-medium@5":
 		return "medium", nil
 	default:
 		return "", fmt.Errorf("unknown offline producer: %w", ErrLayout)

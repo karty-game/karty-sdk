@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
-	"runtime"
 
 	"github.com/karty-game/karty-sdk/format/world"
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
@@ -27,19 +26,14 @@ func BakeEnvironment(ctx context.Context, document world.Document, layout worldl
 	if err != nil {
 		return Result{}, err
 	}
-	return bake(ctx, document, layout, materials, options, &environment)
+	return bake(ctx, document, layout, materials, options, &environment, nil)
 }
 
 func prepareEnvironmentInputs(ctx context.Context, document world.Document, layout worldlightmap.Layout,
 	materials []Material, options Options, environment world.ResolvedEnvironment) (bakeInputs, error) {
-	if options.Samples == 0 {
-		options.Samples = 16
-	}
-	if options.Workers == 0 {
-		options.Workers = min(64, runtime.GOMAXPROCS(0))
-	}
-	if options.Samples < 1 || options.Samples > worldlightmap.MaxOfflineSamples || options.Workers < 1 || options.Workers > 64 ||
-		options.Bounces < 0 || options.Bounces > worldlightmap.MaxOfflineBounces || options.MaxRayDistance != 0 {
+	var err error
+	options, err = normalizeOptions(options)
+	if err != nil || options.MaxRayDistance != 0 {
 		return bakeInputs{}, fmt.Errorf("environment bake requires samples 1..256, workers 1..64, bounces 0..4 and unbounded rays")
 	}
 	if _, err := worldlightmap.OfflineDenoiseProducer(options.Denoise); err != nil {
@@ -71,16 +65,11 @@ func prepareEnvironmentInputs(ctx context.Context, document world.Document, layo
 		return bakeInputs{}, err
 	}
 	transparent := transparentEnvironmentMaterials(&document)
+	applyReceiverScope(surfaces, sectors, solids)
 	for i := range surfaces {
 		binding := surfaces[i].Binding
-		included := false
-		if binding.Kind == "sector-floor" || binding.Kind == "sector-ceiling" || binding.Kind == "sector-wall" {
-			included = sectors[binding.Index]
-		} else {
-			included = solids[binding.Index]
-		}
 		material, _, _, _, _ := materialOf(&document, binding)
-		if !included || transparent[material] {
+		if transparent[material] {
 			surfaces[i].Polygons = nil
 		}
 	}
@@ -248,6 +237,9 @@ func (s *scene) environmentIndirect(ctx context.Context, p vec, chart worldlight
 			}
 			position := add(origin, scale(direction, distance))
 			throughput = mul(throughput, s.materials[hit].sample(position))
+			if maximum(throughput) == 0 {
+				break
+			}
 			incoming = add(incoming, mul(throughput, s.lambertDirect(position, normal, c)))
 			direction = s.surfaceFrames[hit].hemisphere(normal, rng.next(), rng.next())
 			origin = add(position, scale(normal, epsilon(position)))

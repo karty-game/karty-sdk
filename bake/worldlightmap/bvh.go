@@ -22,50 +22,21 @@ func (b box) point(p vec) box {
 	b.hi = vec{X: math.Max(b.hi.X, p.X), Y: math.Max(b.hi.Y, p.Y), Z: math.Max(b.hi.Z, p.Z)}
 	return b
 }
-func (b box) ray(o, d vec, limit float64) bool {
-	low := 0.0
-	high := limit
-	for axis := range 3 {
-		v := component(d, axis)
-		p := component(o, axis)
-		a := component(b.lo, axis)
-		c := component(b.hi, axis)
-		if math.Abs(v) < 1e-15 {
-			if p < a-1e-9 || p > c+1e-9 {
-				return false
-			}
-			continue
-		}
-		x, y := (a-p)/v, (c-p)/v
-		if x > y {
-			x, y = y, x
-		}
-		// Ray/surface coordinates are finite after scene validation; direction
-		// zero is handled above. Only interval ordering is observable here,
-		// so signed-zero differences do not require general Min/Max helpers.
-		if x > low {
-			low = x
-		}
-		if y < high {
-			high = y
-		}
-		if high < low {
-			return false
-		}
-	}
-	return true
-}
 
 type node struct {
 	bounds                  box
-	start, end, left, right int
+	start, end, left, right int32
 }
 type accelerator struct {
-	triangles []triangle
-	nodes     []node
+	triangles  []triangle
+	nodes      []node // Binary construction data, released after wide packing.
+	wideRoot   int32
+	wideNodes  []wideNode
+	wideBounds []float64
+	wideLeaves []wideLeaf
 	// Nine contiguous columns: vertex A and the two precomputed triangle edges.
 	columns  [9][]float64
-	surfaces []int
+	surfaces []int32
 }
 
 func (a *accelerator) build(start, end int) int {
@@ -74,7 +45,7 @@ func (a *accelerator) build(start, end int) int {
 		b = b.point(t.bounds.lo).point(t.bounds.hi)
 	}
 	index := len(a.nodes)
-	a.nodes = append(a.nodes, node{bounds: b, start: start, end: end, left: -1, right: -1})
+	a.nodes = append(a.nodes, node{bounds: b, start: int32(start), end: int32(end), left: -1, right: -1})
 	if end-start <= 8 {
 		return index
 	}
@@ -93,8 +64,8 @@ func (a *accelerator) build(start, end int) int {
 	middle := (start + end) / 2
 	left := a.build(start, middle)
 	right := a.build(middle, end)
-	a.nodes[index].left = left
-	a.nodes[index].right = right
+	a.nodes[index].left = int32(left)
+	a.nodes[index].right = int32(right)
 	return index
 }
 
@@ -103,7 +74,10 @@ func (a *accelerator) prepare() {
 	if len(a.triangles) == 0 {
 		return
 	}
-	a.build(0, len(a.triangles))
+	a.buildSAH(0, len(a.triangles), 0, make([]triangle, len(a.triangles)))
+	for i := range a.nodes {
+		a.nodes[i].bounds = a.nodes[i].bounds.conservative()
+	}
 	// A full vector load may read past a leaf, but only its real lanes are used.
 	// The final padding also makes the last leaf safe at any supported width.
 	stride := len(a.triangles) + simd.VectorBitSize()/64 - 1
@@ -111,21 +85,22 @@ func (a *accelerator) prepare() {
 	for i := range a.columns {
 		a.columns[i] = data[i*stride : (i+1)*stride]
 	}
-	a.surfaces = make([]int, len(a.triangles))
+	a.surfaces = make([]int32, len(a.triangles))
 	for i, t := range a.triangles {
 		e1, e2 := sub(t.b, t.a), sub(t.c, t.a)
 		values := [9]float64{t.a.X, t.a.Y, t.a.Z, e1.X, e1.Y, e1.Z, e2.X, e2.Y, e2.Z}
 		for j, value := range values {
 			a.columns[j][i] = value
 		}
-		a.surfaces[i] = t.surface
+		a.surfaces[i] = int32(t.surface)
 	}
+	a.prepareWide()
 	a.triangles = nil
 }
 
 // intersections tests one ray against a vector of double-sided triangles.
 // Keep float64, the scalar producer's operation order, and explicit Mul/Add
-// (rather than fused MulAdd) so transport and cached producer pixels agree.
+// (rather than fused MulAdd) so native and emulated producers agree.
 // The caller's slice bounds exclude padding and triangles in the next leaf.
 func intersections(columns *[9][]float64, start int, out []float64, o, d vec, limit, minimum float64) (int, bool) {
 	ax := simd.LoadFloat64s(columns[0][start:])
@@ -193,44 +168,53 @@ func (a *accelerator) blocked(o, d vec, limit float64) bool {
 }
 
 // Nearest hits serve diffuse paths; visibility rays stop at their first blocker.
-// SIMD processes the leaf arithmetic, while traversal remains branch based.
+// SIMD processes contiguous child boxes and triangle leaf arithmetic.
 func trace(a *accelerator, o, d vec, limit float64, anyHit bool) (int, float64) {
-	// A vector local lets Go specialize traversal with its packet kernel, so
-	// hardware dispatch happens once per ray rather than once per packet.
+	maximumDistance := limit
+	// Dispatch once per ray rather than once per packet.
 	var vector simd.Float64s
 	width := vector.Len()
-	if len(a.nodes) == 0 {
+	if len(a.wideLeaves) == 0 {
 		return -1, limit
 	}
-	stack := [64]int{0}
-	count := 1
-	found := -1
+	stack := [wideStackSize]int32{a.wideRoot}
+	count, found := 1, -1
 	minimum := epsilon(o) * .25
 	var distances [8]float64 // A leaf has at most eight real triangles.
 	for count > 0 {
 		count--
-		n := a.nodes[stack[count]]
-		if !n.bounds.ray(o, d, limit) {
-			continue
+		ref := stack[count]
+		ceiling := limit
+		if found >= 0 {
+			// Include exact equal-distance hits for a stable semantic-surface tie,
+			// while retaining the caller's strict upper endpoint.
+			ceiling = min(maximumDistance, math.Nextafter(limit, math.Inf(1)))
 		}
-		if n.left >= 0 {
-			stack[count] = n.left
-			stack[count+1] = n.right
-			count += 2
-			continue
-		}
-		for start := n.start; start < n.end; {
-			lanes, possible := intersections(&a.columns, start, distances[:min(width, n.end-start)], o, d, limit, minimum)
-			if !possible {
-				start += lanes
-				continue
+		if ref >= 0 {
+			n := a.wideNodes[ref]
+			mask := wideMask(a.wideBounds[24*int(ref):], int(n.count), width, o, d, ceiling)
+			for child := 0; child < int(n.count); child++ {
+				if mask&(1<<child) != 0 {
+					stack[count] = n.children[child]
+					count++
+				}
 			}
-			for i, distance := range distances[:lanes] {
-				if distance < limit {
-					limit = distance
-					found = a.surfaces[start+i]
-					if anyHit {
-						return found, limit
+			continue
+		}
+		n := a.wideLeaves[-ref-1]
+		for start := int(n.start); start < int(n.end); {
+			lanes, possible := intersections(&a.columns, start, distances[:min(width, int(n.end)-start)], o, d, ceiling, minimum)
+			if possible {
+				for i, distance := range distances[:lanes] {
+					if distance >= ceiling {
+						continue
+					}
+					surface := int(a.surfaces[start+i])
+					if distance < limit || found >= 0 && distance == limit && surface < found {
+						limit, found = distance, surface
+						if anyHit {
+							return found, limit
+						}
 					}
 				}
 			}

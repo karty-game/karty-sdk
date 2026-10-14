@@ -504,7 +504,7 @@ func scanWorldlightmapPrebakeManifest(r *binwire.Reader) {
 	r.I32()
 	r.I32()
 	r.F64()
-	boundedProducer := r.StringIn(4096, "cpu-rnm3-pathtrace@3", "cpu-rnm3-pathtrace-atrous-low@3", "cpu-rnm3-pathtrace-atrous-medium@3")
+	boundedProducer := r.StringIn(4096, "cpu-rnm3-pathtrace@3", "cpu-rnm3-pathtrace-atrous-low@3", "cpu-rnm3-pathtrace-atrous-medium@3", "cpu-rnm3-pathtrace@5", "cpu-rnm3-pathtrace-atrous-low@5", "cpu-rnm3-pathtrace-atrous-medium@5")
 	r.I32()
 	r.I32()
 	r.U64()

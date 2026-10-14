@@ -293,7 +293,7 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 				if fieldKey == "worldlightmap.PrebakeManifest.Producer" && mode == "scan" {
 					fmt.Fprintln(
 						out,
-						`boundedProducer := r.StringIn(4096, "cpu-rnm3-pathtrace@3", "cpu-rnm3-pathtrace-atrous-low@3", "cpu-rnm3-pathtrace-atrous-medium@3")`,
+						`boundedProducer := r.StringIn(4096, "cpu-rnm3-pathtrace@3", "cpu-rnm3-pathtrace-atrous-low@3", "cpu-rnm3-pathtrace-atrous-medium@3", "cpu-rnm3-pathtrace@5", "cpu-rnm3-pathtrace-atrous-low@5", "cpu-rnm3-pathtrace-atrous-medium@5")`,
 					)
 					continue
 				}

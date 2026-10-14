@@ -28,8 +28,14 @@ type preparedLight struct {
 type counters struct{ shadow, bounce uint64 }
 
 func (s *scene) visible(p, n, d vec, distance float64, c *counters) bool {
+	return s.visibleEpsilon(p, n, d, distance, epsilon(p), c)
+}
+
+// A receiver or bounce hit has the same offset for every point-light query.
+// Traversal still derives its own guard from the offset origin, preserving
+// near-plane and endpoint decisions even when epsilon changes after shifting.
+func (s *scene) visibleEpsilon(p, n, d vec, distance, e float64, c *counters) bool {
 	c.shadow++
-	e := epsilon(p)
 	return !s.accel.blocked(add(p, scale(n, e)), d, distance-e)
 }
 func (s *scene) direct(p vec, chart worldlightmap.Chart, c *counters) [3]vec {
@@ -37,17 +43,21 @@ func (s *scene) direct(p vec, chart worldlightmap.Chart, c *counters) [3]vec {
 	if s.environment != nil {
 		result = s.environmentSun(p, chart, c)
 	}
+	if len(s.lights) == 0 {
+		return result
+	}
+	pointEpsilon := epsilon(p)
 	candidates := s.lightIndex.query(p, len(s.lights))
 	for index := candidates.next(); index >= 0; index = candidates.next() {
 		l := s.lights[index]
 		delta := sub(l.Position, p)
 		distance := math.Sqrt(dot(delta, delta))
-		if distance < epsilon(p) || distance >= l.Radius || s.maxRayDistance > 0 && distance >= s.maxRayDistance {
+		if distance < pointEpsilon || distance >= l.Radius || s.maxRayDistance > 0 && distance >= s.maxRayDistance {
 			continue
 		}
 		d := scale(delta, 1/distance)
 		cosine := dot(chart.Normal, d)
-		if cosine <= 0 || !s.visible(p, chart.Normal, d, distance, c) {
+		if cosine <= 0 || !s.visibleEpsilon(p, chart.Normal, d, distance, pointEpsilon, c) {
 			continue
 		}
 		local := vec{X: dot(chart.Tangent, d), Y: dot(chart.Bitangent, d), Z: cosine}
@@ -73,17 +83,21 @@ func (s *scene) lambertDirect(p, n vec, c *counters) vec {
 			result = scale(e.SunColor, e.SunIntensity*(1-e.CloudAmount)*cosine)
 		}
 	}
+	if len(s.lights) == 0 {
+		return result
+	}
+	pointEpsilon := epsilon(p)
 	candidates := s.lightIndex.query(p, len(s.lights))
 	for index := candidates.next(); index >= 0; index = candidates.next() {
 		l := s.lights[index]
 		delta := sub(l.Position, p)
 		distance := math.Sqrt(dot(delta, delta))
-		if distance < epsilon(p) || distance >= l.Radius || s.maxRayDistance > 0 && distance >= s.maxRayDistance {
+		if distance < pointEpsilon || distance >= l.Radius || s.maxRayDistance > 0 && distance >= s.maxRayDistance {
 			continue
 		}
 		d := scale(delta, 1/distance)
 		cosine := dot(n, d)
-		if cosine <= 0 || !s.visible(p, n, d, distance, c) {
+		if cosine <= 0 || !s.visibleEpsilon(p, n, d, distance, pointEpsilon, c) {
 			continue
 		}
 		result = add(result, scale(l.Color, square(1-distance*distance/l.radiusSquared)*cosine))
@@ -143,6 +157,9 @@ func (s *scene) indirect(
 			}
 			position := add(origin, scale(d, distance))
 			throughput = mul(throughput, s.materials[hit].sample(position))
+			if maximum(throughput) == 0 {
+				break
+			}
 			incoming = add(incoming, mul(throughput, s.lambertDirect(position, n, c)))
 			if bounce+1 < options.Bounces {
 				d = s.surfaceFrames[hit].hemisphere(n, rng.next(), rng.next())

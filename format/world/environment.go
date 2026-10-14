@@ -7,11 +7,16 @@ import (
 
 type EnvironmentPreset string
 
+const brightDaylightSkyIntensity = 4.0
+
 const (
 	EnvironmentDaylight EnvironmentPreset = "daylight"
-	EnvironmentSpace    EnvironmentPreset = "space"
-	EnvironmentCartoon  EnvironmentPreset = "cartoon"
-	EnvironmentFantasy  EnvironmentPreset = "fantasy"
+	// EnvironmentDaylightBright preserves the daylight sun and appearance while
+	// supplying four times its sky illumination through world/environment-skylight@1.
+	EnvironmentDaylightBright EnvironmentPreset = "daylight-bright"
+	EnvironmentSpace          EnvironmentPreset = "space"
+	EnvironmentCartoon        EnvironmentPreset = "cartoon"
+	EnvironmentFantasy        EnvironmentPreset = "fantasy"
 )
 
 type EnvironmentPalette string
@@ -96,7 +101,7 @@ func ValidateEnvironment(environment *Environment) error {
 		return fmt.Errorf("environment: %w", ErrVersion)
 	}
 	switch environment.Preset {
-	case EnvironmentDaylight, EnvironmentSpace, EnvironmentCartoon, EnvironmentFantasy:
+	case EnvironmentDaylight, EnvironmentDaylightBright, EnvironmentSpace, EnvironmentCartoon, EnvironmentFantasy:
 	default:
 		return fmt.Errorf("environment preset: %w", ErrEnvironment)
 	}
@@ -159,7 +164,7 @@ func ResolveEnvironment(environment *Environment) (ResolvedEnvironment, error) {
 	}
 	sun := EnvironmentSun{Azimuth: 135, Elevation: 40}
 	switch environment.Preset {
-	case EnvironmentDaylight:
+	case EnvironmentDaylight, EnvironmentDaylightBright:
 		result.SkyZenith, result.SkyHorizon, result.SkyNadir = Vec3{
 			X: .055,
 			Y: .22,
@@ -175,6 +180,9 @@ func ResolveEnvironment(environment *Environment) (ResolvedEnvironment, error) {
 		}
 		result.CloudColor, result.SunDiskColor = Vec3{X: .94, Y: .96, Z: 1}, Vec3{X: 1, Y: .96, Z: .78}
 		result.Ambient = Vec3{X: .10, Y: .13, Z: .18}
+		if environment.Preset == EnvironmentDaylightBright {
+			result.Ambient = environmentScale(result.Ambient, brightDaylightSkyIntensity)
+		}
 	case EnvironmentSpace:
 		result.Backdrop = EnvironmentBackdropCity
 		sun.Elevation = 25

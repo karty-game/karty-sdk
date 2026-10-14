@@ -38,6 +38,7 @@ const (
 	CapabilityWorldEmissionV1                     Capability = "world/emission@1"
 	CapabilityWorldEnvironmentV1                  Capability = "world/environment@1"
 	CapabilityWorldEnvironmentBackdropV1          Capability = "world/environment-backdrop@1"
+	CapabilityWorldEnvironmentSkylightV1          Capability = "world/environment-skylight@1"
 	CapabilityWorldSkyV1                          Capability = "world/sky@1"
 	CapabilityWorldSolidRenderersV1               Capability = "world/solid-renderers@1"
 	CapabilityWorldStaticSolidsV1                 Capability = "world/static-solids@1"
@@ -100,6 +101,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldEmissionV1,
 			CapabilityWorldEnvironmentV1,
 			CapabilityWorldEnvironmentBackdropV1,
+			CapabilityWorldEnvironmentSkylightV1,
 			CapabilityWorldSkyV1,
 		},
 	); err != nil {

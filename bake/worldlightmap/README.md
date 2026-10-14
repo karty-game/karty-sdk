@@ -6,7 +6,7 @@ compiled world, its existing receiver layout and original albedo images. It
 does not import the private engine or require OpenGL, WebGL or WASM execution.
 
 For chunk receiver algorithm 2, pass the complete logical world and the selected
-layout to the same `Bake` function. Only selected receivers allocate atlas space;
+layout to a world-bound `Baker`. Only selected receivers allocate atlas space;
 all ordinary physical neighbors remain shadow and diffuse transport geometry.
 Other physical components are excluded, including those reached through
 transformed portals. The producer preserves a selected space with no local
@@ -14,9 +14,24 @@ light as covered black. Tests exercise a light and occluding solid outside the
 receiver chunk, and a transformed-space lighting boundary.
 
 ```go
-result, err := worldlightmapbake.Bake(ctx, document, layout, materials,
-    worldlightmapbake.Options{Samples: 64, Bounces: 1, Workers: 0, Seed: 1})
+baker := worldlightmapbake.NewBaker(document, materials)
+options := worldlightmapbake.Options{Samples: 64, Bounces: 1, Seed: 1}
+for _, layout := range chunkLayouts {
+    result, err := baker.Bake(ctx, layout, options)
+    // Handle err, then encode/package result.Image with result.RGBMRange.
+}
 ```
+
+Use one `Baker` for repeated chunk or clock/weather bakes of an immutable world.
+Use `baker.BakeEnvironment(ctx, layout, settings, options)` for sun/sky layouts
+without a point-light recipe. Create a new Baker after editing world geometry,
+materials or source images. It retains only the last prepared transport scope,
+not every atlas. Package-level `Bake` and `BakeEnvironment` remain convenient
+one-call entry points to the same core implementation.
+
+Samples default to 16, Workers to GOMAXPROCS capped at 64, and Bounces is
+explicit (zero means direct-only). Keep sample/bounce/denoise choices explicit
+in project policy; the core has no separate preview or experimental mode.
 
 `Material` pairs the compiled numeric material ID with an `image.Image` of its
 original sRGB albedo. Missing nonzero opaque-surface materials fail explicitly. The
@@ -34,7 +49,7 @@ physical component and any bounded transport halo. Use this value to create a
 fresh manifest when reusing verified cached pixels.
 
 The baker rasterizes actual semantic polygons into chart texel centres and uses
-a balanced triangle BVH for double-sided ray visibility. It includes solid
+a surface-area triangle BVH for double-sided ray visibility. It includes solid
 caps/sides and the opaque bands of partially open portals; door openings do not
 become blockers. Chart rectangles remain isolated during coverage dilation,
 and covered black samples retain nonzero alpha. Runtime recipe validation
@@ -116,9 +131,9 @@ end in `@2` and explicitly bind their RGBM range into the offline identity;
 identity bytes. Source selection, shadows, path sampling and accumulation order
 retain their existing semantics.
 
-`Options.MaxRayDistance` defaults to zero, preserving unbounded revision-2
+`Options.MaxRayDistance` defaults to zero, selecting unbounded revision-4
 transport. A finite positive value at most `worldlightmap.MaxBakeRayDistance`
-(1,000,000 world units) selects a distinct revision-3 producer. A source beyond
+(1,000,000 world units) selects a distinct revision-5 producer. A source beyond
 that distance contributes zero to both primary and bounce-hit lighting; sources
 inside the limit keep their original radius falloff. Every diffuse bounce
 segment is also limited to that distance. This intentionally truncates transport
@@ -180,7 +195,7 @@ Receiver positions occupy only chart receiver rectangles, at 32 bytes per
 reserved receiver texel. Dilation reuses scratch sized to the largest padded
 chart: one distance byte and one native-int queue slot per chart texel (9 bytes
 on 64-bit targets, 5 on 32-bit targets). Output remains 12 MiB for a 1024 page;
-BVH/triangle geometry, row scheduling and the caller's decoded images are
+BVH/triangle geometry, tile scheduling and the caller's decoded images are
 accounted separately. Unused page space does not allocate receiver or dilation
 scratch. No per-ray scratch allocation is needed. `mise run bench` covers 512
 and 1024 pages with the same small receiver fixture, plus direct and bounced work.
@@ -262,9 +277,10 @@ The BVH keeps precomputed triangle edges in contiguous numeric columns.
 Each packet tests one ray against as many triangles as the platform's vector
 width permits; partial leaves exclude neighbouring triangles and padding.
 Shadow and denoiser visibility queries stop at the first blocker; diffuse paths
-still find the nearest surface. Box traversal retains exact scalar division
+still find the nearest surface. Four-child box packets retain float64 division
 to preserve grazing-ray classification. Float64 tolerances, unfused triangle
-arithmetic, traversal tie order, sample sequences and producer identifiers stay unchanged.
+arithmetic and sample sequences stay consistent across native and emulated execution.
+Exact hit ties use the lowest semantic surface index, independently of tree order.
 
 Hardware selection and unsupported-platform emulation belong to Go's SIMD
 package. There is one production triangle kernel; the old scalar arithmetic
@@ -272,8 +288,16 @@ exists only in tests for comparison. `mise run test-simd-emulated` forces Go's
 fallback with `GODEBUG=simd=0`. Existing producer pixel hashes also run in the
 actual WASM and native 386 tasks. A leaf has at most eight triangles and ray
 queries allocate no heap scratch. Packed triangles retain nine float64 columns
-and one native-int surface ID per triangle, plus less than one vector of column
-padding; the construction triangles are released after packing.
+and two int32 primitive fields, plus less than one vector of column padding.
+A cold median tree and one int32 per-triangle lookup preserve existing
+grazing/overlapping-surface behavior. Construction triangles are released after packing.
+
+Diffuse paths stop immediately when all three throughput channels become exactly
+zero. An absorbing hit cannot contribute later lighting, so this preserves
+producer pixels and cache identities while avoiding further bounce and shadow
+queries. Small nonzero throughput still follows the existing path; no stochastic
+termination is enabled. Ray counts can fall without an increase in Mrays/sec,
+so compare completed bake time as well as query throughput.
 
 For a same-process scalar-oracle/SIMD comparison:
 
@@ -373,3 +397,150 @@ A separate run at 36 samples and two bounces completed 64,253,080 rays in
 16.040 s, including medium denoising. That is 12.5% more samples within the
 previous 32-sample average budget of 16.520 s. It is one confirmation run, not a
 paired quality benchmark; the authored sample defaults remain 4 samples / 1 bounce.
+
+The SDK 0.0.13 `daylight-bright` preset supplies four times daylight sky
+radiance, with the same sun and sky appearance. Existing presets retain their
+pixels. Selecting it changes environment input/surface identity and the RGBM
+range, so old condition maps cannot be reused. It requires the cartridge
+capability `world/environment-skylight@1`.
+
+## Shared transport preparation decision, version 1
+
+Public Go module v0.0.15 adds `NewBaker(document, materials)`, returning a
+world-bound `Baker` with `Bake(ctx, layout, options)` and
+`BakeEnvironment(ctx, layout, settings, options)` methods. The original package
+functions remain available. Every call performs complete world/layout/material
+validation and computes current provenance before using shared preparation.
+Keep the document, material records and source images unchanged until the
+Baker is discarded. Create a new Baker after editing any of those inputs.
+
+A Baker retains only its most recent transport scope: prepared triangle data,
+BVHs, original-albedo conversion, surface reflectance mappings and normal
+frames. Included surface IDs plus sampling/reflection requirements distinguish
+scopes within its fixed immutable world. Bounded halos, physical components and
+point/environment opacity selection cannot silently share incompatible geometry.
+The CLI creates one Baker per chunked level build, including clock/weather
+variants, and releases it afterwards. Concurrent SDK calls are safe; receiver
+rasterization, light recipes, samples, filter buffers and output remain per-call.
+This is a build-only additive Go API, with no guest API, wire, manifest, producer
+or pixel-cache identity change. It does not retain every chunk or clock image.
+
+The ray BVH uses stable 16-bin surface-area splits, with median fallback for
+unsplittable or deep partitions. Small leaves spanning multiple surfaces split
+down toward two triangles; a single surface's fan stays together at up to eight
+triangles. A balanced median partition handles degenerate/deep splits within
+that same construction tree. The temporary binary construction nodes occupy
+64 bytes each and are released after packing the only retained BVH: BVH4. Six contiguous
+four-value columns hold each internal node's float64 child bounds, with compact
+int32 references and separate leaf ranges. SIMD tests one ray against the child
+boxes using division rather than approximate reciprocals. Conservative bounds
+include the triangle tolerance. Nearest hits choose the smallest distance and
+then the lowest semantic surface index at exact ties; any-hit visibility stops
+at its first blocker. Ray upper endpoints remain strict. No old tree, replay
+traversal, legacy rank or legacy-order mapping is retained. Receiver workers claim
+16-by-16 chart-confined tiles and accumulate ray counts locally. Sampling order
+within each texel, RNM coefficients, denoising and encoding stay unchanged.
+
+Point-light evaluation computes the receiver epsilon once per receiver or
+bounce hit and reuses it for source-distance checks and shadow-ray offsets.
+The traversal guard still comes from the shifted ray origin. A point with no
+point lights returns after any sun contribution, so sun/sky bakes avoid the
+unused point-light setup. The single geometry BVH is shared by point-light,
+environment, bounce and denoiser ray queries. The separate light influence index
+selects candidate sources; it does not duplicate triangle geometry.
+
+The consolidated point-light producers are revision 4 (unbounded) and revision
+5 (bounded), including their low/medium denoising names. Environment baking
+emits `cpu-environment-rnm3@2`. Producer/cache identities change because removing
+old-tree pruning can change edge or coplanar winners. Old completed artifacts
+remain readable through format validation; old tracing implementations are not
+retained. See the [single-BVH producer decision](../../format/worldlightmap/README.md#single-bvh-producer-decision-version-1).
+
+## Experiment results, 2026-10-14
+
+The temporary Go-overlay runners, sampler/triangle/shadow templates and research
+mise tasks were removed after consolidation. These notes retain their findings;
+none of the rejected proposals is a selectable bake option. Measurements used
+Linux amd64, Ryzen 7 5700U and Go 1.27 float64 SIMD. Timings are fixture-specific,
+not universal throughput or browser/device results.
+
+### Adopted work
+
+Shared immutable transport preparation, contiguous triangle columns, float64
+SIMD intersections and BVH4 boxes, 16-bin surface-area splits with smaller
+mixed-surface leaves, 16-by-16 chart jobs and worker-local counters form the
+production path. Receiver epsilon reuse avoids repeated point-light setup.
+Absorbing paths stop when every throughput channel is exactly zero; this
+preserves pixels and removed roughly 78–86% of queries in absorbing-room
+fixtures, with no measured courtyard benefit.
+
+BVH4 improved complete courtyard bake time by about 24% over the preceding
+binary SAH traversal. The later leaf tuning reached 8.12–8.18 Mrays/s at eight
+samples/two bounces and 9.88–9.92 at 32 samples/four bounces. Higher-sample
+63k/127k-triangle worlds improved about 8.5%/4.7%; fresh low-sample dense bakes
+were 3.5–4.6% slower and needed more preparation allocation.
+
+Receiver epsilon reuse reduced courtyard bake time by 7.0% at eight samples/two
+bounces and 9.7% at 32 samples/four bounces. Three complete high-sample SDK Bake
+calls reached 10.72–10.92 Mrays/s with identical atlas bytes and 114,513,581
+queries. Their mean duration was 10.58025 s, versus 11.71734 s before epsilon
+reuse. These calls include preparation, rasterization, tracing, medium denoise,
+RGBM encoding and dilation; they exclude compilation, QOI and file I/O. The
+large two-light fixtures did not establish a general shadow-setup speedup.
+
+### Traversal and layout proposals that were not adopted
+
+Replacement-only triangle packets showed an incoherent-ray synthetic cache
+benefit at 65,536 triangles, but only about 1% improvement in validated
+63k/127k-triangle cylinder-world bakes. The courtyard was neutral. Global
+triangle columns therefore remain. Forced 256-bit SIMD was slower on this CPU;
+Go's default vector selection remains in use.
+
+Near-first child sorting helped larger geometry but slowed the courtyard;
+cheap directional ordering had no consistent complete-bake advantage.
+Reciprocal slab arithmetic and precomputed sign flags did not improve the
+measured bake. Box tests retain division and conservative float64 bounds.
+
+Eager/lazy shifted-origin and guard caching provided no clear additional
+courtyard gain over epsilon reuse. Dedicated opaque visibility traversal was
+about 2.65% slower in the initial courtyard screen. The generic nearest/any-hit
+kernel was retained during those measurements. The later consolidation removes
+its original-median replay and duplicate tree, using a new producer identity.
+Independent exhaustive scalar, strict-endpoint, packet-tail and reordered-child
+tests remain; the old BVH oracle was removed.
+
+### Sampling and work allocation proposals that were not adopted
+
+Unencoded linear RNM was compared with denoising off, multiple seeds and
+independent high-sample references. Prepared-query timings exclude bake setup,
+rasterization and encoding. Full scrambled Sobol increased one-bounce
+red-ceiling MSE by 1.66–2.02 times. Keeping the existing first hemisphere and
+using Sobol only at later bounces preserved one-bounce pixels and reduced
+four-bounce white-room MSE by 11–23% at 32–256 samples, with about 5% transport
+overhead. Small-source results were mixed, so the existing sampler remains.
+
+A 50/50 mixture of cosine sampling and uniform area sampling of an actual
+clipped reciprocal opening reduced zero-bounce doorway MSE from 0.008414 to
+0.000907 at eight samples (9.28 times), and 4.95 times at sixteen samples.
+Independent guided/cosine references agreed to MSE 4.74e-8 and the blocked door
+stayed black. This small constant-sky fixture had four receivers. With four
+white-surface reflections, guidance improved error/time at 8–32 samples but
+regressed at 64: MSE was 1.82 times the current sampler while query time was
+0.67 times. Cosine support and the complete area-to-solid-angle mixture density
+were retained. First-segment guidance needs up to twice the current RGBM bound;
+guiding every segment needs a larger bound and a separately versioned producer.
+
+A discarded 16-sample pilot chose independent final 16/64-sample texel sets,
+with a neighbour-promotion variant. It lost on illuminated fixtures once pilot
+cost and error were counted; exactly dark fixtures used about half the
+fixed-64 work. Existing luminance variance was a rough classifier, not a
+certified RNM error bound.
+
+Russian roulette after two reflections saved about 28–36% of queries on small
+illuminated four-bounce fixtures but increased MSE enough to lose error/time
+efficiency. Starting after three reflections was less disruptive and still
+inconsistent. Independent survival coins preserved direction streams and
+surviving future contributions were divided by their survival probability;
+already accumulated light was unchanged. Neither roulette nor adaptive budgets
+is enabled. Finite-sample weights, a new RGBM bound/producer/cache decision and
+any increase to the current four-bounce cap need separate qualification.

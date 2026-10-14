@@ -32,6 +32,7 @@ const (
 	FeatureWorldEmissionV1                     = "world/emission@1"
 	FeatureWorldEnvironmentV1                  = "world/environment@1"
 	FeatureWorldEnvironmentBackdropV1          = "world/environment-backdrop@1"
+	FeatureWorldEnvironmentSkylightV1          = "world/environment-skylight@1"
 	FeatureWorldSkyV1                          = "world/sky@1"
 	FeatureWorldSectorsV1                      = "world/sectors@1"
 	FeatureWorldChunksV1                       = "world/chunks@1"
@@ -320,7 +321,7 @@ func validManifestFeatures(features []string) bool {
 		(!slices.Contains(features, FeatureWorldEnvironmentV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
 		return false
 	}
-	if slices.Contains(features, FeatureWorldEnvironmentBackdropV1) &&
+	if (slices.Contains(features, FeatureWorldEnvironmentBackdropV1) || slices.Contains(features, FeatureWorldEnvironmentSkylightV1)) &&
 		(!slices.Contains(features, FeatureWorldEnvironmentV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
 		return false
 	}
@@ -367,7 +368,7 @@ func validManifestFeature(feature string) bool {
 		FeatureWorldSectorsV1, FeatureWorldLightingV1, FeatureWorldLightmapsV1, FeatureWorldLightmapsPrebakedV1, FeatureWorldLightmapsEnvironmentVariantsV1,
 		FeatureWorldMaterialAtlasV1, FeatureWorldMaterialMappingV1, FeatureWorldStaticSolidsV1,
 		FeatureWorldMaterialAtlasV2, FeatureWorldMaterialLayersV1, FeatureWorldAnimationsV1,
-		FeatureWorldEmissionV1, FeatureWorldEnvironmentV1, FeatureWorldEnvironmentBackdropV1, FeatureWorldSkyV1, FeatureWorldParticlesV1, FeatureWorldParticlesV2:
+		FeatureWorldEmissionV1, FeatureWorldEnvironmentV1, FeatureWorldEnvironmentBackdropV1, FeatureWorldEnvironmentSkylightV1, FeatureWorldSkyV1, FeatureWorldParticlesV1, FeatureWorldParticlesV2:
 		return true
 	default:
 		return false

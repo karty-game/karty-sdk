@@ -42,8 +42,23 @@ func TestFormatCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if digest(encoded) != "8f8e84138a82821141a6b6b1f27c03db05b58034af8a595f122303a34f4c2fac" {
+	if digest(encoded) != "54132287a0754884059be713279d406ce6a13b357e3fcdfaf6c7057268aa3804" {
 		t.Fatalf("algorithm2 %s", digest(encoded))
+	}
+	// Revision 2 remains readable with its exact published identity. The current
+	// producer has its own identity even when a fixture's pixels do not change.
+	previous, err := newOfflinePrebakeForProducer(l, &d, pair.Image,
+		OfflineBakeInputs{Samples: 16, Bounces: 2, Seed: 22, RGBMRange: rangeValue, ReflectanceSHA256: digest([]byte("reflectance"))},
+		"cpu-rnm3-pathtrace@2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousEncoded, err := EncodePrebake(previous, l, &d)
+	if err != nil || digest(previousEncoded) != "8f8e84138a82821141a6b6b1f27c03db05b58034af8a595f122303a34f4c2fac" {
+		t.Fatalf("revision 2 identity changed: %s %v", digest(previousEncoded), err)
+	}
+	if _, err := DecodePrebake(previousEncoded, previous.Image, l, &d); err != nil {
+		t.Fatal("revision 2 artifact no longer validates", err)
 	}
 	// Producer revision 1 remains independently verifiable with its exact old
 	// global-sum range and identity, rather than reinterpreting old pixels.

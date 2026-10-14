@@ -431,3 +431,42 @@ budget resident maps and transition scratch; 1024 RNM pixels occupy 12 MiB per
 map, independent of compressed download size. Static sun/sky diffuse is replaced
 only on covered receivers. Dynamic actors, point lights, authored ambient and
 specular remain separate runtime contributions.
+
+## Single-BVH producer decision, version 1
+
+Candidate Go module v0.0.15 consolidates CPU baking into one geometry BVH4 and
+one nearest/any-hit traversal. A 16-bin surface-area builder uses balanced median
+partitions only for degenerate/deep splits; its temporary binary construction
+nodes are released after packing. No original-median compatibility tree, rank
+mapping or ambiguous-hit replay is retained. This is a producer behavior change,
+not a new receiver layout or runtime texture format.
+
+Nearest hits choose the smallest accepted float64 distance. Exact distance ties
+choose the lowest semantic surface index in `Surfaces(document)`, independently
+of child order, worker count or SIMD width. Conservative node bounds include
+existing barycentric/origin tolerances. Intersections keep their strict upper
+endpoint and shifted-origin minimum guard. Visibility stops at the first valid
+opaque blocker; it does not promise nearest material identity. These rules can
+change pixels at ambiguous edges/coplanar faces compared with the old tree.
+
+Current unbounded producers are `cpu-rnm3-pathtrace@4`,
+`cpu-rnm3-pathtrace-atrous-low@4` and `cpu-rnm3-pathtrace-atrous-medium@4`.
+Positive `MaxRayDistance` selects bounded revision 5 with the corresponding
+three names. Sun/sky baking emits `cpu-environment-rnm3@2` and still requires
+unbounded rays. Samples, bounce limits, RNM, reflectance, RGBM energy bounds,
+filtering and dilation retain their existing contracts.
+
+Revision 4 uses the revision-2 manifest field layout. Revision 5 uses the
+revision-3 layout, including the required trailing float64 maximum distance.
+The owning handwritten generator recognizes bounded revisions 3 and 5 during
+allocation-free preflight. Unbounded producers reject an extra distance field;
+bounded producers reject a missing, zero, nonfinite or out-of-range distance.
+Environment catalogs retain their existing field layout and accept producer 1
+and 2. No generated codec is edited by hand.
+
+Readers continue validating completed point artifacts from revisions 1–3 and
+environment artifacts from revision 1. Baking emits only the new producers;
+there are no old tracing branches. New producer strings commit new prebake and
+pixel-cache identities even on fixtures with unchanged pixels. Rebuild the
+host/CLI together for new producer support; older hosts reject new producer
+names. Released documentation and SDK manifests are unchanged.

@@ -45,6 +45,8 @@ func (s *scene) denoise(
 	// by total receiver storage, regardless of configured worker count.
 	for range min(options.Workers, len(grids)) {
 		group.Go(func() {
+			var localRays uint64
+			defer func() { rays.Add(localRays) }()
 			for {
 				index := int(next.Add(1) - 1)
 				if index >= len(grids) || ctx.Err() != nil {
@@ -82,7 +84,7 @@ func (s *scene) denoise(
 							}
 							e := max(epsilon(p), epsilon(q)) * 4
 							blocked := s.accel.blocked(add(p, scale(chart.Normal, e)), scale(direction, 1/distance), distance)
-							rays.Add(1)
+							localRays++
 							if !blocked {
 								edges[a] |= 1 << axis
 							}

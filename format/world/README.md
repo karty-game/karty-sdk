@@ -215,3 +215,25 @@ independent resource versions and bounds. Follow their owning contracts:
 [`worldlightmap`](../worldlightmap/README.md),
 [`worldparticles`](../worldparticles/README.md) and
 [`worldsky`](../worldsky/README.md).
+
+## Brighter daylight sky — SDK 0.0.13
+
+`environment.preset: daylight-bright` requires `world/environment-skylight@1`.
+It supplies four times the original daylight preset's sky illumination while
+keeping its sun color/intensity/direction, sky colors and decorative layers.
+Source version 9 and later can name the preset; project sky textures still
+require source version 12. The Environment sample uses it with 64 samples and
+two diffuse bounces. Existing `daylight` worlds retain their original values.
+
+Both offline sky rays and the live outdoor ambient cube use the stronger
+resolved illumination. Ordinary geometry still blocks the baked sky; this is
+not an unoccluded indoor ambient floor. Authored room ambient and point lights
+remain independent. Night reduces sky illumination with the existing clock
+curve; cloud coverage retains the existing weather multiplier. Sunlit outdoors
+also receive stronger sky fill. Rebuild all environment lighting maps when
+changing the preset; cache identities and conservative RGBM ranges include it.
+
+KWR1/KWR2 layouts and the `cpu-environment-rnm3@1` algorithm are unchanged.
+The new preset is an explicitly gated input, not a change to released defaults.
+Old SDKs reject the unknown preset/capability rather than reinterpret its lighting.
+The guest `Game.SetEnvironment` API still controls only time and cloud amount.

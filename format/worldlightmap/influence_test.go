@@ -50,7 +50,7 @@ func TestBoundedPrebakeConditionalWireAndDistanceIdentity(t *testing.T) {
 			Samples: 16, Bounces: 1, Seed: 7, ReflectanceSHA256: strings.Repeat("a", 64), RGBMRange: rangeValue,
 			Denoise: mode, MaxRayDistance: 3,
 		})
-		if err != nil || !strings.HasSuffix(bounded.Manifest.Producer, "@3") {
+		if err != nil || !strings.HasSuffix(bounded.Manifest.Producer, "@5") {
 			t.Fatalf("bounded producer selection: %+v %v", bounded.Manifest, err)
 		}
 		encoded, err = EncodePrebake(bounded, l, &d)
@@ -61,6 +61,26 @@ func TestBoundedPrebakeConditionalWireAndDistanceIdentity(t *testing.T) {
 		if err != nil || decoded.Manifest != bounded.Manifest ||
 			binary.LittleEndian.Uint64(encoded[len(encoded)-8:]) != math.Float64bits(3) {
 			t.Fatalf("bounded distance did not round trip: %v", err)
+		}
+		// Retired producers remain artifact readers, not alternative tracing
+		// kernels. Their conditional distance field still round trips exactly.
+		oldProducer := "cpu-rnm3-pathtrace@3"
+		if mode != "off" {
+			oldProducer = "cpu-rnm3-pathtrace-atrous-" + mode + "@3"
+		}
+		old, err := newOfflinePrebakeForProducer(l, &d, direct.Image, OfflineBakeInputs{
+			Samples: 16, Bounces: 1, Seed: 7, ReflectanceSHA256: strings.Repeat("a", 64), RGBMRange: rangeValue,
+			Denoise: mode, MaxRayDistance: 3,
+		}, oldProducer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oldEncoded, err := EncodePrebake(old, l, &d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := DecodePrebake(oldEncoded, old.Image, l, &d); err != nil || old.Manifest.BakeSHA256 == bounded.Manifest.BakeSHA256 {
+			t.Fatal("bounded producer revisions lost decoding or cache separation", err)
 		}
 	}
 	for _, distance := range []float64{0, 2, -1, math.Inf(1), math.NaN(), MaxBakeRayDistance + 1} {

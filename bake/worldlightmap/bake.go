@@ -50,11 +50,11 @@ func Bake(
 	materials []Material,
 	options Options,
 ) (Result, error) {
-	return bake(ctx, document, layout, materials, options, nil)
+	return bake(ctx, document, layout, materials, options, nil, nil)
 }
 
 func bake(ctx context.Context, document world.Document, layout worldlightmap.Layout,
-	materials []Material, options Options, environment *world.ResolvedEnvironment) (Result, error) {
+	materials []Material, options Options, environment *world.ResolvedEnvironment, shared *Baker) (Result, error) {
 	start := time.Now()
 	if ctx == nil {
 		return Result{}, fmt.Errorf("nil bake context")
@@ -73,20 +73,22 @@ func bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 		return Result{}, err
 	}
 	options = inputs.options
-	rangeValue, images, surfaces := inputs.rangeValue, inputs.images, inputs.surfaces
+	rangeValue, surfaces := inputs.rangeValue, inputs.surfaces
+	prepared, err := shared.transport(ctx, &document, inputs, options.Bounces > 0 || environment != nil)
+	if err != nil {
+		return Result{}, err
+	}
 	digest, lightIDs := inputs.reflectance, inputs.lightIDs
 	s := scene{
-		surfaces:       surfaces,
-		materials:      make([]reflectance, len(surfaces)),
+		surfaces:       prepared.surfaces,
+		accel:          prepared.accel,
+		surfaceFrames:  prepared.surfaceFrames,
+		materials:      prepared.materials,
 		maxRayDistance: options.MaxRayDistance,
 		environment:    environment,
 	}
 	if options.Bounces > 0 || environment != nil {
 		s.samples = initialSamples(options.Samples)
-		s.surfaceFrames = make([]sampleFrame, len(surfaces))
-		for i, surface := range surfaces {
-			s.surfaceFrames[i] = newSampleFrame(surface.Normal)
-		}
 		s.chartFrames = make([]sampleFrame, len(layout.Charts))
 		for i, chart := range layout.Charts {
 			s.chartFrames[i] = newSampleFrame(chart.Normal)
@@ -104,49 +106,27 @@ func bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 	}
 	s.lightIndex.prepare(s.lights)
 	w, h := layout.Pages[0].Width, layout.Pages[0].Height
-	grids, rows := receiverGrids(layout.Charts)
-	albedos := make(map[uint32]*image.NRGBA)
+	grids, tiles := receiverGrids(layout.Charts)
 	for i, surface := range surfaces {
 		if err := ctx.Err(); err != nil {
 			return Result{}, err
 		}
-		id, uv, origin, tangent, reflectanceCap := materialOf(&document, surface.Binding)
-		r := reflectance{mapping: uv, origin: origin, tangent: tangent, cap: reflectanceCap}
-		if options.Bounces > 0 && len(surface.Polygons) > 0 {
-			pixels, ok := albedos[id]
-			if !ok {
-				pixels, err = prepareAlbedo(ctx, images[id])
-				if err != nil {
-					return Result{}, err
-				}
-				albedos[id] = pixels
-			}
-			r.image = pixels
-			r.width, r.height = float64(pixels.Rect.Dx()), float64(pixels.Rect.Dy())
-		}
-		s.materials[i] = r
 		chartID := layout.Bindings[i].Chart
+		if chartID < 0 {
+			continue
+		}
 		for _, polygon := range surface.Polygons {
 			for j := 1; j+1 < len(polygon); j++ {
 				t := triangle{a: polygon[0], b: polygon[j], c: polygon[j+1], surface: i}
-				if dot(cross(sub(t.b, t.a), sub(t.c, t.a)), cross(sub(t.b, t.a), sub(t.c, t.a))) < 1e-28 {
-					continue
-				}
-				t.bounds = emptyBox().point(t.a).point(t.b).point(t.c)
-				s.accel.triangles = append(s.accel.triangles, t)
-				if chartID >= 0 {
+				if !degenerate(t) {
 					raster(grids[chartID], w, h, layout.Charts[chartID], t)
 				}
 			}
 		}
 	}
-	triangleCount := len(s.accel.triangles)
-	s.accel.prepare()
-	if err := ctx.Err(); err != nil {
-		return Result{}, err
-	}
+
 	output := image.NewNRGBA(image.Rect(0, 0, 3*w, h))
-	stats := Stats{Triangles: triangleCount, Workers: options.Workers, Samples: options.Samples, Bounces: options.Bounces}
+	stats := Stats{Triangles: prepared.triangles, Workers: options.Workers, Samples: options.Samples, Bounces: options.Bounces}
 	for _, grid := range grids {
 		for _, r := range grid.pixels {
 			if r.surface >= 0 {
@@ -173,43 +153,47 @@ func bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 		group.Add(1)
 		go func(worker int) {
 			defer group.Done()
-			c := &counts[worker]
+			var local counters
+			defer func() { counts[worker] = local }()
+			c := &local
 			for {
-				rowIndex := int(next.Add(1) - 1)
-				if rowIndex >= len(rows) || ctx.Err() != nil {
+				tileIndex := int(next.Add(1) - 1)
+				if tileIndex >= len(tiles) || ctx.Err() != nil {
 					return
 				}
-				row := rows[rowIndex]
-				grid := grids[row.chart]
-				y := row.y
-				chart := layout.Charts[row.chart]
-				for x := grid.rect[0]; x < grid.rect[2]; x++ {
-					index := y*w + x
-					r := grid.pixels[grid.offset(x, y)]
-					if r.surface < 0 {
-						continue
-					}
-					if x%16 == 0 && ctx.Err() != nil {
-						return
-					}
-					coeff := s.direct(r.position, chart, c)
-					if filtering {
-						var indirect [3]vec
-						variance := s.indirect(ctx, r.position, chart, s.chartFrames[row.chart], index, options, c, &indirect)
-						lighting[row.chart][grid.offset(x, y)] = filterPixel{
-							direct:   packCoefficients(coeff),
-							indirect: packCoefficients(indirect),
-							variance: variance,
+				tile := tiles[tileIndex]
+				grid := grids[tile.chart]
+				chart := layout.Charts[tile.chart]
+				for y := tile.rect[1]; y < tile.rect[3]; y++ {
+					for x := tile.rect[0]; x < tile.rect[2]; x++ {
+						index := y*w + x
+						r := grid.pixels[grid.offset(x, y)]
+						if r.surface < 0 {
+							continue
 						}
-						continue
-					}
-					if options.Bounces > 0 || environment != nil {
-						s.indirect(ctx, r.position, chart, s.chartFrames[row.chart], index, options, c, &coeff)
-					}
-					for basis := range 3 {
-						encodeRGBM(output, x+basis*w, y, coeff[basis], rangeValue)
+						if x%16 == 0 && ctx.Err() != nil {
+							return
+						}
+						coeff := s.direct(r.position, chart, c)
+						if filtering {
+							var indirect [3]vec
+							variance := s.indirect(ctx, r.position, chart, s.chartFrames[tile.chart], index, options, c, &indirect)
+							lighting[tile.chart][grid.offset(x, y)] = filterPixel{
+								direct:   packCoefficients(coeff),
+								indirect: packCoefficients(indirect),
+								variance: variance,
+							}
+							continue
+						}
+						if options.Bounces > 0 || environment != nil {
+							s.indirect(ctx, r.position, chart, s.chartFrames[tile.chart], index, options, c, &coeff)
+						}
+						for basis := range 3 {
+							encodeRGBM(output, x+basis*w, y, coeff[basis], rangeValue)
+						}
 					}
 				}
+
 			}
 		}(worker)
 	}

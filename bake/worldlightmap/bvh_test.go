@@ -3,6 +3,7 @@ package worldlightmapbake
 import (
 	"math"
 	"testing"
+	"unsafe"
 
 	"simd"
 )
@@ -56,36 +57,7 @@ func scalarIntersect(t triangle, o, d vec, limit float64) (float64, bool) {
 	distance := dot(e2, q) / det
 	return distance, distance > epsilon(o)*.25 && distance < limit
 }
-func scalarHit(a *accelerator, o, d vec, limit float64) (int, float64) {
-	if len(a.nodes) == 0 {
-		return -1, limit
-	}
-	stack := [64]int{0}
-	count := 1
-	found := -1
-	for count > 0 {
-		count--
-		n := a.nodes[stack[count]]
-		if !scalarBoxRay(n.bounds, o, d, limit) {
-			continue
-		}
-		if n.left >= 0 {
-			stack[count] = n.left
-			stack[count+1] = n.right
-			count += 2
-			continue
-		}
-		for _, t := range a.triangles[n.start:n.end] {
-			if distance, ok := scalarIntersect(t, o, d, limit); ok {
-				limit = distance
-				found = t.surface
-			}
-		}
-	}
-	return found, limit
-}
-
-func rayFixture() (*accelerator, *accelerator) {
+func rayFixture() (*scalarOracle, *accelerator) {
 	var triangles []triangle
 	rng := random(77)
 	for i := range 257 {
@@ -103,8 +75,7 @@ func rayFixture() (*accelerator, *accelerator) {
 		t.bounds = emptyBox().point(t.a).point(t.b).point(t.c)
 		triangles = append(triangles, t)
 	}
-	scalar := &accelerator{triangles: append([]triangle(nil), triangles...)}
-	scalar.build(0, len(scalar.triangles))
+	scalar := newScalarOracle(triangles)
 	packed := &accelerator{triangles: triangles}
 	packed.prepare()
 	return scalar, packed
@@ -129,7 +100,7 @@ func TestSIMDRays(t *testing.T) {
 		if i%3 == 0 {
 			limit = math.Inf(1)
 		}
-		want, wd := scalarHit(scalar, o, d, limit)
+		want, wd := scalar.hit(o, d, limit)
 		got, gd := packed.hit(o, d, limit)
 		if got != want || gd != wd {
 			t.Fatalf("ray %d: hit=%d distance=%.17g; want hit=%d distance=%.17g", i, got, gd, want, wd)
@@ -172,8 +143,71 @@ func TestSIMDLeafBoundaries(t *testing.T) {
 	}
 }
 
+func TestBVHCompactNodesAndSemanticTies(t *testing.T) {
+	if size := unsafe.Sizeof(node{}); size != 64 {
+		t.Fatalf("node occupies %d bytes, want 64", size)
+	}
+	// Shared edges and duplicate coplanar triangles intentionally disagree on
+	// material identity. Exact ties choose the lowest semantic surface ID.
+	var triangles []triangle
+	for i := range 41 {
+		t := triangle{a: vec{X: float64(i%3) * .1, Z: 1}, b: vec{X: 1, Z: 1}, c: vec{Y: 1, Z: 1}, surface: i}
+		t.bounds = emptyBox().point(t.a).point(t.b).point(t.c)
+		triangles = append(triangles, t)
+	}
+	scalar := newScalarOracle(triangles)
+	packed := accelerator{triangles: triangles}
+	packed.prepare()
+	for _, origin := range []vec{{X: .4, Y: .2}, {X: .5, Y: .5}, {X: 1}, {Y: 1}, {X: .1}} {
+		for _, limit := range []float64{1, math.Nextafter(1, 2), math.Inf(1)} {
+			want, distance := scalar.hit(origin, vec{Z: 1}, limit)
+			got, actual := packed.hit(origin, vec{Z: 1}, limit)
+			if got != want || actual != distance || packed.blocked(origin, vec{Z: 1}, limit) != (want >= 0) {
+				t.Fatalf("tie at %v limit %g: hit %d/%g; want %d/%g", origin, limit, got, actual, want, distance)
+			}
+		}
+	}
+}
+
+func TestBVHBoundaryAndNearCoincidentSurfaces(t *testing.T) {
+	var triangles []triangle
+	addQuad := func(x0, x1, y, z float64, surface int) {
+		points := []vec{{X: x0, Y: y}, {X: x1, Y: y}, {X: x1, Y: y, Z: z}, {X: x0, Y: y, Z: z}}
+		for _, corners := range [][3]int{{0, 1, 2}, {0, 2, 3}} {
+			t := triangle{a: points[corners[0]], b: points[corners[1]], c: points[corners[2]], surface: surface}
+			t.bounds = emptyBox().point(t.a).point(t.b).point(t.c)
+			triangles = append(triangles, t)
+		}
+	}
+	for i := range 20 {
+		addQuad(-9.6, -6.4, 2.28, .16+float64(i%2)*.28, i)
+	}
+	// Different heights and shared wall edges reproduce box/triangle rounding
+	// disagreement; distinct surface IDs make the wrong tie observable.
+	addQuad(-4.5, 10, 0, 12, 40)
+	addQuad(-4.6, 10, 0, 14, 41)
+	scalar := newScalarOracle(triangles)
+	packed := accelerator{triangles: triangles}
+	packed.prepare()
+	rays := [][2]vec{
+		{{X: -8.6875, Y: 2.0625, Z: 1e-8}, {X: -.2419781693019539, Y: .7930615143740585, Z: .5590169943749475}},
+		{{X: -6.8125, Y: 2.3125, Z: 1e-8}, {X: -.3967683857094516, Y: -.6364549065735261, Z: .6614378277661477}},
+		{{X: -4.500000009510561, Y: 3.090180941099549e-9, Z: 12}, {X: -.49038004302838556, Y: -.700214532035077, Z: .5188709112355182}},
+	}
+	for i, ray := range rays {
+		want, distance := scalar.hit(ray[0], ray[1], math.Inf(1))
+		got, actual := packed.hit(ray[0], ray[1], math.Inf(1))
+		if got != want || actual != distance {
+			t.Fatalf("boundary ray %d: %d/%.17g, want %d/%.17g", i, got, actual, want, distance)
+		}
+		if packed.blocked(ray[0], ray[1], math.Inf(1)) != (want >= 0) {
+			t.Fatalf("boundary ray %d changed visibility", i)
+		}
+	}
+}
+
 func BenchmarkRayTrace(b *testing.B) {
-	scalar, packed := rayFixture()
+	_, packed := rayFixture()
 	var origins, directions [256]vec
 	rng := random(42)
 	for i := range origins {
@@ -181,7 +215,7 @@ func BenchmarkRayTrace(b *testing.B) {
 		directions[i] = unit(vec{X: rng.next() - .5, Y: rng.next() - .5, Z: -1})
 	}
 	b.Logf("SIMD width=%d bits, emulated=%v", simd.VectorBitSize(), simd.Emulated())
-	for _, mode := range []string{"scalar-nearest", "simd-nearest", "simd-shadow"} {
+	for _, mode := range []string{"nearest", "shadow"} {
 		b.Run(mode, func(b *testing.B) {
 			b.ReportAllocs()
 			i := 0
@@ -189,11 +223,9 @@ func BenchmarkRayTrace(b *testing.B) {
 				j := i % len(origins)
 				i++
 				switch mode {
-				case "scalar-nearest":
-					scalarHit(scalar, origins[j], directions[j], 20)
-				case "simd-nearest":
+				case "nearest":
 					packed.hit(origins[j], directions[j], 20)
-				case "simd-shadow":
+				case "shadow":
 					packed.blocked(origins[j], directions[j], 20)
 				}
 			}

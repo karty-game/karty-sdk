@@ -60,6 +60,25 @@ func environmentCatalogFixture(t testing.TB) (world.Document, Layout, Environmen
 	return document, layout, catalog, encoded
 }
 
+func TestEnvironmentProducerRevisionsRemainReadable(t *testing.T) {
+	document, layout, catalog, _ := environmentCatalogFixture(t)
+	for _, producer := range []string{"cpu-environment-rnm3@1", EnvironmentPrebakeProducer} {
+		catalog.Producer = producer
+		encoded, err := EncodeEnvironmentVariants(catalog, layout, &document)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := DecodeEnvironmentVariants(encoded, layout, &document)
+		if err != nil || decoded.Producer != producer {
+			t.Fatal("completed environment artifact changed its producer", err)
+		}
+	}
+	catalog.Producer = "cpu-environment-rnm3@99"
+	if _, err := EncodeEnvironmentVariants(catalog, layout, &document); err == nil {
+		t.Fatal("unknown environment producer accepted")
+	}
+}
+
 func TestEnvironmentCatalogRoundTripImageValidationAndSelection(t *testing.T) {
 	t.Parallel()
 	document, layout, catalog, image := environmentCatalogFixture(t)

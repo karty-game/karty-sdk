@@ -17,7 +17,12 @@ type receiverGrid struct {
 	pixels []receiver
 }
 
-type receiverRow struct{ chart, y int }
+const receiverTileSize = 16
+
+type receiverTile struct {
+	chart int
+	rect  [4]int
+}
 
 func (g receiverGrid) offset(x, y int) int {
 	return (y-g.rect[1])*(g.rect[2]-g.rect[0]) + x - g.rect[0]
@@ -25,30 +30,35 @@ func (g receiverGrid) offset(x, y int) int {
 
 // Layout validation guarantees disjoint bounded rectangles. Keep positions only
 // inside receiver rectangles; unused atlas space needs no per-texel scratch.
-func receiverGrids(charts []worldlightmap.Chart) ([]receiverGrid, []receiverRow) {
-	texels, rowCount := 0, 0
+func receiverGrids(charts []worldlightmap.Chart) ([]receiverGrid, []receiverTile) {
+	texels, tileCount := 0, 0
 	for _, chart := range charts {
 		r := chart.ReceiverRect
 		texels += (r[2] - r[0]) * (r[3] - r[1])
-		rowCount += r[3] - r[1]
+		tileCount += ((r[2] - r[0] + receiverTileSize - 1) / receiverTileSize) * ((r[3] - r[1] + receiverTileSize - 1) / receiverTileSize)
 	}
 	pixels := make([]receiver, texels)
 	for i := range pixels {
 		pixels[i].surface = -1
 	}
 	grids := make([]receiverGrid, len(charts))
-	rows := make([]receiverRow, 0, rowCount)
+	tiles := make([]receiverTile, 0, tileCount)
 	offset := 0
 	for i, chart := range charts {
 		r := chart.ReceiverRect
 		count := (r[2] - r[0]) * (r[3] - r[1])
 		grids[i] = receiverGrid{rect: r, pixels: pixels[offset : offset+count]}
 		offset += count
-		for y := r[1]; y < r[3]; y++ {
-			rows = append(rows, receiverRow{chart: i, y: y})
+		for y := r[1]; y < r[3]; y += receiverTileSize {
+			for x := r[0]; x < r[2]; x += receiverTileSize {
+				tiles = append(
+					tiles,
+					receiverTile{chart: i, rect: [4]int{x, y, min(x+receiverTileSize, r[2]), min(y+receiverTileSize, r[3])}},
+				)
+			}
 		}
 	}
-	return grids, rows
+	return grids, tiles
 }
 
 func raster(grid receiverGrid, w, h int, chart worldlightmap.Chart, t triangle) {

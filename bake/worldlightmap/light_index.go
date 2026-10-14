@@ -49,7 +49,7 @@ func (index *lightIndex) build(start, end int) int {
 		bounds = bounds.point(index.bounds[source].lo).point(index.bounds[source].hi)
 	}
 	current := len(index.nodes)
-	index.nodes = append(index.nodes, node{bounds: bounds, start: start, end: end, left: -1, right: -1})
+	index.nodes = append(index.nodes, node{bounds: bounds, start: int32(start), end: int32(end), left: -1, right: -1})
 	if end-start <= 8 {
 		return current
 	}
@@ -75,7 +75,7 @@ func (index *lightIndex) build(start, end int) int {
 	})
 	middle := (start + end) / 2
 	left, right := index.build(start, middle), index.build(middle, end)
-	index.nodes[current].left, index.nodes[current].right = left, right
+	index.nodes[current].left, index.nodes[current].right = int32(left), int32(right)
 	return current
 }
 
@@ -89,7 +89,7 @@ func (index *lightIndex) query(position vec, sourceCount int) lightIterator {
 		return lightIterator{end: sourceCount}
 	}
 	result := lightIterator{linear: -1, words: (index.count + 63) / 64}
-	stack := [64]int{0}
+	stack := [64]int32{0}
 	count := 1
 	for count > 0 {
 		count--

@@ -40,6 +40,8 @@ const (
 
 const FeatureEnvironmentBackdrop = cartridge.FeatureWorldEnvironmentBackdropV1
 
+const FeatureEnvironmentSkylight = cartridge.FeatureWorldEnvironmentSkylightV1
+
 var (
 	ErrSize            = errors.New("world payload size is invalid")
 	ErrSyntax          = errors.New("world payload syntax is invalid")

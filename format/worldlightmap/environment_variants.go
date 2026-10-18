@@ -55,6 +55,7 @@ func EnvironmentSurfaceDigest(document *world.Document) (string, error) {
 	}
 	geometry := *document
 	geometry.Animations, geometry.Contents, geometry.SolidRenderers = nil, nil, nil
+	geometry.Fluids = nil
 	materials := world.MaterialIDs(&geometry)
 	type opacityBinding struct {
 		material uint32

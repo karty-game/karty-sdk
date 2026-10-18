@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/karty-game/karty-sdk/internal/cleanup"
 )
 
 func (image Image) inspect() error {
@@ -38,7 +40,7 @@ func (image Image) expand(destination []byte) error {
 	if err != nil {
 		return fmt.Errorf("%w: header: %w", ErrImage, err)
 	}
-	defer reader.Close()
+	defer cleanup.Close(reader)
 	reader.Multistream(false)
 	size := image.Width * image.Height * 4
 	if destination != nil {

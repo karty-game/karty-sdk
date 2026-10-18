@@ -11,6 +11,8 @@ import (
 
 const BinaryMagic = "KWR1"
 const SolidBinaryMagic = "KWR2"
+const FluidBinaryMagic = "KWR3"
+const AppearanceBinaryMagic = "KWR4"
 
 // Encode validates and encodes one compiled world as canonical typed binary.
 func Encode(document Document) ([]byte, error) {
@@ -25,9 +27,19 @@ func encodeBinary(document Document) ([]byte, error) {
 	if usesWorldExtensions(&document) {
 		magic = SolidBinaryMagic
 	}
+	if document.Fluids != nil {
+		magic = FluidBinaryMagic
+	}
+	if document.Environment != nil && document.Environment.Version == ExplicitEnvironmentVersion {
+		magic = AppearanceBinaryMagic
+	}
 	w := binwire.NewWriter(magic, MaxEncodedSize)
 	writeWorldDocument(w, &document)
-	if usesWorldExtensions(&document) {
+	if magic == AppearanceBinaryMagic {
+		writeAppearanceExtensions(w, &document)
+	} else if magic == FluidBinaryMagic {
+		writeFluidExtensions(w, &document)
+	} else if usesWorldExtensions(&document) {
 		writeWorldExtensions(w, &document)
 	}
 	encoded, err := w.Bytes()
@@ -47,10 +59,26 @@ func Decode(encoded []byte) (Document, error) {
 	if len(encoded) >= 4 && string(encoded[:4]) == SolidBinaryMagic {
 		magic = SolidBinaryMagic
 	}
+	if len(encoded) >= 4 && string(encoded[:4]) == FluidBinaryMagic {
+		magic = FluidBinaryMagic
+	}
+	if len(encoded) >= 4 && string(encoded[:4]) == AppearanceBinaryMagic {
+		magic = AppearanceBinaryMagic
+	}
 	scan := binwire.NewReader(encoded, magic, MaxEncodedSize)
 	scanWorldDocument(scan)
 	if magic == SolidBinaryMagic {
 		if err := scanWorldExtensions(scan); err != nil {
+			return Document{}, decodeError(err)
+		}
+	}
+	if magic == FluidBinaryMagic {
+		if err := scanFluidExtensions(scan); err != nil {
+			return Document{}, decodeError(err)
+		}
+	}
+	if magic == AppearanceBinaryMagic {
+		if err := scanAppearanceExtensions(scan); err != nil {
 			return Document{}, decodeError(err)
 		}
 	}
@@ -62,6 +90,16 @@ func Decode(encoded []byte) (Document, error) {
 	readWorldDocument(reader, &document)
 	if magic == SolidBinaryMagic {
 		if err := readWorldExtensions(reader, &document); err != nil {
+			return Document{}, err
+		}
+	}
+	if magic == FluidBinaryMagic {
+		if err := readFluidExtensions(reader, &document); err != nil {
+			return Document{}, err
+		}
+	}
+	if magic == AppearanceBinaryMagic {
+		if err := readAppearanceExtensions(reader, &document); err != nil {
 			return Document{}, err
 		}
 	}

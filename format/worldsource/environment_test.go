@@ -14,11 +14,12 @@ import (
 
 func TestEnvironmentSourceVersionAndAbsentCompatibility(t *testing.T) {
 	t.Parallel()
-	if worldsource.EnvironmentVersion != 9 || worldsource.Version != 12 {
+	if worldsource.EnvironmentVersion != 9 || worldsource.Version < worldsource.VegetationTreeVersion {
 		t.Fatal("source environment version changed")
 	}
 	for version := uint16(1); version < worldsource.EnvironmentVersion; version++ {
 		document := validSource()
+		document.Version = worldsource.FluidsVersion
 		document.Version = version
 		if err := worldsource.Validate(&document); err != nil {
 			t.Fatal(err)
@@ -47,6 +48,7 @@ func TestEnvironmentSourceVersionAndAbsentCompatibility(t *testing.T) {
 func TestEnvironmentSourceRoundTripAndCompleteValidation(t *testing.T) {
 	t.Parallel()
 	document := validSource()
+	document.Version = worldsource.FluidsVersion
 	document.Environment = &worldsource.Environment{Preset: world.EnvironmentFantasy, Palette: world.EnvironmentPaletteViolet,
 		Sun: &world.EnvironmentSun{Azimuth: 230, Elevation: 35}}
 	document.Rooms[0].Sky = true

@@ -22,6 +22,7 @@ type Baker struct {
 	prepared             *preparedTransport
 	scope                []byte
 	sampling, reflecting bool
+	shadowDigest         [32]byte
 }
 
 // NewBaker creates a lazy, world-bound baker. Each Bake or BakeEnvironment call
@@ -75,7 +76,9 @@ func (b *Baker) transport(ctx context.Context, document *world.Document, inputs 
 		return nil, err
 	}
 	reflecting := inputs.options.Bounces > 0
-	if b.prepared != nil && bytes.Equal(scope, b.scope) && sampling == b.sampling && reflecting == b.reflecting {
+	shadowDigest := shadowTrianglesDigest(inputs.options.ShadowTriangles)
+	if b.prepared != nil && bytes.Equal(scope, b.scope) && sampling == b.sampling && reflecting == b.reflecting &&
+		shadowDigest == b.shadowDigest {
 		return b.prepared, nil
 	}
 	prepared, err := prepareTransport(ctx, document, inputs, sampling)
@@ -83,6 +86,7 @@ func (b *Baker) transport(ctx context.Context, document *world.Document, inputs 
 		return nil, err
 	}
 	b.prepared, b.scope, b.sampling, b.reflecting = prepared, scope, sampling, reflecting
+	b.shadowDigest = shadowDigest
 	return prepared, nil
 }
 
@@ -125,6 +129,14 @@ func prepareTransport(ctx context.Context, document *world.Document, inputs bake
 				p.accel.triangles = append(p.accel.triangles, t)
 			}
 		}
+	}
+	for _, points := range inputs.options.ShadowTriangles {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		t := triangle{a: points[0], b: points[1], c: points[2], surface: -1}
+		t.bounds = emptyBox().point(t.a).point(t.b).point(t.c)
+		p.accel.triangles = append(p.accel.triangles, t)
 	}
 	p.triangles = len(p.accel.triangles)
 	p.accel.prepare()

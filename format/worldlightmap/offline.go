@@ -105,9 +105,15 @@ func OfflineSurfaceDigest(document *world.Document) (string, error) {
 	if document == nil {
 		return "", ErrLayout
 	}
+	if document.Fluids != nil {
+		if err := world.Validate(document); err != nil {
+			return "", err
+		}
+	}
 	snapshot := *document
 	snapshot.Contents, snapshot.Lighting, snapshot.Animations, snapshot.Emission = nil, nil, nil, nil
 	snapshot.SolidRenderers = nil
+	snapshot.Fluids = nil
 	encoded, err := world.Encode(snapshot)
 	if err != nil {
 		return "", err

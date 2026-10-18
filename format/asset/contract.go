@@ -28,15 +28,23 @@ const (
 	CapabilityVideoMPEG1v1                        Capability = "video/mpeg1@1"
 	CapabilityWorldLightingV1                     Capability = "world/lighting@1"
 	CapabilityWorldChunksV1                       Capability = "world/chunks@1"
+	CapabilityWorldTerrainV1                      Capability = "world/terrain@1"
 	CapabilityWorldLightmapsV1                    Capability = "world/lightmaps@1"
 	CapabilityWorldLightmapsPrebakedV1            Capability = "world/lightmaps-prebaked@1"
 	CapabilityWorldLightmapsEnvironmentVariantsV1 Capability = "world/lightmaps-environment-variants@1"
 	CapabilityWorldMaterialMappingV1              Capability = "world/material-mapping@1"
+	CapabilityWorldVegetationV1                   Capability = "world/vegetation@1"
+	CapabilityWorldVegetationV2                   Capability = "world/vegetation@2"
+	CapabilityWorldVegetationV3                   Capability = "world/vegetation@3"
+	CapabilityWorldVegetationV4                   Capability = "world/vegetation@4"
+	CapabilityWorldVegetationV5                   Capability = "world/vegetation@5"
 	CapabilityWorldParticlesV1                    Capability = "world/particles@1"
 	CapabilityWorldParticlesV2                    Capability = "world/particles@2"
 	CapabilityWorldAnimationsV1                   Capability = "world/animations@1"
+	CapabilityWorldFluidsV1                       Capability = "world/fluids@1"
 	CapabilityWorldEmissionV1                     Capability = "world/emission@1"
 	CapabilityWorldEnvironmentV1                  Capability = "world/environment@1"
+	CapabilityWorldEnvironmentV2                  Capability = "world/environment@2"
 	CapabilityWorldEnvironmentBackdropV1          Capability = "world/environment-backdrop@1"
 	CapabilityWorldEnvironmentSkylightV1          Capability = "world/environment-skylight@1"
 	CapabilityWorldSkyV1                          Capability = "world/sky@1"
@@ -86,6 +94,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityVideoMPEG1v1,
 			CapabilityWorldLightingV1,
 			CapabilityWorldChunksV1,
+			CapabilityWorldTerrainV1,
 			CapabilityWorldLightmapsV1,
 			CapabilityWorldLightmapsPrebakedV1,
 			CapabilityWorldLightmapsEnvironmentVariantsV1,
@@ -96,10 +105,17 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldMaterialReflectanceV1,
 			CapabilityWorldSolidRenderersV1, CapabilityWorldStaticSolidsV1,
 			CapabilityWorldAnimationsV1,
+			CapabilityWorldVegetationV1,
+			CapabilityWorldVegetationV2,
+			CapabilityWorldVegetationV3,
+			CapabilityWorldVegetationV4,
+			CapabilityWorldVegetationV5,
 			CapabilityWorldParticlesV1,
 			CapabilityWorldParticlesV2,
+			CapabilityWorldFluidsV1,
 			CapabilityWorldEmissionV1,
 			CapabilityWorldEnvironmentV1,
+			CapabilityWorldEnvironmentV2,
 			CapabilityWorldEnvironmentBackdropV1,
 			CapabilityWorldEnvironmentSkylightV1,
 			CapabilityWorldSkyV1,

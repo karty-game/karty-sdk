@@ -18,12 +18,12 @@ type Lighting struct {
 // Ambient when present; squared unit-normal components weight each selected face.
 // Colors are finite linear RGB intensities in [0,1].
 type AmbientCube struct {
-	PositiveX Vec3
-	NegativeX Vec3
-	PositiveY Vec3
-	NegativeY Vec3
-	PositiveZ Vec3
-	NegativeZ Vec3
+	PositiveX Vec3 `yaml:"positive_x"`
+	NegativeX Vec3 `yaml:"negative_x"`
+	PositiveY Vec3 `yaml:"positive_y"`
+	NegativeY Vec3 `yaml:"negative_y"`
+	PositiveZ Vec3 `yaml:"positive_z"`
+	NegativeZ Vec3 `yaml:"negative_z"`
 }
 
 // PointLight is one bounded global light. ID is unique within Lighting;

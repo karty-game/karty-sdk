@@ -29,40 +29,48 @@ type generator struct {
 }
 
 var limits = map[string]int{
-	"worldparticles.Document.Presets":            64,
-	"worldparticles.Document.Emitters":           256,
-	"worldparticles.Emission.Bursts":             16,
-	"worldparticles.Sprite.Frames":               16,
-	"worldparticles.Preset.SizeOverLife":         4,
-	"worldparticles.Preset.ColorOverLife":        4,
-	"world.Document.Sectors":                     256,
-	"world.Document.Contents":                    4096,
-	"world.Sector.Walls":                         256,
-	"world.Actor.Tags":                           8,
-	"world.Lighting.Lights":                      4096,
-	"world.SolidRenderers.Prefabs":               64,
-	"world.SolidRenderers.Actors":                4096,
-	"world.SolidPrefab.Solids":                   1024,
-	"world.StaticSolids.Items":                   1024,
-	"world.Solid.Footprint":                      64,
-	"world.Wall.FrameRegions":                    252,
-	"world.WallFrameRegion.Vertices":             4,
-	"world.SurfaceUV.Projections":                3,
-	"world.SurfaceUV.Weights":                    3,
-	"world.Animations.Presets":                   64,
-	"world.Animations.Materials":                 196,
-	"world.AnimationPreset.Frames":               64,
-	"world.Emission.Materials":                   196,
-	"world.MaterialEmission.Lights":              50,
-	"worldlightmap.Layout.Pages":                 1,
-	"worldlightmap.Layout.Charts":                8192,
-	"worldlightmap.Layout.Bindings":              76288,
-	"worldlightmap.RuntimeBake.LightIDs":         4096,
-	"worldlightmap.ReceiverSelection.Sectors":    256,
-	"worldlightmap.ReceiverSelection.Solids":     1024,
-	"worldlightmap.EnvironmentVariants.Variants": 32,
-	"worldmaterial.Layout.Materials":             196,
-	"worldmaterial.Layout.Mips":                  8,
+	"world.Fluids.Items":                             8,
+	"world.Fluid.Solids":                             64,
+	"worldvegetation.legacyGeometryDocument.Presets": 64,
+	"worldvegetation.legacyGeometryDocument.Layers":  1024,
+	"worldvegetation.legacyDocument.Presets":         64,
+	"worldvegetation.legacyDocument.Layers":          1024,
+	"worldvegetation.Document.Presets":               64,
+	"worldvegetation.Document.Layers":                1024,
+	"worldparticles.Document.Presets":                64,
+	"worldparticles.Document.Emitters":               256,
+	"worldparticles.Emission.Bursts":                 16,
+	"worldparticles.Sprite.Frames":                   16,
+	"worldparticles.Preset.SizeOverLife":             4,
+	"worldparticles.Preset.ColorOverLife":            4,
+	"world.Document.Sectors":                         256,
+	"world.Document.Contents":                        4096,
+	"world.Sector.Walls":                             256,
+	"world.Actor.Tags":                               8,
+	"world.Lighting.Lights":                          4096,
+	"world.SolidRenderers.Prefabs":                   64,
+	"world.SolidRenderers.Actors":                    4096,
+	"world.SolidPrefab.Solids":                       1024,
+	"world.StaticSolids.Items":                       1024,
+	"world.Solid.Footprint":                          64,
+	"world.Wall.FrameRegions":                        252,
+	"world.WallFrameRegion.Vertices":                 4,
+	"world.SurfaceUV.Projections":                    3,
+	"world.SurfaceUV.Weights":                        3,
+	"world.Animations.Presets":                       64,
+	"world.Animations.Materials":                     196,
+	"world.AnimationPreset.Frames":                   64,
+	"world.Emission.Materials":                       196,
+	"world.MaterialEmission.Lights":                  50,
+	"worldlightmap.Layout.Pages":                     1,
+	"worldlightmap.Layout.Charts":                    8192,
+	"worldlightmap.Layout.Bindings":                  76288,
+	"worldlightmap.RuntimeBake.LightIDs":             4096,
+	"worldlightmap.ReceiverSelection.Sectors":        256,
+	"worldlightmap.ReceiverSelection.Solids":         1024,
+	"worldlightmap.EnvironmentVariants.Variants":     32,
+	"worldmaterial.Layout.Materials":                 196,
+	"worldmaterial.Layout.Mips":                      8,
 }
 
 func main() {
@@ -75,7 +83,7 @@ func main() {
 
 func generate(root string) {
 	g := generator{definitions: make(map[string]definition)}
-	for _, pkg := range []string{"world", "worldlightmap", "worldmaterial", "worldparticles"} {
+	for _, pkg := range []string{"world", "worldlightmap", "worldmaterial", "worldparticles", "worldvegetation"} {
 		files, err := filepath.Glob(filepath.Join(root, "format", pkg, "*.go"))
 		must(err)
 		for _, path := range files {
@@ -97,7 +105,7 @@ func generate(root string) {
 	for _, config := range []struct {
 		pkg   string
 		roots []string
-	}{{"world", []string{"Document", "SolidRenderers"}}, {"worldlightmap", []string{"Layout", "PrebakeManifest", "EnvironmentVariants", "world.Vec2", "world.Plane", "world.PointLight"}}, {"worldmaterial", []string{"Layout"}}, {"worldparticles", []string{"Document"}}} {
+	}{{"world", []string{"Document", "SolidRenderers", "Fluids", "EnvironmentAppearance"}}, {"worldlightmap", []string{"Layout", "PrebakeManifest", "EnvironmentVariants", "world.Vec2", "world.Plane", "world.PointLight"}}, {"worldmaterial", []string{"Layout"}}, {"worldparticles", []string{"Document"}}, {"worldvegetation", []string{"Document", "legacyDocument", "legacyGeometryDocument"}}} {
 		g.current = config.pkg
 		g.needed = make(map[string]bool)
 		for _, root := range config.roots {
@@ -113,32 +121,32 @@ func generate(root string) {
 		}
 		slices.Sort(keys)
 		var output bytes.Buffer
-		fmt.Fprintf(
+		_, _ = fmt.Fprintf(
 			&output,
 			"// Code generated by internal/codegen/binary; DO NOT EDIT.\npackage %s\n\nimport (\n\"github.com/karty-game/karty-sdk/internal/binwire\"\n",
 			config.pkg,
 		)
 		if config.pkg != "world" && g.needed["world.Vec3"] {
-			fmt.Fprintln(&output, "\"github.com/karty-game/karty-sdk/format/world\"")
+			_, _ = fmt.Fprintln(&output, "\"github.com/karty-game/karty-sdk/format/world\"")
 		}
-		fmt.Fprintln(&output, ")")
+		_, _ = fmt.Fprintln(&output, ")")
 		for _, key := range keys {
 			d := g.definitions[key]
 			name := methodName(d)
 			typ := g.typeName(d)
-			fmt.Fprintf(&output, "func write%s(w *binwire.Writer,v *%s){\nif w.Err()!=nil {return}\n", name, typ)
+			_, _ = fmt.Fprintf(&output, "func write%s(w *binwire.Writer,v *%s){\nif w.Err()!=nil {return}\n", name, typ)
 			g.emit(&output, d.pkg, d.expr, "(*v)", key, "write")
-			fmt.Fprintln(&output, "}")
-			fmt.Fprintf(&output, "func read%s(r *binwire.Reader,v *%s){\n", name, typ)
+			_, _ = fmt.Fprintln(&output, "}")
+			_, _ = fmt.Fprintf(&output, "func read%s(r *binwire.Reader,v *%s){\n", name, typ)
 			g.emit(&output, d.pkg, d.expr, "(*v)", key, "read")
-			fmt.Fprintln(&output, "}")
-			fmt.Fprintf(&output, "func scan%s(r *binwire.Reader){\n", name)
+			_, _ = fmt.Fprintln(&output, "}")
+			_, _ = fmt.Fprintf(&output, "func scan%s(r *binwire.Reader){\n", name)
 			g.emit(&output, d.pkg, d.expr, "", key, "scan")
-			fmt.Fprintln(&output, "}")
+			_, _ = fmt.Fprintln(&output, "}")
 		}
 		formatted, err := format.Source(output.Bytes())
 		if err != nil {
-			os.Stderr.Write(output.Bytes())
+			_, _ = os.Stderr.Write(output.Bytes())
 			must(err)
 		}
 		must(os.WriteFile(filepath.Join(root, "format", config.pkg, "binary.generated.go"), formatted, 0o600))
@@ -269,14 +277,15 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 	if d, ok := g.named(pkg, expr); ok {
 		prefix := "scan"
 		arg := "r"
-		if mode == "write" {
+		switch mode {
+		case "write":
 			prefix = "write"
 			arg = "w,&" + value
-		} else if mode == "read" {
+		case "read":
 			prefix = "read"
 			arg = "r,&" + value
 		}
-		fmt.Fprintf(out, "%s%s(%s)\n", prefix, methodName(d), arg)
+		_, _ = fmt.Fprintf(out, "%s%s(%s)\n", prefix, methodName(d), arg)
 		return
 	}
 	switch t := expr.(type) {
@@ -285,13 +294,14 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 			for _, name := range field.Names {
 				fieldKey := key + "." + name.Name
 				// KWR2 appends its separately generated extension after the frozen base.
-				if fieldKey == "world.Document.SolidRenderers" || fieldKey == "world.Environment.Backdrop" {
+				if fieldKey == "world.Document.Fluids" || fieldKey == "world.Document.SolidRenderers" ||
+					fieldKey == "world.Environment.Appearance" || fieldKey == "world.Environment.Backdrop" {
 					continue
 				}
 				// Revision-1/2 prebake manifests retain their exact bytes. Only
 				// recognized bounded producers append their typed ray distance.
 				if fieldKey == "worldlightmap.PrebakeManifest.Producer" && mode == "scan" {
-					fmt.Fprintln(
+					_, _ = fmt.Fprintln(
 						out,
 						`boundedProducer := r.StringIn(4096, "cpu-rnm3-pathtrace@3", "cpu-rnm3-pathtrace-atrous-low@3", "cpu-rnm3-pathtrace-atrous-medium@3", "cpu-rnm3-pathtrace@5", "cpu-rnm3-pathtrace-atrous-low@5", "cpu-rnm3-pathtrace-atrous-medium@5")`,
 					)
@@ -302,9 +312,9 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 					if mode != "scan" {
 						condition = "boundedOfflineProducer(" + value + ".Producer)"
 					}
-					fmt.Fprintf(out, "if %s {\n", condition)
+					_, _ = fmt.Fprintf(out, "if %s {\n", condition)
 					g.emit(out, pkg, field.Type, value+"."+name.Name, fieldKey, mode)
-					fmt.Fprintln(out, "}")
+					_, _ = fmt.Fprintln(out, "}")
 					continue
 				}
 				g.emit(out, pkg, field.Type, value+"."+name.Name, key+"."+name.Name, mode)
@@ -321,47 +331,49 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 			cast = g.typeName(d)
 		}
 		if name == "string" {
-			if mode == "write" {
-				fmt.Fprintf(out, "w.String(string(%s),4096)\n", value)
-			} else if mode == "read" {
+			switch mode {
+			case "write":
+				_, _ = fmt.Fprintf(out, "w.String(string(%s),4096)\n", value)
+			case "read":
 				read := "r.String(4096)"
 				if cast != "" {
 					read = cast + "(" + read + ")"
 				}
-				fmt.Fprintf(out, "%s=%s\n", value, read)
-			} else {
-				fmt.Fprintln(out, "r.SkipString(4096)")
+				_, _ = fmt.Fprintf(out, "%s=%s\n", value, read)
+			default:
+				_, _ = fmt.Fprintln(out, "r.SkipString(4096)")
 			}
 			return
 		}
-		if mode == "write" {
+		switch mode {
+		case "write":
 			if name == "int32" {
 				value = "int(" + value + ")"
 			}
-			fmt.Fprintf(out, "w.%s(%s)\n", method, value)
-		} else if mode == "read" {
+			_, _ = fmt.Fprintf(out, "w.%s(%s)\n", method, value)
+		case "read":
 			read := "r." + method + "()"
 			if name == "int32" {
 				read = "int32(" + read + ")"
 			}
-			fmt.Fprintf(out, "%s=%s\n", value, read)
-		} else {
-			fmt.Fprintf(out, "r.%s()\n", method)
+			_, _ = fmt.Fprintf(out, "%s=%s\n", value, read)
+		default:
+			_, _ = fmt.Fprintf(out, "r.%s()\n", method)
 		}
 	case *ast.StarExpr:
 		_, size := g.dimensions(pkg, t.X)
 		if mode == "write" {
-			fmt.Fprintf(out, "w.Bool(%s!=nil)\nif %s!=nil{\n", value, value)
+			_, _ = fmt.Fprintf(out, "w.Bool(%s!=nil)\nif %s!=nil{\n", value, value)
 			g.emit(out, pkg, t.X, "(*"+value+")", key, mode)
 		} else {
-			fmt.Fprintln(out, "if r.Bool(){")
-			fmt.Fprintf(out, "r.Allocate(%d)\nif r.Err()!=nil{return}\n", size)
+			_, _ = fmt.Fprintln(out, "if r.Bool(){")
+			_, _ = fmt.Fprintf(out, "r.Allocate(%d)\nif r.Err()!=nil{return}\n", size)
 			if mode == "read" {
-				fmt.Fprintf(out, "%s=new(%s)\n", value, g.exprName(pkg, t.X))
+				_, _ = fmt.Fprintf(out, "%s=new(%s)\n", value, g.exprName(pkg, t.X))
 			}
 			g.emit(out, pkg, t.X, "(*"+value+")", key, mode)
 		}
-		fmt.Fprintln(out, "}")
+		_, _ = fmt.Fprintln(out, "}")
 	case *ast.ArrayType:
 		index := g.next()
 		if t.Len == nil {
@@ -371,7 +383,7 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 			}
 			minimum, size := g.dimensions(pkg, t.Elt)
 			if mode == "write" {
-				fmt.Fprintf(
+				_, _ = fmt.Fprintf(
 					out,
 					"w.Count(len(%s),%s==nil,%d)\nif w.Err()!=nil{return}\nfor %s:=range %s{\n",
 					value,
@@ -381,9 +393,9 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 					value,
 				)
 			} else {
-				fmt.Fprintf(out, "n%s,p%s:=r.Count(%d,%d,%d)\nif r.Err()!=nil{return}\n", index, index, maximum, minimum, size)
+				_, _ = fmt.Fprintf(out, "n%s,p%s:=r.Count(%d,%d,%d)\nif r.Err()!=nil{return}\n", index, index, maximum, minimum, size)
 				if mode == "read" {
-					fmt.Fprintf(
+					_, _ = fmt.Fprintf(
 						out,
 						"if p%s{ %s=make(%s,n%s) }\nfor %s:=range %s{\n",
 						index,
@@ -394,18 +406,18 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 						value,
 					)
 				} else {
-					fmt.Fprintf(out, "_ = p%s\nfor %s:=0;%s<n%s && r.Err()==nil;%s++{\n", index, index, index, index, index)
+					_, _ = fmt.Fprintf(out, "_ = p%s\nfor %s:=0;%s<n%s && r.Err()==nil;%s++{\n", index, index, index, index, index)
 				}
 			}
 		} else {
 			if mode == "scan" {
-				fmt.Fprintf(out, "for %s:=0;%s<%s;%s++{\n", index, index, t.Len.(*ast.BasicLit).Value, index)
+				_, _ = fmt.Fprintf(out, "for %s:=0;%s<%s;%s++{\n", index, index, t.Len.(*ast.BasicLit).Value, index)
 			} else {
-				fmt.Fprintf(out, "for %s:=range %s{\n", index, value)
+				_, _ = fmt.Fprintf(out, "for %s:=range %s{\n", index, value)
 			}
 		}
 		g.emit(out, pkg, t.Elt, value+"["+index+"]", key, mode)
-		fmt.Fprintln(out, "}")
+		_, _ = fmt.Fprintln(out, "}")
 	default:
 		panic(fmt.Sprintf("emit %T", expr))
 	}

@@ -10,7 +10,7 @@ import (
 func TestGeneratedTypedCodecsAreCurrent(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	temporary := t.TempDir()
-	for _, pkg := range []string{"world", "worldlightmap", "worldmaterial", "worldparticles"} {
+	for _, pkg := range []string{"world", "worldlightmap", "worldmaterial", "worldparticles", "worldvegetation"} {
 		directory := filepath.Join(temporary, "format", pkg)
 		if err := os.MkdirAll(directory, 0o700); err != nil {
 			t.Fatal(err)
@@ -30,7 +30,7 @@ func TestGeneratedTypedCodecsAreCurrent(t *testing.T) {
 		}
 	}
 	generate(temporary)
-	for _, pkg := range []string{"world", "worldlightmap", "worldmaterial", "worldparticles"} {
+	for _, pkg := range []string{"world", "worldlightmap", "worldmaterial", "worldparticles", "worldvegetation"} {
 		relative := filepath.Join("format", pkg, "binary.generated.go")
 		actual, err := os.ReadFile(filepath.Join(temporary, relative))
 		if err != nil {

@@ -11,13 +11,15 @@ import (
 // present; omission uses the preset direction. Environment is global and never
 // transformed by a prefab instance.
 type Environment struct {
-	Preset      sdkworld.EnvironmentPreset   `yaml:"preset"`
-	Palette     sdkworld.EnvironmentPalette  `yaml:"palette,omitempty"`
-	Sun         *sdkworld.EnvironmentSun     `yaml:"sun,omitempty"`
-	TimeOfDay   *float64                     `yaml:"time_of_day,omitempty"`
-	Backdrop    sdkworld.EnvironmentBackdrop `yaml:"backdrop,omitempty"`
-	CloudAmount *float64                     `yaml:"cloud_amount,omitempty"`
-	Sky         *Sky                         `yaml:"sky,omitempty"`
+	Lighting    *sdkworld.EnvironmentLighting `yaml:"lighting,omitempty"`
+	Colors      *sdkworld.EnvironmentColors   `yaml:"colors,omitempty"`
+	Preset      sdkworld.EnvironmentPreset    `yaml:"preset,omitempty"`
+	Palette     sdkworld.EnvironmentPalette   `yaml:"palette,omitempty"`
+	Sun         *sdkworld.EnvironmentSun      `yaml:"sun,omitempty"`
+	TimeOfDay   *float64                      `yaml:"time_of_day,omitempty"`
+	Backdrop    sdkworld.EnvironmentBackdrop  `yaml:"backdrop,omitempty"`
+	CloudAmount *float64                      `yaml:"cloud_amount,omitempty"`
+	Sky         *Sky                          `yaml:"sky,omitempty"`
 }
 
 func validateEnvironment(document *Document) error {
@@ -50,6 +52,27 @@ func validateEnvironment(document *Document) error {
 	}
 	if environment.Backdrop != "" && document.Version < EnvironmentBackdropVersion {
 		return fmt.Errorf("environment backdrop requires source version %d: %w", EnvironmentBackdropVersion, ErrVersion)
+	}
+	if document.Version >= ExplicitEnvironmentVersion {
+		if environment.Preset != "" || environment.Palette != "" || environment.Backdrop != "" || environment.Lighting == nil {
+			return ErrEnvironment
+		}
+		colors := sdkworld.DefaultEnvironmentColors()
+		if environment.Colors != nil {
+			colors = *environment.Colors
+		}
+		return sdkworld.ValidateEnvironment(
+			&sdkworld.Environment{
+				Version:     sdkworld.ExplicitEnvironmentVersion,
+				Sun:         environment.Sun,
+				TimeOfDay:   environment.TimeOfDay,
+				CloudAmount: environment.CloudAmount,
+				Appearance:  &sdkworld.EnvironmentAppearance{Lighting: *environment.Lighting, Colors: colors},
+			},
+		)
+	}
+	if environment.Lighting != nil || environment.Colors != nil {
+		return ErrVersion
 	}
 	if err := sdkworld.ValidateEnvironment(&sdkworld.Environment{
 		Version: sdkworld.EnvironmentVersion, Preset: environment.Preset, Palette: environment.Palette, Sun: environment.Sun,

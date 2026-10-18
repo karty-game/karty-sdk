@@ -15,6 +15,7 @@ func TestEnvironmentSourceClockAndClouds(t *testing.T) {
 	t.Parallel()
 	clock, clouds := 0.0, 0.0
 	document := validSource()
+	document.Version = worldsource.FluidsVersion
 	document.Environment = &worldsource.Environment{Preset: world.EnvironmentDaylight, TimeOfDay: &clock, CloudAmount: &clouds}
 	if err := worldsource.Validate(&document); err != nil {
 		t.Fatal(err)

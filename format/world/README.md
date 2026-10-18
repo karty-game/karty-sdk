@@ -237,3 +237,7 @@ KWR1/KWR2 layouts and the `cpu-environment-rnm3@1` algorithm are unchanged.
 The new preset is an explicitly gated input, not a change to released defaults.
 Old SDKs reject the unknown preset/capability rather than reinterpret its lighting.
 The guest `Game.SetEnvironment` API still controls only time and cloud amount.
+
+Optional `world/fluids@1` (Source 17) uses KWR3, preserving KWR1/KWR2 bytes without fluids. Up to eight media reference at most 64 non-colliding horizontal slabs each; tops require liquid animations. Definitions bound density, drag, border foam, fog and camera distortion. Different media cannot overlap or share top materials. Consumers must advertise the capability before mounting.
+
+Environment v2 uses `KWR4` and `world/environment@2` plus the base environment/sectors capabilities. It replaces prototype selectors with `EnvironmentAppearance` (explicit lighting and sky colors). KWR4 appends bounded solid/fluid sentinels and appearance; KWR1/KWR2/KWR3 layouts remain frozen. Colors/intensity participate in encoded world and environment bake identity.

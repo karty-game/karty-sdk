@@ -41,7 +41,7 @@ func TestParticleVersionCapabilityAndLegacyHelpers(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // Allocation preflight must run without parallel tests.
+// Allocation preflight must run without parallel tests.
 func TestAlphaParticleDocumentCanonicalVersionAndBounds(t *testing.T) {
 	document := fixture()
 	document.Version = worldparticles.AlphaVersion

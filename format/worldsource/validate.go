@@ -16,6 +16,17 @@ func Validate(document *Document) error {
 	if document.Version < LegacyVersion || document.Version > Version {
 		return ErrVersion
 	}
+	expanded, err := ExpandCompactRooms(document)
+	if err != nil {
+		return err
+	}
+	document = &expanded
+	if err := validateFluids(document); err != nil {
+		return err
+	}
+	if err := validateVegetation(document); err != nil {
+		return err
+	}
 	if err := validateParticles(document); err != nil {
 		return err
 	}

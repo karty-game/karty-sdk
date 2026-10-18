@@ -10,37 +10,45 @@ import (
 )
 
 const (
-	LegacyVersion         = uint16(1)
-	ActorVersion          = uint16(2)
-	PortalVersion         = uint16(3)
-	LightingVersion       = uint16(4)
-	MappingVersion        = uint16(5)
-	SolidsVersion         = uint16(6)
-	MaterialsVersion      = uint16(7)
-	AnimationsVersion     = uint16(8)
-	EnvironmentVersion    = uint16(9)
-	ParticlesVersion      = uint16(10)
-	SolidRenderersVersion = uint16(11)
-	SkyVersion            = uint16(12)
-	Version               = SkyVersion
-	MaxRooms              = 1024
-	MaxPrefabs            = 256
-	MaxInstances          = 4096
-	MaxConnections        = 8192
-	MaxPorts              = 4096
-	MaxEdges              = 8192
-	MaxEdgesPerRoom       = 256
-	MaxContents           = 4096
-	MaxLights             = sdkworld.MaxLights
-	MinLightRadius        = sdkworld.MinLightRadius
-	MaxMaterialOverrides  = 256
-	MaxIdentifierBytes    = 128
-	MaxTags               = 8
-	MaxTagBytes           = 64
-	MaxCoordinate         = 1_000_000.0
-	MinEdgeLength         = 1e-6
-	MinClearance          = 1e-6
-	geometryEpsilon       = 1e-9
+	LegacyVersion              = uint16(1)
+	ActorVersion               = uint16(2)
+	PortalVersion              = uint16(3)
+	LightingVersion            = uint16(4)
+	MappingVersion             = uint16(5)
+	SolidsVersion              = uint16(6)
+	MaterialsVersion           = uint16(7)
+	AnimationsVersion          = uint16(8)
+	EnvironmentVersion         = uint16(9)
+	ParticlesVersion           = uint16(10)
+	SolidRenderersVersion      = uint16(11)
+	SkyVersion                 = uint16(12)
+	VegetationVersion          = uint16(13)
+	VegetationGeometryVersion  = uint16(14)
+	VegetationNormalVersion    = uint16(15)
+	VegetationTreeVersion      = uint16(16)
+	FluidsVersion              = uint16(17)
+	ExplicitEnvironmentVersion = uint16(18)
+	CompactRoomVersion         = uint16(19)
+	VegetationPalmVersion      = uint16(20)
+	Version                    = VegetationPalmVersion
+	MaxRooms                   = 1024
+	MaxPrefabs                 = 256
+	MaxInstances               = 4096
+	MaxConnections             = 8192
+	MaxPorts                   = 4096
+	MaxEdges                   = 8192
+	MaxEdgesPerRoom            = 256
+	MaxContents                = 4096
+	MaxLights                  = sdkworld.MaxLights
+	MinLightRadius             = sdkworld.MinLightRadius
+	MaxMaterialOverrides       = 256
+	MaxIdentifierBytes         = 128
+	MaxTags                    = 8
+	MaxTagBytes                = 64
+	MaxCoordinate              = 1_000_000.0
+	MinEdgeLength              = 1e-6
+	MinClearance               = 1e-6
+	geometryEpsilon            = 1e-9
 )
 
 const EnvironmentBackdropVersion = uint16(11)
@@ -92,11 +100,14 @@ type Document struct {
 	Animations  *Animations  `yaml:"animations,omitempty"`
 	Environment *Environment `yaml:"environment,omitempty"`
 	Particles   *Particles   `yaml:"particles,omitempty"`
+	Vegetation  *Vegetation  `yaml:"vegetation,omitempty"`
+	Fluids      *Fluids      `yaml:"fluids,omitempty"`
 }
 
 // Room may be concave. The compiler decomposes it into convex sectors after
 // prefab expansion and connection resolution.
 type Room struct {
+	Rect             *RoomRectangle     `yaml:"rect,omitempty"`
 	ID               string             `yaml:"id"`
 	Boundary         []Edge             `yaml:"boundary"`
 	Floor            Plane              `yaml:"floor"`
@@ -113,6 +124,17 @@ type Room struct {
 	WallSecondary    *SecondarySettings `yaml:"wall_secondary,omitempty"`
 	Sky              bool               `yaml:"sky,omitempty"`
 	ParticleEmitters []ParticleEmitter  `yaml:"particle_emitters,omitempty"`
+	VegetationLayers []VegetationLayer  `yaml:"vegetation_layers,omitempty"`
+}
+
+// RoomRectangle expands to four named CCW edges: south, east, north, west.
+// Floor, ceiling and their materials remain ordinary room fields.
+type RoomRectangle struct {
+	X        float64 `yaml:"x"`
+	Y        float64 `yaml:"y"`
+	Width    float64 `yaml:"width"`
+	Depth    float64 `yaml:"depth"`
+	Material string  `yaml:"material"`
 }
 
 // Edge is one named, directed CCW boundary edge.

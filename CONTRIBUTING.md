@@ -42,6 +42,23 @@ and build. Generated Go and `*.generated.*` snapshots, derived output, local
 contributor directories and binary fixtures are excluded from formatting.
 Authoring YAML fixtures retain their decoder input format; yamllint checks them.
 
+Golangci-lint's Revive `file-length-limit` rule caps handwritten production Go
+files at 500 physical lines, including comments and blank lines. Test files
+(`*_test.go`) and files with standard generated-code headers are exempt. Split
+code by responsibility within its owning package; do not remove useful comments
+or add generated headers to handwritten files to satisfy the limit.
+The uncached `mise run check-source-policy` guard also covers other platforms
+and inactive build tags; both tests and Go lint run it.
+
+Every `nolint` directive must name its rule and explain why it is necessary.
+`nolintlint` checks this policy and reports unused directives. Staticcheck includes
+its quick-fix checks. Bundled false-positive and unchecked-cleanup exclusions are
+not enabled. Complete successful writes with a checked `Close`; the internal
+cleanup helper is for readers and deferred fallback cleanup only. The remaining
+codec-fixture `makezero` exceptions intentionally build headers before appending
+payloads. Producer `errorlint` exceptions preserve the source error's identity
+without exposing a secondary compiled diagnostic as another wrapped error.
+
 After changing typed world/lightmap/material declarations, regenerate their
 checked-in codecs with `mise exec -- go generate ./format/world`. Runtime
 formats use bounded typed binary; tests reject JSON/reflection imports in format

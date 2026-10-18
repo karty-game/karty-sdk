@@ -14,22 +14,30 @@ or from this repository root to generate the shared base referenced by the
 standalone source fixture. The generated `.karty/schemas` directory is ignored;
 format validation and builds do not require the CLI or a YAML parser here.
 
-| Source version | Added semantics                                           |
-| -------------- | --------------------------------------------------------- |
-| 1              | Rooms, prefabs and ordinary connections                   |
-| 2              | Typed actors and instance tags                            |
-| 3              | Directed and transformed connections                      |
-| 4              | Root authored lighting                                    |
-| 5              | Material UV mapping                                       |
-| 6              | Static solids, root/prefab contents and room-free prefabs |
-| 7              | Top/bottom wall bands and secondary colour textures       |
-| 8              | Reusable actor and material animations                    |
-| 9              | Environment presets, sky ceilings and horizon boundaries  |
-| 10             | GPU sprite particle presets and transformed emitters      |
-| 11             | Solid prefab renderers and environment backdrop choices   |
-| 12             | Project-owned sky textures and presentation settings      |
+| Source version | Added semantics                                            |
+| -------------- | ---------------------------------------------------------- |
+| 1              | Rooms, prefabs and ordinary connections                    |
+| 2              | Typed actors and instance tags                             |
+| 3              | Directed and transformed connections                       |
+| 4              | Root authored lighting                                     |
+| 5              | Material UV mapping                                        |
+| 6              | Static solids, root/prefab contents and room-free prefabs  |
+| 7              | Top/bottom wall bands and secondary colour textures        |
+| 8              | Reusable actor and material animations                     |
+| 9              | Environment presets, sky ceilings and horizon boundaries   |
+| 10             | GPU sprite particle presets and transformed emitters       |
+| 11             | Solid prefab renderers and environment backdrop choices    |
+| 12             | Project-owned sky textures and presentation settings       |
+| 13             | Seeded floor/ceiling vegetation layers with sector density |
+| 14             | Shrub vegetation geometry                                  |
+| 15             | Vegetation normal textures                                 |
+| 16             | Tree vegetation geometry                                   |
+| 17             | Liquid volumes                                             |
+| 18             | Explicit environment lighting and colors                   |
+| 19             | Compact rectangular rooms                                  |
+| 20             | Palm vegetation geometry                                   |
 
-Versions 1–12 remain supported. Optional fields must respect their version gates;
+Versions 1–20 remain supported. Optional fields must respect their version gates;
 omitting new fields preserves older encodings. See the [compiled world
 contract](../world/README.md) for output validation and lighting bounds. Root
 lighting remains in global coordinates and is never transformed by a prefab.
@@ -285,3 +293,64 @@ whole-envelope confinement remain unchanged.
 `CompileParticlePresetForVersion` using the enclosing particle document version;
 hosts validate that version against the corresponding declared feature. See
 [alpha rendering and ordering limits](../worldparticles/README.md#version-2-alpha-blending).
+
+## Sector vegetation, source version 13
+
+An optional root `vegetation` library contains version-1 presets: `name`, named
+`texture`, `width` and `height` ranges (`min` and `max`), `wind_amplitude`,
+`wind_frequency` and `draw_distance`. A room's `vegetation_layers` assigns
+`preset`, `density`, uint32 `seed` and explicit `surface: floor` or `ceiling`.
+All fields are required in authored text, including zero density, wind or seed.
+Each layer is independently authored; masks and automatic biome interpolation
+are outside this contract. Ceiling placement on sky rooms is invalid.
+
+Public compilers resolve texture names through `CompileVegetationPreset`, expand
+room layers onto convex sectors and stage the bounded `@world/vegetation` sidecar
+with `world/vegetation@1` plus `world/sectors@1`. Reusable preset libraries without
+placements require no sidecar. Source v1–12 cannot use vegetation fields. See the
+[version-1 vegetation decision and bounds](../worldvegetation/README.md).
+
+Source 14 adds built-in shrub geometry through vegetation version 2 (`KWV2`,
+`world/vegetation@2`); Source 13 / KWV1 remain supported.
+
+Source 15 adds optional `normal_texture` vegetation resources through version 3
+(`KWV3`, `world/vegetation@3`); earlier vegetation versions remain supported.
+
+Source 16 adds `geometry: tree` through vegetation version 4 (`KWV4`,
+`world/vegetation@4`), retaining previous vegetation versions.
+
+Source 18 replaces environment `preset`, `palette` and `backdrop` selectors with required `lighting` (`sun_color`, `sun_intensity`, `ambient`, optional `ambient_cube`) and optional complete `colors`. Project sky assets remain unchanged. Legacy Source 9–17 selectors still decode; explicit lighting is rejected before Source 18. See `world.EnvironmentLighting` and `world.EnvironmentColors` for numeric bounds.
+
+## Compact rectangular rooms
+
+Source version 19 accepts `rect` instead of `boundary` in ordinary and prefab
+rooms. For example:
+
+```yaml
+version: 19
+rooms:
+  - id: room
+    rect: {x: 0, y: 0, width: 8, depth: 6, material: stone}
+    ceiling: {c: 3}
+    floor_material: stone
+    ceiling_material: stone
+```
+
+`ExpandCompactRooms` builds the counterclockwise edges `south`, `east`, `north`,
+`west` before normal validation and compiler expansion. X/Y default to zero;
+width/depth must be positive, material names and coordinates remain bounded.
+Explicit `boundary` and `rect` cannot coexist, even with an empty boundary.
+Prefabs retain their existing transforms, ports and material overrides. Older
+source versions reject this shorthand. Compiled worlds and runtime capabilities
+are unchanged; explicit and compact equivalents retain identical room/edge IDs.
+
+## Palm vegetation, source version 20
+
+Source 20 accepts `vegetation.version: 5` and `geometry: palm`. The compiler
+resolves the existing albedo and optional normal texture references and declares
+`world/vegetation@5`. Width defines full crown extent and height full tree height;
+independent density, seed, surface, draw distance and wind controls are unchanged.
+Source 1–19 reject v5 libraries even without placements. Vegetation versions 1–4
+reject palms even on unused presets. Source 20 can still author all earlier
+vegetation versions. No imported model or new authoring field is required. See
+[the v5 format decision](../worldvegetation/README.md#built-in-palms-version-5).

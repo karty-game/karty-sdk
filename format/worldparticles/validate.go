@@ -113,7 +113,7 @@ func ValidatePresetForVersion(p *Preset, version uint16) error {
 		!slices.Contains([]string{"once", "cycle"}, p.Sprite.Playback) ||
 		!slices.Contains([]string{"camera-facing", "upright"}, p.Sprite.Facing) ||
 		!slices.Contains([]string{"additive", "cutout"}, p.Sprite.Blend) &&
-			!(version == AlphaVersion && slices.Contains([]string{"alpha", "premultiplied"}, p.Sprite.Blend)) {
+			(version != AlphaVersion || !slices.Contains([]string{"alpha", "premultiplied"}, p.Sprite.Blend)) {
 		return ErrParticle
 	}
 	for _, id := range p.Sprite.Frames {

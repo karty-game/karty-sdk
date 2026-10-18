@@ -22,6 +22,10 @@ type Options struct {
 	Seed                      uint64
 	Denoise                   string  // empty/off preserves original pixels; low or medium filters indirect only
 	MaxRayDistance            float64 // zero is unbounded; otherwise each transport segment is clipped
+	// ShadowTriangles are optional build-only, double-sided opaque absorbing
+	// geometry. They never receive atlas space or contribute reflectance.
+	// Keep the slice unchanged during the call; at most MaxShadowTriangles.
+	ShadowTriangles [][3]world.Vec3
 }
 type Stats struct {
 	ReceiverTexels, Triangles, Workers, Samples, Bounces int

@@ -163,8 +163,8 @@ func (a *accelerator) hit(o, d vec, limit float64) (int, float64) {
 }
 
 func (a *accelerator) blocked(o, d vec, limit float64) bool {
-	hit, _ := trace(a, o, d, limit, true)
-	return hit >= 0
+	_, distance := trace(a, o, d, limit, true)
+	return distance < limit
 }
 
 // Nearest hits serve diffuse paths; visibility rays stop at their first blocker.
@@ -179,13 +179,14 @@ func trace(a *accelerator, o, d vec, limit float64, anyHit bool) (int, float64) 
 	}
 	stack := [wideStackSize]int32{a.wideRoot}
 	count, found := 1, -1
+	hasHit := false
 	minimum := epsilon(o) * .25
 	var distances [8]float64 // A leaf has at most eight real triangles.
 	for count > 0 {
 		count--
 		ref := stack[count]
 		ceiling := limit
-		if found >= 0 {
+		if hasHit {
 			// Include exact equal-distance hits for a stable semantic-surface tie,
 			// while retaining the caller's strict upper endpoint.
 			ceiling = min(maximumDistance, math.Nextafter(limit, math.Inf(1)))
@@ -210,8 +211,9 @@ func trace(a *accelerator, o, d vec, limit float64, anyHit bool) (int, float64) 
 						continue
 					}
 					surface := int(a.surfaces[start+i])
-					if distance < limit || found >= 0 && distance == limit && surface < found {
+					if distance < limit || hasHit && distance == limit && surface < found {
 						limit, found = distance, surface
+						hasHit = true
 						if anyHit {
 							return found, limit
 						}

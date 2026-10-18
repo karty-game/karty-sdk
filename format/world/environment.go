@@ -48,6 +48,8 @@ type Environment struct {
 	TimeOfDay   *float64
 	CloudAmount *float64
 	Backdrop    EnvironmentBackdrop
+	// Appearance is exclusive to compiled environment v2; legacy presets stay decode-compatible.
+	Appearance *EnvironmentAppearance
 }
 
 const (
@@ -77,6 +79,7 @@ type EnvironmentSun struct {
 // illumination. Consumers must restrict fill and sun visibility using sky
 // openings and geometry. Decorative sky elements add no additional lights.
 type ResolvedEnvironment struct {
+	Explicit     bool
 	Preset       EnvironmentPreset
 	Backdrop     EnvironmentBackdrop
 	SkyZenith    Vec3
@@ -97,23 +100,33 @@ func ValidateEnvironment(environment *Environment) error {
 	if environment == nil {
 		return ErrEnvironment
 	}
-	if environment.Version != EnvironmentVersion {
+	if environment.Version != EnvironmentVersion && environment.Version != ExplicitEnvironmentVersion {
 		return fmt.Errorf("environment: %w", ErrVersion)
 	}
-	switch environment.Preset {
-	case EnvironmentDaylight, EnvironmentDaylightBright, EnvironmentSpace, EnvironmentCartoon, EnvironmentFantasy:
-	default:
-		return fmt.Errorf("environment preset: %w", ErrEnvironment)
-	}
-	switch environment.Palette {
-	case "", EnvironmentPaletteDefault, EnvironmentPaletteViolet, EnvironmentPaletteTwilight:
-	default:
-		return fmt.Errorf("environment palette: %w", ErrEnvironment)
-	}
-	switch environment.Backdrop {
-	case "", EnvironmentBackdropNone, EnvironmentBackdropMountains, EnvironmentBackdropCity:
-	default:
-		return fmt.Errorf("environment backdrop: %w", ErrEnvironment)
+	if environment.Version == ExplicitEnvironmentVersion {
+		if environment.Preset != "" || environment.Palette != "" || environment.Backdrop != "" ||
+			validateEnvironmentAppearance(environment.Appearance) != nil {
+			return ErrEnvironment
+		}
+	} else {
+		if environment.Appearance != nil {
+			return ErrEnvironment
+		}
+		switch environment.Preset {
+		case EnvironmentDaylight, EnvironmentDaylightBright, EnvironmentSpace, EnvironmentCartoon, EnvironmentFantasy:
+		default:
+			return fmt.Errorf("environment preset: %w", ErrEnvironment)
+		}
+		switch environment.Palette {
+		case "", EnvironmentPaletteDefault, EnvironmentPaletteViolet, EnvironmentPaletteTwilight:
+		default:
+			return fmt.Errorf("environment palette: %w", ErrEnvironment)
+		}
+		switch environment.Backdrop {
+		case "", EnvironmentBackdropNone, EnvironmentBackdropMountains, EnvironmentBackdropCity:
+		default:
+			return fmt.Errorf("environment backdrop: %w", ErrEnvironment)
+		}
 	}
 	if sun := environment.Sun; sun != nil {
 		if !finiteBounded(sun.Azimuth) || !finiteBounded(sun.Elevation) ||
@@ -284,9 +297,20 @@ func ResolveEnvironment(environment *Environment) (ResolvedEnvironment, error) {
 		Y: math.Sin(azimuth) * math.Cos(elevation),
 		Z: math.Sin(elevation),
 	}
+	if environment.Version == ExplicitEnvironmentVersion {
+		a := environment.Appearance
+		result.Explicit = true
+		result.Backdrop = EnvironmentBackdropNone
+		result.SunColor, result.SunIntensity, result.Ambient = a.Lighting.SunColor, a.Lighting.SunIntensity, a.Lighting.Ambient
+		result.SkyZenith, result.SkyHorizon, result.SkyNadir = a.Colors.Zenith, a.Colors.Horizon, a.Colors.Nadir
+		result.CloudColor, result.SunDiskColor = a.Colors.Cloud, a.Colors.Sun
+	}
 	result.AmbientCube = AmbientCube{
 		PositiveX: result.Ambient, NegativeX: result.Ambient, PositiveY: result.Ambient, NegativeY: result.Ambient,
 		PositiveZ: environmentScale(result.Ambient, 1.35), NegativeZ: environmentScale(result.Ambient, .35),
+	}
+	if environment.Version == ExplicitEnvironmentVersion && environment.Appearance.Lighting.AmbientCube != nil {
+		result.AmbientCube = *environment.Appearance.Lighting.AmbientCube
 	}
 	if environment.CloudAmount != nil {
 		result.CloudAmount = *environment.CloudAmount
@@ -358,6 +382,17 @@ func resolveEnvironmentTime(result *ResolvedEnvironment, hours float64) {
 	result.CloudColor = environmentScale(result.CloudColor, .08+.92*sky)
 	fill := .15 + .85*sky
 	result.Ambient = environmentScale(result.Ambient, fill)
+	if result.Explicit {
+		cube := &result.AmbientCube
+		cube.PositiveX = environmentScale(cube.PositiveX, fill)
+		cube.NegativeX = environmentScale(cube.NegativeX, fill)
+		cube.PositiveY = environmentScale(cube.PositiveY, fill)
+		cube.NegativeY = environmentScale(cube.NegativeY, fill)
+		cube.PositiveZ = environmentScale(cube.PositiveZ, fill)
+		cube.NegativeZ = environmentScale(cube.NegativeZ, fill)
+		result.TimeOfDay = hours
+		return
+	}
 	result.AmbientCube = AmbientCube{
 		PositiveX: result.Ambient, NegativeX: result.Ambient, PositiveY: result.Ambient, NegativeY: result.Ambient,
 		PositiveZ: environmentScale(result.Ambient, 1.35), NegativeZ: environmentScale(result.Ambient, .35),

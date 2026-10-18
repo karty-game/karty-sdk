@@ -86,6 +86,9 @@ func normalizeOptions(options Options) (Options, error) {
 		options.Bounces < 0 || options.Bounces > worldlightmap.MaxOfflineBounces {
 		return options, fmt.Errorf("offline bake requires samples 1..256, workers 1..64 and bounces 0..4")
 	}
+	if err := validateShadowTriangles(options.ShadowTriangles); err != nil {
+		return options, err
+	}
 	return options, nil
 }
 
@@ -225,6 +228,7 @@ func BakeInputDigest(
 		writeInputVector(w, light.Color)
 		w.F64(light.Radius)
 	}
+	writeShadowTriangles(w, inputs.options.ShadowTriangles)
 	encoded, err := w.Bytes()
 	if err != nil {
 		return "", err

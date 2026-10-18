@@ -101,7 +101,7 @@ func TestEnvironmentVersionBoundsAndOpaqueSkyBoundary(t *testing.T) {
 		want   error
 	}{
 		"missing payload version":       {func(d *world.Document) { d.Environment.Version = 0 }, world.ErrVersion},
-		"future payload version":        {func(d *world.Document) { d.Environment.Version = 2 }, world.ErrVersion},
+		"future payload version":        {func(d *world.Document) { d.Environment.Version = world.ExplicitEnvironmentVersion + 1 }, world.ErrVersion},
 		"unknown preset":                {func(d *world.Document) { d.Environment.Preset = "ocean" }, world.ErrEnvironment},
 		"missing preset":                {func(d *world.Document) { d.Environment.Preset = "" }, world.ErrEnvironment},
 		"unknown palette":               {func(d *world.Document) { d.Environment.Palette = "pink" }, world.ErrEnvironment},

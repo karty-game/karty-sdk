@@ -161,7 +161,7 @@ func TestDirectMatchesNeutralHalfLambertAndRangeBound(t *testing.T) {
 	delta := sub(light.Position, p)
 	distance2 := dot(delta, delta)
 	cosine := delta.Z / math.Sqrt(distance2)
-	expected := math.Pow(1-distance2/(light.Radius*light.Radius), 2) * math.Pow((cosine+1)*.5, 2)
+	expected := (1 - distance2/(light.Radius*light.Radius)) * (1 - distance2/(light.Radius*light.Radius)) * (cosine + 1) * .5 * (cosine + 1) * .5
 	if got := decoded(result, x, y).X; math.Abs(got-expected) > .006 {
 		t.Fatalf("direct differs from neutral Half Lambert: got%g expected%g point%+v", got, expected, p)
 	}

@@ -21,7 +21,12 @@ lint = "mise run lint"
 test = "mise run test"
 
 [tasks.test]
+depends = ["check-source-policy"]
 run = "go test -timeout=9s ./..."
+
+[tasks.check-source-policy]
+description = "Check the production source size limit across every platform and build tag without test caching"
+run = "go test -count=1 -timeout=9s ./internal/sourcepolicy"
 
 [tasks.build]
 run = "go build ./..."
@@ -39,6 +44,7 @@ run = "hk check --all --profile format"
 run = "hk check --all"
 
 [tasks.lint-go]
+depends = ["check-source-policy"]
 run = "golangci-lint run ./..."
 
 [tasks.test-race]
@@ -87,6 +93,8 @@ run = [
   "bash scripts/go-fuzz ./format/actions FuzzBinaryActionsDecode",
   "bash scripts/go-fuzz ./format/world FuzzDecode",
   "bash scripts/go-fuzz ./format/worldparticles FuzzParticleDecode",
+  "bash scripts/go-fuzz ./format/worldvegetation FuzzVegetationDecode",
+  "bash scripts/go-fuzz ./format/worldterrain FuzzDecode",
   "bash scripts/go-fuzz ./format/worldsky FuzzDecode",
   "bash scripts/go-fuzz ./format/world FuzzDecodeLighting",
   "bash scripts/go-fuzz ./format/worldchunk FuzzBinaryChunkCanonicalRoundTrip",
@@ -100,3 +108,12 @@ run = [
 [tasks.install-hooks]
 description = "Install repository hk hooks with the pinned mise environment"
 run = "hk install --mise"
+
+[tasks.generate-world]
+run = "go run ./internal/codegen/binary ."
+
+[tasks.fmt-fluids]
+run = [
+  "golangci-lint fmt format/world/fluids*.go format/world/codec.go format/world/types.go format/world/validate.go format/worldsource/fluids.go format/worldsource/types.go format/worldsource/validate.go format/cartridge/fluids_test.go format/cartridge/manifest.go format/asset/contract.go format/worldlightmap/fluids_test.go format/worldlightmap/offline.go format/worldlightmap/environment_variants.go internal/codegen/binary/main.go",
+  "prettier --write format/world/README.md",
+]

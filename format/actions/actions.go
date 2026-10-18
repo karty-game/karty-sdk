@@ -137,7 +137,7 @@ func validArgumentName(name string) bool {
 		return false
 	}
 	for i, r := range name {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '_' || i > 0 && r >= '0' && r <= '9') {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && r != '_' && (i <= 0 || r < '0' || r > '9') {
 			return false
 		}
 	}

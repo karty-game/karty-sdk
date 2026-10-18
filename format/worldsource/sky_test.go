@@ -12,11 +12,12 @@ import (
 
 func TestSkySourceGateAndConfinedReferences(t *testing.T) {
 	t.Parallel()
-	if worldsource.SkyVersion != 12 || worldsource.Version != 12 {
+	if worldsource.SkyVersion != 12 || worldsource.Version < worldsource.VegetationTreeVersion {
 		t.Fatal("source sky gate changed")
 	}
 	for version := uint16(1); version < worldsource.SkyVersion; version++ {
 		document := validSource()
+		document.Version = worldsource.FluidsVersion
 		document.Version = version
 		document.Environment = &worldsource.Environment{Preset: world.EnvironmentDaylight, Sky: &worldsource.Sky{}}
 		if err := worldsource.Validate(&document); !errors.Is(err, worldsource.ErrVersion) {
@@ -25,12 +26,14 @@ func TestSkySourceGateAndConfinedReferences(t *testing.T) {
 	}
 	for _, reference := range []string{"../cloud.png", "/cloud.png", "cloud/../cloud.png", "./cloud.png", "a\\cloud.png", "cloud.png\x00", "C:/cloud.png", "cloud.jpg"} {
 		document := validSource()
+		document.Version = worldsource.FluidsVersion
 		document.Environment = &worldsource.Environment{Preset: world.EnvironmentDaylight, Sky: &worldsource.Sky{CloudSparse: reference}}
 		if err := worldsource.Validate(&document); !errors.Is(err, worldsource.ErrEnvironment) {
 			t.Fatalf("accepted %q: %v", reference, err)
 		}
 	}
 	document := validSource()
+	document.Version = worldsource.FluidsVersion
 	document.Environment = &worldsource.Environment{Preset: world.EnvironmentDaylight, Sky: &worldsource.Sky{CloudSparse: "sky/cloud.png"}}
 	if err := worldsource.Validate(&document); err != nil {
 		t.Fatal(err)
@@ -51,6 +54,7 @@ func TestSkyPartialSettingsPreserveDefaultsAndExplicitZero(t *testing.T) {
 		t.Fatalf("settings merge: %+v", resolved)
 	}
 	document := validSource()
+	document.Version = worldsource.FluidsVersion
 	document.Environment = &worldsource.Environment{Preset: world.EnvironmentDaylight, Sky: &sky}
 	if err := worldsource.Validate(&document); err != nil {
 		t.Fatal(err)
@@ -66,6 +70,7 @@ func TestSkyHorizonScaleOverrideAndBounds(t *testing.T) {
 	for _, scale := range []float64{1.5, 4, 0, -1, 4.1, math.NaN(), math.Inf(1)} {
 		sky := worldsource.Sky{Settings: &worldsource.SkySettings{HorizonUVScale: &scale}}
 		document := validSource()
+		document.Version = worldsource.FluidsVersion
 		document.Environment = &worldsource.Environment{Preset: world.EnvironmentDaylight, Sky: &sky}
 		err := worldsource.Validate(&document)
 		if scale == 1.5 || scale == 4 {

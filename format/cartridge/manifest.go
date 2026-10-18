@@ -26,16 +26,24 @@ const (
 	FeatureTextureQOIv1                        = "texture/qoi@1"
 	FeatureSoundQOAv1                          = "sound/qoa@1"
 	FeatureAudioStreamQOAv1                    = "audio-stream/qoa@1"
+	FeatureWorldVegetationV1                   = "world/vegetation@1"
+	FeatureWorldVegetationV2                   = "world/vegetation@2"
+	FeatureWorldVegetationV3                   = "world/vegetation@3"
+	FeatureWorldVegetationV4                   = "world/vegetation@4"
+	FeatureWorldVegetationV5                   = "world/vegetation@5"
 	FeatureWorldParticlesV1                    = "world/particles@1"
 	FeatureWorldParticlesV2                    = "world/particles@2"
 	FeatureWorldAnimationsV1                   = "world/animations@1"
+	FeatureWorldFluidsV1                       = "world/fluids@1"
 	FeatureWorldEmissionV1                     = "world/emission@1"
 	FeatureWorldEnvironmentV1                  = "world/environment@1"
+	FeatureWorldEnvironmentV2                  = "world/environment@2"
 	FeatureWorldEnvironmentBackdropV1          = "world/environment-backdrop@1"
 	FeatureWorldEnvironmentSkylightV1          = "world/environment-skylight@1"
 	FeatureWorldSkyV1                          = "world/sky@1"
 	FeatureWorldSectorsV1                      = "world/sectors@1"
 	FeatureWorldChunksV1                       = "world/chunks@1"
+	FeatureWorldTerrainV1                      = "world/terrain@1"
 	FeatureWorldLightingV1                     = "world/lighting@1"
 	FeatureWorldLightmapsV1                    = "world/lightmaps@1"
 	FeatureWorldLightmapsPrebakedV1            = "world/lightmaps-prebaked@1"
@@ -321,8 +329,11 @@ func validManifestFeatures(features []string) bool {
 		(!slices.Contains(features, FeatureWorldEnvironmentV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
 		return false
 	}
-	if (slices.Contains(features, FeatureWorldEnvironmentBackdropV1) || slices.Contains(features, FeatureWorldEnvironmentSkylightV1)) &&
+	if (slices.Contains(features, FeatureWorldEnvironmentV2) || slices.Contains(features, FeatureWorldEnvironmentBackdropV1) || slices.Contains(features, FeatureWorldEnvironmentSkylightV1)) &&
 		(!slices.Contains(features, FeatureWorldEnvironmentV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
+		return false
+	}
+	if slices.Contains(features, FeatureWorldTerrainV1) && !slices.Contains(features, FeatureWorldSectorsV1) {
 		return false
 	}
 	if slices.Contains(features, FeatureWorldChunksV1) && !slices.Contains(features, FeatureWorldSectorsV1) {
@@ -336,8 +347,12 @@ func validManifestFeatures(features []string) bool {
 			(!slices.Contains(features, FeatureWorldMaterialAtlasV1) && !slices.Contains(features, FeatureWorldMaterialAtlasV2))) {
 		return false
 	}
-	if (slices.Contains(features, FeatureWorldSolidRenderersV1) || slices.Contains(features, FeatureWorldParticlesV1) || slices.Contains(features, FeatureWorldParticlesV2) || slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
+	if (slices.Contains(features, FeatureWorldFluidsV1) || slices.Contains(features, FeatureWorldSolidRenderersV1) || slices.Contains(features, FeatureWorldVegetationV1) || slices.Contains(features, FeatureWorldVegetationV2) || slices.Contains(features, FeatureWorldVegetationV3) || slices.Contains(features, FeatureWorldVegetationV4) || slices.Contains(features, FeatureWorldVegetationV5) || slices.Contains(features, FeatureWorldParticlesV1) || slices.Contains(features, FeatureWorldParticlesV2) || slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
 		!slices.Contains(features, FeatureWorldSectorsV1) {
+		return false
+	}
+	if slices.Contains(features, FeatureWorldFluidsV1) &&
+		(!slices.Contains(features, FeatureWorldAnimationsV1) || !slices.Contains(features, FeatureWorldStaticSolidsV1)) {
 		return false
 	}
 	if slices.Contains(features, FeatureWorldLightmapsPrebakedV1) &&
@@ -363,12 +378,39 @@ func validManifestFeatures(features []string) bool {
 
 func validManifestFeature(feature string) bool {
 	switch feature {
-	case FeatureWorldSolidRenderersV1, FeatureWorldChunksV1, FeatureAudioStreamQOAv1, FeatureSoundQOAv1, FeatureTextureQOIv1,
-		FeatureVideoMPEG1v1, FeatureWorldMaterialReflectanceV1,
-		FeatureWorldSectorsV1, FeatureWorldLightingV1, FeatureWorldLightmapsV1, FeatureWorldLightmapsPrebakedV1, FeatureWorldLightmapsEnvironmentVariantsV1,
-		FeatureWorldMaterialAtlasV1, FeatureWorldMaterialMappingV1, FeatureWorldStaticSolidsV1,
-		FeatureWorldMaterialAtlasV2, FeatureWorldMaterialLayersV1, FeatureWorldAnimationsV1,
-		FeatureWorldEmissionV1, FeatureWorldEnvironmentV1, FeatureWorldEnvironmentBackdropV1, FeatureWorldEnvironmentSkylightV1, FeatureWorldSkyV1, FeatureWorldParticlesV1, FeatureWorldParticlesV2:
+	case FeatureWorldTerrainV1,
+		FeatureWorldSolidRenderersV1,
+		FeatureWorldChunksV1,
+		FeatureAudioStreamQOAv1,
+		FeatureSoundQOAv1,
+		FeatureTextureQOIv1,
+		FeatureVideoMPEG1v1,
+		FeatureWorldMaterialReflectanceV1,
+		FeatureWorldSectorsV1,
+		FeatureWorldLightingV1,
+		FeatureWorldLightmapsV1,
+		FeatureWorldLightmapsPrebakedV1,
+		FeatureWorldLightmapsEnvironmentVariantsV1,
+		FeatureWorldMaterialAtlasV1,
+		FeatureWorldMaterialMappingV1,
+		FeatureWorldStaticSolidsV1,
+		FeatureWorldMaterialAtlasV2,
+		FeatureWorldMaterialLayersV1,
+		FeatureWorldAnimationsV1,
+		FeatureWorldFluidsV1,
+		FeatureWorldEmissionV1,
+		FeatureWorldEnvironmentV1,
+		FeatureWorldEnvironmentV2,
+		FeatureWorldEnvironmentBackdropV1,
+		FeatureWorldEnvironmentSkylightV1,
+		FeatureWorldSkyV1,
+		FeatureWorldParticlesV1,
+		FeatureWorldParticlesV2,
+		FeatureWorldVegetationV1,
+		FeatureWorldVegetationV2,
+		FeatureWorldVegetationV3,
+		FeatureWorldVegetationV4,
+		FeatureWorldVegetationV5:
 		return true
 	default:
 		return false

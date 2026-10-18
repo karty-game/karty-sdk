@@ -91,11 +91,12 @@ func horizontalLiquid(normal world.Vec3, material uint32, liquids map[uint32]liq
 // needs no receiver triangulation or host-side subdivision reconstruction.
 func validateLiquidVertices(document *world.Document, triangle Triangle, vertices []Vertex, mapping *world.SurfaceUV) error {
 	plane := world.Plane{}
-	if triangle.Surface == "sector-floor" {
+	switch triangle.Surface {
+	case "sector-floor":
 		plane = document.Sectors[triangle.Sector].Floor
-	} else if triangle.Surface == "solid-top" {
+	case "solid-top":
 		plane = document.StaticSolids.Items[triangle.Solid].Top
-	} else {
+	default:
 		return ErrChunk
 	}
 	if mapping == nil {

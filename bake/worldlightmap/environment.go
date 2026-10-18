@@ -141,7 +141,7 @@ func EnvironmentInputDigest(document world.Document, layout worldlightmap.Layout
 	if err != nil {
 		return "", err
 	}
-	w := binwire.NewWriter("KEI1", 2048)
+	w := binwire.NewWriter("KEI1", 2048+MaxShadowTriangles*72)
 	w.String(EnvironmentProducer, 128)
 	w.String(surfaceDigest, 64)
 	w.String(layoutDigest, 64)
@@ -157,6 +157,7 @@ func EnvironmentInputDigest(document world.Document, layout worldlightmap.Layout
 		writeInputVector(w, value)
 	}
 	w.F64(environment.SunIntensity)
+	writeShadowTriangles(w, inputs.options.ShadowTriangles)
 	encoded, err := w.Bytes()
 	if err != nil {
 		return "", err
@@ -225,7 +226,11 @@ func (s *scene) environmentIndirect(ctx context.Context, p vec, chart worldlight
 			c.bounce++
 			hit, distance := s.accel.hit(origin, direction, math.Inf(1))
 			if hit < 0 {
-				incoming = add(incoming, mul(throughput, s.skyRadiance(direction)))
+				// A negative surface with finite distance is an absorbing
+				// shadow proxy, not an escape to the sky.
+				if math.IsInf(distance, 1) {
+					incoming = add(incoming, mul(throughput, s.skyRadiance(direction)))
+				}
 				break
 			}
 			if bounce == options.Bounces {

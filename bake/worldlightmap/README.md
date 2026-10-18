@@ -544,3 +544,43 @@ surviving future contributions were divided by their survival probability;
 already accumulated light was unchanged. Neither roulette nor adaptive budgets
 is enabled. Finite-sample weights, a new RGBM bound/producer/cache decision and
 any increase to the current four-bounce cap need separate qualification.
+
+## Build-only shadow geometry decision, version 1
+
+Candidate SDK 0.0.13 adds `Options.ShadowTriangles [][3]world.Vec3` to both
+point-light and environment CPU producers. These optional triangles are
+opaque, double-sided, black absorbing transport geometry. They block direct
+visibility and terminate diffuse paths, including sky paths, without becoming
+receivers, requiring albedo materials or changing reflectance provenance.
+This lets a compiler bake coarse vegetation grounding from deterministic
+species/seed proxies without adding live shadow geometry or per-plant runtime
+work. The original compiled world and receiver layout remain authoritative.
+
+`MaxShadowTriangles` is 4096. The complete list is validated before bake scratch
+or acceleration preparation: every coordinate must be finite and within
+`world.MaxCoordinate`, and squared triangle cross-product magnitude must be at
+least `1e-28`. Excess, degenerate and invalid geometry reject the whole call.
+Callers must keep this slice unchanged during each call and supply proxies in
+the selected receiver component's ordinary physical space; proxies do not
+transport through transformed portals or provide automatic sector ownership.
+Existing whole-world validation, receiver confinement, sampling, material,
+allocation and cancellation bounds remain in force. Proxy triangles add bounded
+BVH preparation/storage; they allocate no receiver atlas or reflectance image.
+
+Both `BakeInputDigest` and `EnvironmentInputDigest` append the versioned
+`opaque-shadow-triangles@1` count and ordered float64 coordinates only for
+nonempty geometry. Moving, adding, removing or reordering a proxy invalidates
+pixel cache identity. Nil and empty inputs append no bytes and retain existing
+producer strings, digest inputs and pixel fixtures exactly. A shared `Baker`
+hashes the geometry separately from its immutable source world and replaces
+its one cached transport preparation when geometry changes, including edits to
+a reused caller slice. Identical geometry still shares preparation across
+receiver and clock/weather calls. The returned `Stats.Triangles` includes
+proxies, while receiver count, RGBM bound and `ReflectanceSHA256` retain their
+source-world meanings.
+
+This is an additive public offline Go API decision. It adds no compiled-world
+field, guest command, manifest capability, RNM layout, prebake encoding or
+runtime shading requirement. Existing artifact readers remain compatible.
+Wind, cutout alpha and transmission are not simulated by these opaque proxies;
+consumers should use coarse, sparse geometry and report that approximation.

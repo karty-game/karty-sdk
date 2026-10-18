@@ -27,11 +27,16 @@ type wireWriter struct {
 	at  int
 }
 
-func (w *wireWriter) u32(v uint32)  { binary.LittleEndian.PutUint32(w.raw[w.at:w.at+4], v); w.at += 4 }
-func (w *wireWriter) i32(v int)     { w.u32(uint32(int32(v))) }
-func (w *wireWriter) u64(v uint64)  { binary.LittleEndian.PutUint64(w.raw[w.at:w.at+8], v); w.at += 8 }
+func (w *wireWriter) u32(v uint32) { binary.LittleEndian.PutUint32(w.raw[w.at:w.at+4], v); w.at += 4 }
+
+func (w *wireWriter) i32(v int) { w.u32(uint32(int32(v))) }
+
+func (w *wireWriter) u64(v uint64) { binary.LittleEndian.PutUint64(w.raw[w.at:w.at+8], v); w.at += 8 }
+
 func (w *wireWriter) f32(v float32) { w.u32(math.Float32bits(v)) }
+
 func (w *wireWriter) f64(v float64) { w.u64(math.Float64bits(v)) }
+
 func (w *wireWriter) flag(v bool) {
 	if v {
 		w.u32(1)
@@ -39,6 +44,7 @@ func (w *wireWriter) flag(v bool) {
 		w.u32(0)
 	}
 }
+
 func (w *wireWriter) hash(value string) error {
 	if len(value) != 64 {
 		return ErrChunk
@@ -60,19 +66,25 @@ func (r *wireReader) u32() uint32 {
 	r.at += 4
 	return v
 }
+
 func (r *wireReader) i32() int { return int(int32(r.u32())) }
+
 func (r *wireReader) u64() uint64 {
 	v := binary.LittleEndian.Uint64(r.raw[r.at : r.at+8])
 	r.at += 8
 	return v
 }
+
 func (r *wireReader) f32() float32 { return math.Float32frombits(r.u32()) }
+
 func (r *wireReader) f64() float64 { return math.Float64frombits(r.u64()) }
+
 func (r *wireReader) hash() string {
 	v := hex.EncodeToString(r.raw[r.at : r.at+32])
 	r.at += 32
 	return v
 }
+
 func (r *wireReader) flag() (bool, error) {
 	v := r.u32()
 	if v > 1 {
@@ -80,6 +92,7 @@ func (r *wireReader) flag() (bool, error) {
 	}
 	return v == 1, nil
 }
+
 func (r *wireReader) byteWord() (uint8, error) {
 	v := r.u32()
 	if v > 255 {
@@ -91,6 +104,7 @@ func (r *wireReader) byteWord() (uint8, error) {
 func wireHeader(encoded []byte, magic string, size int) error {
 	return wireHeaderVersion(encoded, magic, size, binaryVersion)
 }
+
 func wireHeaderVersion(encoded []byte, magic string, size, version int) error {
 	if len(encoded) < size || len(encoded) > MaxEncodedSize || !bytes.Equal(encoded[:4], []byte(magic)) ||
 		binary.LittleEndian.Uint16(encoded[4:6]) != uint16(version) || binary.LittleEndian.Uint16(encoded[6:8]) != uint16(size) {
@@ -98,9 +112,11 @@ func wireHeaderVersion(encoded []byte, magic string, size, version int) error {
 	}
 	return nil
 }
+
 func newWire(size uint64, magic string, header int) (wireWriter, error) {
 	return newWireVersion(size, magic, header, binaryVersion)
 }
+
 func newWireVersion(size uint64, magic string, header, version int) (wireWriter, error) {
 	if size > MaxEncodedSize {
 		return wireWriter{}, ErrChunk
@@ -111,6 +127,7 @@ func newWireVersion(size uint64, magic string, header, version int) (wireWriter,
 	binary.LittleEndian.PutUint16(w.raw[6:8], uint16(header))
 	return w, nil
 }
+
 func surfaceCode(surface string) uint32 {
 	switch surface {
 	case "sector-floor":
@@ -129,6 +146,7 @@ func surfaceCode(surface string) uint32 {
 		return 0
 	}
 }
+
 func surfaceName(code uint32) (string, error) {
 	switch code {
 	case 1:
@@ -147,6 +165,7 @@ func surfaceName(code uint32) (string, error) {
 		return "", ErrChunk
 	}
 }
+
 func (w *wireWriter) basis(value Basis) {
 	for _, v := range value.Tangent {
 		w.f32(v)
@@ -155,6 +174,7 @@ func (w *wireWriter) basis(value Basis) {
 		w.f32(v)
 	}
 }
+
 func (r *wireReader) basis() (value Basis) {
 	for i := range value.Tangent {
 		value.Tangent[i] = r.f32()
@@ -223,6 +243,7 @@ func encodeMeshBinary(mesh Mesh) ([]byte, error) {
 	}
 	return w.raw, nil
 }
+
 func writeTriangle(w *wireWriter, t Triangle) {
 	w.i32(t.Sector)
 	w.i32(t.Solid)
@@ -256,6 +277,7 @@ func writeTriangle(w *wireWriter, t Triangle) {
 	w.flag(t.Outdoor)
 	w.i32(t.Chart)
 }
+
 func readTriangle(r *wireReader) (t Triangle, err error) {
 	t.Sector = r.i32()
 	t.Solid = r.i32()
@@ -314,6 +336,7 @@ func readTriangle(r *wireReader) (t Triangle, err error) {
 	t.Chart = r.i32()
 	return t, nil
 }
+
 func decodeMeshBinary(encoded []byte, mesh *Mesh) error {
 	if err := wireHeader(encoded, "KCM1", meshHeaderBytes); err != nil {
 		return err
@@ -389,256 +412,6 @@ func decodeMeshBinary(encoded []byte, mesh *Mesh) error {
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func encodeCatalogBinary(catalog Catalog) ([]byte, error) {
-	sectors, solids, candidates := uint64(0), uint64(0), uint64(0)
-	for _, chunk := range catalog.Chunks {
-		sectors += uint64(len(chunk.Sectors))
-		solids += uint64(len(chunk.Solids))
-	}
-	for _, list := range catalog.Candidates {
-		candidates += uint64(len(list))
-	}
-	size := uint64(
-		catalogHeaderBytes,
-	) + chunkRecordBytes*uint64(
-		len(catalog.Chunks),
-	) + 4*(sectors+solids+uint64(len(catalog.SectorChunks)+len(catalog.Candidates)+len(catalog.BakedLights))+candidates)
-	w, err := newWireVersion(size, "KCC2", catalogHeaderBytes, catalogBinaryVersion)
-	if err != nil {
-		return nil, err
-	}
-	w.u32(uint32(len(catalog.Chunks)))
-	w.u32(uint32(len(catalog.SectorChunks)))
-	w.u32(uint32(candidates))
-	w.u32(uint32(len(catalog.BakedLights)))
-	if err := w.hash(catalog.GeometrySHA256); err != nil {
-		return nil, err
-	}
-	w.u64(0)
-	for _, c := range catalog.Chunks {
-		w.u32(uint32(c.ID))
-		w.u32(uint32(len(c.Sectors)))
-		w.u32(uint32(len(c.Solids)))
-		w.u32(0)
-		if err := w.hash(c.ContentSHA256); err != nil {
-			return nil, err
-		}
-		w.u64(c.Size)
-		w.u64(c.MeshBytes)
-		w.u64(c.LightmapBytes)
-		for _, v := range c.Bounds {
-			w.f64(v)
-		}
-	}
-	for _, c := range catalog.Chunks {
-		for _, v := range c.Sectors {
-			w.i32(v)
-		}
-	}
-	for _, c := range catalog.Chunks {
-		for _, v := range c.Solids {
-			w.i32(v)
-		}
-	}
-	for _, v := range catalog.SectorChunks {
-		w.u32(uint32(v))
-	}
-	for _, list := range catalog.Candidates {
-		w.u32(uint32(len(list)))
-		for _, v := range list {
-			w.u32(uint32(v))
-		}
-	}
-	for _, index := range catalog.BakedLights {
-		w.i32(index)
-	}
-	return w.raw, nil
-}
-func decodeCatalogBinary(encoded []byte, catalog *Catalog) error {
-	if err := wireHeaderVersion(encoded, "KCC2", catalogHeaderBytes, catalogBinaryVersion); err != nil {
-		return err
-	}
-	r := wireReader{raw: encoded, at: 8}
-	chunks, sectors, candidates := r.u32(), r.u32(), r.u32()
-	bakedLights := r.u32()
-	if chunks == 0 || chunks > world.MaxSectors || sectors == 0 || sectors > world.MaxSectors || candidates > chunks*sectors ||
-		bakedLights > world.MaxLights {
-		return fmt.Errorf("array record bound: %w", ErrChunk)
-	}
-	if binary.LittleEndian.Uint64(encoded[56:64]) != 0 {
-		return ErrChunk
-	}
-	fixed := uint64(catalogHeaderBytes) + chunkRecordBytes*uint64(chunks)
-	if fixed > uint64(len(encoded)) {
-		return ErrChunk
-	}
-	sectorTotal, solidTotal := uint64(0), uint64(0)
-	for i := range chunks {
-		at := catalogHeaderBytes + int(i)*chunkRecordBytes
-		sc := binary.LittleEndian.Uint32(encoded[at+4 : at+8])
-		so := binary.LittleEndian.Uint32(encoded[at+8 : at+12])
-		if sc == 0 || sc > world.MaxSectors || so > world.MaxStaticSolids || binary.LittleEndian.Uint32(encoded[at+12:at+16]) != 0 {
-			return ErrChunk
-		}
-		sectorTotal += uint64(sc)
-		solidTotal += uint64(so)
-	}
-	if sectorTotal > world.MaxSectors || solidTotal > world.MaxStaticSolids {
-		return fmt.Errorf("array record bound: %w", ErrChunk)
-	}
-	length := fixed + 4*(sectorTotal+solidTotal+uint64(sectors)*2+uint64(candidates)+uint64(bakedLights))
-	if length != uint64(len(encoded)) {
-		return fmt.Errorf("binary catalog length: %w", ErrChunk)
-	}
-	candidateStart := int(fixed + 4*(sectorTotal+solidTotal+uint64(sectors)))
-	check := wireReader{raw: encoded, at: candidateStart}
-	sum := uint64(0)
-	for range sectors {
-		if check.at+4 > len(encoded) {
-			return ErrChunk
-		}
-		count := check.u32()
-		sum += uint64(count)
-		if count > chunks || sum > uint64(candidates) || uint64(check.at)+uint64(count)*4 > uint64(len(encoded)) {
-			return ErrChunk
-		}
-		check.at += int(count) * 4
-	}
-	if sum != uint64(candidates) || uint64(check.at)+uint64(bakedLights)*4 != uint64(len(encoded)) {
-		return ErrChunk
-	}
-	// Scan the complete source-index list before allocating any catalog slices.
-	previous := int32(-1)
-	for range bakedLights {
-		index := int32(check.u32())
-		if index < 0 || index >= world.MaxLights || index <= previous {
-			return ErrChunk
-		}
-		previous = index
-	}
-	catalog.Schema = Schema
-	catalog.GeometrySHA256 = r.hash()
-	r.u64()
-	catalog.Chunks = make([]Chunk, int(chunks))
-	for i := range catalog.Chunks {
-		c := &catalog.Chunks[i]
-		c.ID = int(r.u32())
-		sc, so := r.u32(), r.u32()
-		r.u32()
-		c.ContentSHA256 = r.hash()
-		c.Size = r.u64()
-		c.MeshBytes = r.u64()
-		c.LightmapBytes = r.u64()
-		for j := range c.Bounds {
-			c.Bounds[j] = r.f64()
-		}
-		c.Sectors = make([]int, int(sc))
-		if so > 0 {
-			c.Solids = make([]int, int(so))
-		}
-	}
-	for i := range catalog.Chunks {
-		for j := range catalog.Chunks[i].Sectors {
-			catalog.Chunks[i].Sectors[j] = r.i32()
-		}
-	}
-	for i := range catalog.Chunks {
-		for j := range catalog.Chunks[i].Solids {
-			catalog.Chunks[i].Solids[j] = r.i32()
-		}
-	}
-	catalog.SectorChunks = make([]int, int(sectors))
-	for i := range catalog.SectorChunks {
-		catalog.SectorChunks[i] = int(r.u32())
-	}
-	catalog.Candidates = make([][]int, int(sectors))
-	for i := range catalog.Candidates {
-		count := r.u32()
-		catalog.Candidates[i] = make([]int, int(count))
-		for j := range catalog.Candidates[i] {
-			catalog.Candidates[i][j] = int(r.u32())
-		}
-	}
-	if bakedLights > 0 {
-		catalog.BakedLights = make([]int, int(bakedLights))
-		for i := range catalog.BakedLights {
-			catalog.BakedLights[i] = r.i32()
-		}
-	}
-	return nil
-}
-
-func encodeShadowBinary(proxy ShadowProxy) ([]byte, error) {
-	w, err := newWire(uint64(shadowHeaderBytes)+shadowRecordBytes*uint64(len(proxy.Triangles)), "KCS1", shadowHeaderBytes)
-	if err != nil {
-		return nil, err
-	}
-	w.u32(uint32(len(proxy.Triangles)))
-	w.u32(0)
-	if err := w.hash(proxy.GeometrySHA256); err != nil {
-		return nil, err
-	}
-	if err := w.hash(proxy.SurfaceSHA256); err != nil {
-		return nil, err
-	}
-	for _, t := range proxy.Triangles {
-		for _, p := range t.Positions {
-			for _, v := range p {
-				w.f32(v)
-			}
-		}
-		for _, v := range t.Normal {
-			w.f32(v)
-		}
-		w.u32(t.Material)
-		w.i32(t.Sector)
-		w.i32(t.Solid)
-		w.u32(surfaceCode(t.Surface))
-		w.i32(t.SurfaceEdge)
-	}
-	return w.raw, nil
-}
-func decodeShadowBinary(encoded []byte, proxy *ShadowProxy) error {
-	if err := wireHeader(encoded, "KCS1", shadowHeaderBytes); err != nil {
-		return err
-	}
-	r := wireReader{raw: encoded, at: 8}
-	count := r.u32()
-	if count > MaxShadowTriangles {
-		return fmt.Errorf("array record bound: %w", ErrChunk)
-	}
-	if r.u32() != 0 || uint64(shadowHeaderBytes)+shadowRecordBytes*uint64(count) != uint64(len(encoded)) {
-		return ErrChunk
-	}
-	proxy.Schema = ShadowSchema
-	proxy.GeometrySHA256 = r.hash()
-	proxy.SurfaceSHA256 = r.hash()
-	proxy.Triangles = make([]ShadowTriangle, int(count))
-	var work cooperativeWork
-	for i := range proxy.Triangles {
-		work.checkpoint(1024)
-		t := &proxy.Triangles[i]
-		for j := range t.Positions {
-			for k := range t.Positions[j] {
-				t.Positions[j][k] = r.f32()
-			}
-		}
-		for j := range t.Normal {
-			t.Normal[j] = r.f32()
-		}
-		t.Material = r.u32()
-		t.Sector = r.i32()
-		t.Solid = r.i32()
-		var err error
-		t.Surface, err = surfaceName(r.u32())
-		if err != nil {
-			return err
-		}
-		t.SurfaceEdge = r.i32()
 	}
 	return nil
 }

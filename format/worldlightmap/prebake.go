@@ -165,13 +165,14 @@ func DecodePrebakeManifest(encoded []byte) (PrebakeManifest, error) {
 		(manifest.Height != 512 && manifest.Height != 1024) || manifest.Width != 3*manifest.Height || manifest.RGBMRange < 1 {
 		return PrebakeManifest{}, ErrLayout
 	}
-	if manifest.Algorithm == PrebakeAlgorithm {
+	switch manifest.Algorithm {
+	case PrebakeAlgorithm:
 		if manifest.Producer != "" || manifest.Samples != 0 || manifest.Bounces != 0 || manifest.Seed != 0 ||
 			manifest.ReflectanceSHA256 != "" ||
 			manifest.SurfaceSHA256 != "" || manifest.MaxRayDistance != 0 {
 			return PrebakeManifest{}, ErrLayout
 		}
-	} else if manifest.Algorithm == OfflinePrebakeAlgorithm {
+	case OfflinePrebakeAlgorithm:
 		if _, err := OfflineDenoiseMode(manifest.Producer); err != nil {
 			return PrebakeManifest{}, err
 		}
@@ -181,7 +182,7 @@ func DecodePrebakeManifest(encoded []byte) (PrebakeManifest, error) {
 			boundedOfflineProducer(manifest.Producer) != (manifest.MaxRayDistance > 0) {
 			return PrebakeManifest{}, ErrLayout
 		}
-	} else {
+	default:
 		return PrebakeManifest{}, ErrLayout
 	}
 	return manifest, nil

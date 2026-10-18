@@ -264,11 +264,12 @@ func (r *metadataReader) value(depth int) (Value, bool) {
 			return Value{}, false
 		}
 		bits := binary.LittleEndian.Uint64(b)
-		if tag[0] == 3 {
+		switch tag[0] {
+		case 3:
 			v.Int = int64(bits)
-		} else if tag[0] == 4 {
+		case 4:
 			v.Uint = bits
-		} else {
+		default:
 			v.Float = math.Float64frombits(bits)
 			if math.IsNaN(v.Float) || math.IsInf(v.Float, 0) {
 				return Value{}, false

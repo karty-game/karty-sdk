@@ -44,3 +44,10 @@ to their payload version; either requires `world/sectors@1`. Version 2 belongs
 to candidate SDK 0.0.12 and permits alpha and premultiplied particle materials. Unknown particle
 capability versions, missing sector dependencies, duplicate features and
 noncanonical feature order remain invalid.
+
+Sector vegetation uses `world/vegetation@1` with `world/sectors@1`. The optional
+level entry is `@world/vegetation`; its independent version-1 format and budgets
+are documented in [worldvegetation](../worldvegetation/README.md).
+
+Palm vegetation requires `world/vegetation@5` together with `world/sectors@1`.
+Earlier vegetation sidecar capabilities remain version-specific and supported.

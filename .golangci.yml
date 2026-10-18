@@ -17,14 +17,29 @@ linters:
     - nosprintfhostport
     - predeclared
     - unconvert
+    - revive
+    - nolintlint
   settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      # Keep handwritten production source small; tests and generated codecs are exempt.
+      rules:
+        - name: file-length-limit
+          arguments:
+            - max: 500
+              skip-comments: false
+              skip-blank-lines: false
     staticcheck:
-      # Quick-fix style suggestions are outside the initial correctness gate.
-      checks: [all, "-QF*"]
+      checks: [all]
   exclusions:
-    presets:
-      - std-error-handling
-      - common-false-positives
+    generated: strict
+    warn-unused: true
+    rules:
+      - path: '(.+)_test\.go'
+        text: "file-length-limit:"
+        linters: [revive]
 
 formatters:
   enable:

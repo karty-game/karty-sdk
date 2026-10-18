@@ -59,14 +59,14 @@ var (
 )
 
 type Vec2 struct {
-	X float64
-	Y float64
+	X float64 `yaml:"x"`
+	Y float64 `yaml:"y"`
 }
 
 type Vec3 struct {
-	X float64
-	Y float64
-	Z float64
+	X float64 `yaml:"x"`
+	Y float64 `yaml:"y"`
+	Z float64 `yaml:"z"`
 }
 
 // Plane describes elevation z=A*x+B*y+C.
@@ -91,6 +91,7 @@ type Document struct {
 	Animations      *Animations
 	Emission        *Emission
 	Environment     *Environment
+	Fluids          *Fluids
 	SolidRenderers  *SolidRenderers
 }
 

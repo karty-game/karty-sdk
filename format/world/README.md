@@ -222,8 +222,7 @@ independent resource versions and bounds. Follow their owning contracts:
 It supplies four times the original daylight preset's sky illumination while
 keeping its sun color/intensity/direction, sky colors and decorative layers.
 Source version 9 and later can name the preset; project sky textures still
-require source version 12. The Environment sample uses it with 64 samples and
-two diffuse bounces. Existing `daylight` worlds retain their original values.
+require source version 12. Existing `daylight` worlds retain their original values.
 
 Both offline sky rays and the live outdoor ambient cube use the stronger
 resolved illumination. Ordinary geometry still blocks the baked sky; this is

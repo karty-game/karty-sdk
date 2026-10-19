@@ -305,7 +305,7 @@ For a same-process scalar-oracle/SIMD comparison:
 mise exec -- go test ./bake/worldlightmap -run '^$' -bench BenchmarkRayTrace -benchtime=1s -count=3 -benchmem
 ```
 
-Measure full `karty bake` runs separately: traversal, texture reflectance,
+Measure full `karty render bake` runs separately: traversal, texture reflectance,
 rasterization, denoising and output work can limit the total speedup.
 
 ### Measurement, 2026-10-06
@@ -315,11 +315,13 @@ SIMD. Three repetitions of `BenchmarkRayTrace` with `-benchtime=500ms` had
 median times of 770.1 ns for the scalar nearest-hit oracle, 675.2 ns for SIMD
 nearest-hit, and 660.4 ns for SIMD visibility. All report zero allocations.
 
-An old/new/new/old CLI comparison used the same public `world-camera` sample,
-8 workers, 430,772 receiver texels, and medium denoising:
+An old/new/new/old CLI comparison used the same Roman court geometry
+(now retained in the CLI `testdata/roman-court` fixture),
+8 workers, 430,772 receiver texels, and medium denoising. The equivalent
+invocation with the current CLI is:
 
 ```sh
-karty bake --workers 8 --samples 32 --bounces 2 --denoise medium
+karty render bake --workers 8 --samples 32 --bounces 2 --denoise medium
 ```
 
 | Implementation                     | Bake durations     | Mean     |

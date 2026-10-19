@@ -1,12 +1,12 @@
 [tools]
-hk = "2.5.0"
+hk = "2.7.0"
 taplo = "0.10.0"
-uv = "0.13.0"
+uv = "0.13.1"
 yamllint = { version = "1.38.0", uvx = true }
 prettier = "3.9.10"
-golangci-lint = "2.14.0"
+golangci-lint = "2.15.0"
 go = "1.27.2"
-node = "26.11.1"
+node = "26.12.0"
 
 # Go 1.27 portable SIMD; remove this gate when SIMD is enabled by default.
 [env]

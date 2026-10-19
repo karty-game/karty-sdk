@@ -176,8 +176,8 @@ func compileReceivers(document world.Document, options Options, selection *Recei
 					continue
 				}
 			}
-			for cap := range 2 {
-				a, b := sectorCaps[i][cap], sectorCaps[wall.Portal][cap]
+			for capIndex := range 2 {
+				a, b := sectorCaps[i][capIndex], sectorCaps[wall.Portal][capIndex]
 				if samePlane(surfaces[a], surfaces[b]) {
 					ra, rb := root(parents, a), root(parents, b)
 					parents[max(ra, rb)] = min(ra, rb)

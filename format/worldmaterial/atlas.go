@@ -4,8 +4,6 @@ package worldmaterial
 import (
 	"errors"
 
-	"github.com/karty-game/karty-sdk/codec/qoi"
-	"github.com/karty-game/karty-sdk/format/asset"
 	"github.com/karty-game/karty-sdk/internal/binwire"
 )
 
@@ -182,82 +180,6 @@ type Pair struct {
 	MipTail            []byte
 	Reflectance        []byte
 	ReflectanceMipTail []byte
-}
-
-// Validate preflights every allocation and completely validates every QOI.
-// Albedo and reflectance images require decoded pixels for channel checks.
-func (p Pair) Validate() error {
-	if p.Layout.Validate() != nil || (len(p.Layout.Mips) != 0) != (len(p.MipTail) != 0) ||
-		(len(p.ReflectanceMipTail) != 0 && len(p.Reflectance) == 0) ||
-		(len(p.Reflectance) != 0 && (len(p.Layout.Mips) != 0) != (len(p.ReflectanceMipTail) != 0)) {
-		return ErrAtlas
-	}
-	var total uint64
-	width, height := p.Layout.MipDimensions()
-	images := [5][]byte{p.Albedo, p.Data, p.MipTail, p.Reflectance, p.ReflectanceMipTail}
-	for i, encoded := range images {
-		if i >= 2 && len(encoded) == 0 {
-			continue
-		}
-		m, err := qoi.Inspect(encoded)
-		space := qoi.ColorspaceLinear
-		w, h := p.Layout.Width, p.Layout.Height
-		if i == 0 {
-			space = qoi.ColorspaceSRGB
-		}
-		if i == 2 || i == 4 {
-			w, h = width, height
-		}
-		if err != nil || int(m.Width) != w || int(m.Height) != h ||
-			m.Channels != qoi.ChannelsRGBA || m.Colorspace != space ||
-			m.DecodedBytes > asset.MaxDecodedTextures-total {
-			return ErrAtlas
-		}
-		total += m.DecodedBytes
-	}
-	for i, encoded := range images {
-		if i >= 2 && len(encoded) == 0 {
-			continue
-		}
-		if i == 1 {
-			if _, err := qoi.Validate(encoded); err != nil {
-				return ErrAtlas
-			}
-			continue
-		}
-		_, pixels, err := qoi.Decode(encoded)
-		if err != nil {
-			return ErrAtlas
-		}
-		if i == 0 {
-			for o := 3; o < len(pixels.Pix); o += 4 {
-				if pixels.Pix[o] != 255 && !p.Layout.maskedPixel((o/4)%p.Layout.Width, (o/4)/p.Layout.Width) {
-					return ErrAtlas
-				}
-			}
-		} else if i == 2 {
-			for level := 1; level <= MipLevels; level++ {
-				for slot := range p.Layout.Materials {
-					if p.Layout.Materials[slot].Coverage == CoverageMasked {
-						continue
-					}
-					r, _ := p.Layout.MipRect(level, slot, false)
-					for y := r.Y - r.Gutter; y < r.Y+r.Height+r.Gutter; y++ {
-						for x := r.X - r.Gutter; x < r.X+r.Width+r.Gutter; x++ {
-							if pixels.Pix[pixels.PixOffset(x, y)+3] != 255 {
-								return ErrAtlas
-							}
-						}
-					}
-				}
-			}
-		} else if i >= 3 {
-			if p.Layout.validateReflectancePixels(pixels, i == 4) != nil {
-				return ErrAtlas
-			}
-		}
-	}
-	return nil
 }
 
 // maskedPixel recognizes only declared masked cells, leaving outer padding opaque.

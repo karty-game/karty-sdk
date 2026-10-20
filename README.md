@@ -14,6 +14,7 @@ This Go module builds independently of engine source and credentials.
 | [`format/worldparticles`](format/worldparticles/README.md)   | Bounded GPU sprite particle presets, schedules and emitter motion envelopes     |
 | [`format/worldsky`](format/worldsky/README.md)               | Project-owned sky textures and bounded presentation settings                    |
 | [`format/worldsource`](format/worldsource/README.md)         | Separately versioned room, prefab, port and content authoring semantics         |
+| [`format/textureatlas`](format/textureatlas/README.md)       | Build-time image pages, logical regions and filtered foliage mip chains         |
 | [`format/worldmaterial`](format/worldmaterial/README.md)     | Material atlases, mip tails and strength controls                               |
 | [`format/worldlightmap`](format/worldlightmap/README.md)     | Static receiver charts, bake recipes and completed prebake formats              |
 | [`bake/worldlightmap`](bake/worldlightmap/README.md)         | Deterministic CPU direct/diffuse RNM baking                                     |

@@ -23,6 +23,13 @@ Level metadata declares `"kartyWorldMaterialAtlas":"karty.world-material-atlas@1
 without this metadata, metadata without the entries, or an atlas without a
 compiled world. These cross-entry/world checks belong to the level consumer;
 `Pair.Validate` validates the layout, L0 pair and optional tail together.
+`Pair.Decode` performs the same complete validation and returns a `DecodedPair`
+that retains owned straight-alpha NRGBA images. Its `Albedo`, `Data`, `MipTail`,
+`Reflectance` and `ReflectanceMipTail` accessors return pixels without aliasing
+the encoded pair; absent optional images are nil. Independent decode calls own
+independent images. Errors return an empty result, including when a later image
+is malformed. Consumers can retain these validated pixels instead of decoding
+them again. The existing binary schemas and capability declarations are unchanged.
 The tail and the complete eight `mips` records must be present together. Generic
 `level.Encode`/`Decode` enforce envelope bounds and entry name/kind rules, not
 this opt-in payload schema or metadata/world consistency.

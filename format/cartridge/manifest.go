@@ -24,6 +24,7 @@ const (
 
 const (
 	FeatureTextureQOIv1                        = "texture/qoi@1"
+	FeatureTextureAtlasV1                      = "texture/atlas@1"
 	FeatureSoundQOAv1                          = "sound/qoa@1"
 	FeatureAudioStreamQOAv1                    = "audio-stream/qoa@1"
 	FeatureWorldVegetationV1                   = "world/vegetation@1"
@@ -325,6 +326,10 @@ func validManifestString(value string) bool {
 }
 
 func validManifestFeatures(features []string) bool {
+	if slices.Contains(features, FeatureTextureAtlasV1) && !slices.Contains(features, FeatureTextureQOIv1) {
+		return false
+	}
+
 	if slices.Contains(features, FeatureWorldSkyV1) &&
 		(!slices.Contains(features, FeatureWorldEnvironmentV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
 		return false
@@ -384,6 +389,7 @@ func validManifestFeature(feature string) bool {
 		FeatureAudioStreamQOAv1,
 		FeatureSoundQOAv1,
 		FeatureTextureQOIv1,
+		FeatureTextureAtlasV1,
 		FeatureVideoMPEG1v1,
 		FeatureWorldMaterialReflectanceV1,
 		FeatureWorldSectorsV1,

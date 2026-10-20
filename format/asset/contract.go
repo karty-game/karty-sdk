@@ -23,6 +23,7 @@ type Capability string
 
 const (
 	CapabilityTextureQOIv1                        Capability = "texture/qoi@1"
+	CapabilityTextureAtlasV1                      Capability = "texture/atlas@1"
 	CapabilitySoundQOAv1                          Capability = "sound/qoa@1"
 	CapabilityAudioStreamQOAv1                    Capability = "audio-stream/qoa@1"
 	CapabilityVideoMPEG1v1                        Capability = "video/mpeg1@1"
@@ -91,6 +92,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityAudioStreamQOAv1,
 			CapabilitySoundQOAv1,
 			CapabilityTextureQOIv1,
+			CapabilityTextureAtlasV1,
 			CapabilityVideoMPEG1v1,
 			CapabilityWorldLightingV1,
 			CapabilityWorldChunksV1,

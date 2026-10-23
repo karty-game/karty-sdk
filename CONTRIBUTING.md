@@ -110,8 +110,10 @@ command through `mise exec` with a longer budget.
 
 `test-race` and `test-32` run one package at a time to bound CPU contention.
 Dense baker producer compatibility fixtures run separately with the same
-nine-second timeout. Both race invocations retain race detection; native 386
-tests also exercise Go's SIMD fallback.
+nine-second timeout. Race tests also isolate the large-world mesh entry fixture
+from the other chunk tests so they do not share one package deadline. Every
+race invocation retains race detection; native 386 tests also exercise Go's
+SIMD fallback.
 
 `test-wasm` executes Go Wasm tests using the official runner and pinned Node,
 one package at a time to bound memory use. Its launcher passes a minimal

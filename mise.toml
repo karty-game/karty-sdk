@@ -49,10 +49,11 @@ run = "golangci-lint run ./..."
 
 [tasks.test-race]
 # Keep race-instrumented atlas validation from competing with baker tests.
-# Give the dense producer compatibility fixtures their own nine-second budget.
+# Give dense producer and large-world fixtures their own nine-second budgets.
 run = [
-  "go test -p=1 -timeout=9s -race ./... -skip='^TestProducerCompatibility$'",
+  "go test -p=1 -timeout=9s -race ./... -skip='^(TestProducerCompatibility|TestMeshOnlyWorldMayExceedOneMeshEntry)$'",
   "go test -timeout=9s -race ./bake/worldlightmap -run='^TestProducerCompatibility$'",
+  "go test -timeout=9s -race ./format/worldchunk -run='^TestMeshOnlyWorldMayExceedOneMeshEntry$'",
 ]
 
 [tasks.test-simd-emulated]

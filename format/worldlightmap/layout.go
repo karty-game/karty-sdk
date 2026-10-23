@@ -150,19 +150,9 @@ func LayoutDigest(layout *Layout) (string, error) {
 }
 
 func Decode(encoded []byte, document *world.Document) (Layout, error) {
-	if len(encoded) == 0 || len(encoded) > MaxEncodedSize {
-		return Layout{}, ErrLayout
-	}
-	scan := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
-	scanWorldlightmapLayout(scan)
-	if scan.Done() != nil {
-		return Layout{}, ErrLayout
-	}
-	var layout Layout
-	reader := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
-	readWorldlightmapLayout(reader, &layout)
-	if reader.Done() != nil {
-		return Layout{}, ErrLayout
+	layout, err := decodeLayoutBinary(encoded)
+	if err != nil {
+		return Layout{}, err
 	}
 	if err := Validate(&layout, document); err != nil {
 		return Layout{}, err

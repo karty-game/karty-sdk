@@ -1,5 +1,31 @@
 # Build-generated world lightmap layout
 
+## Compiler-authoritative chunk resources
+
+For `world/chunk-ready@1` children, the build pipeline completes the source
+geometry, chart packing, UV/basis and bake-input proof before publishing exact
+child hashes in the accepted parent catalog. After whole-child size/SHA-256
+verification, runtime uses `DecodeLayoutArtifact` with `LayoutAdmission` root
+sector/solid counts. It checks schema/count/page/rectangle/reference bounds,
+receiver indexes, finite chart fields and bounded bake recipes; it does not
+rebuild surfaces, recompute geometry digests, prove chart overlap/coverage or
+reconstruct authored basis and affine mapping. Hosts compare the carried
+geometry digest and receiver selection directly to their accepted descriptor.
+
+`DecodePrebakeArtifact` and `ValidatePrebakeArtifact` check a manifest against an
+already admitted layout, exact image bytes/digest, complete bounded linear RGBA
+QOI, dimensions and a finite GPU-representable RGBM range. They accept existing
+direct and offline producer algorithms without recomputing source lighting,
+reflectance/surface or bake-input digests. `DecodeEnvironmentVariantsArtifact`
+and `ValidateEnvironmentVariantsArtifact` similarly check bounded catalog and
+layout/image identities without re-proving environment source geometry.
+
+These structural APIs require prior whole-artifact catalog integrity admission;
+metadata alone does not establish authenticity or producer correctness. The
+existing `Decode`/`Validate`, `DecodePrebake`/`PrebakePair.Validate` and environment
+source validators keep their complete checks for builders, offline cache
+acceptance and the semantic-only runtime path. No binary layout changes.
+
 ## Chunk receiver algorithm 2
 
 `world/chunks@1` adds `CompileReceivers(document, options, sectors, solids)` and

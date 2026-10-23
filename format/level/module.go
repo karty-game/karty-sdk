@@ -1,5 +1,7 @@
 package level
 
+import "crypto/sha256"
+
 const (
 	moduleDataOffset = 1024
 	wasmPageSize     = 65536
@@ -17,7 +19,28 @@ func WrapModule(envelope []byte) ([]byte, error) {
 
 // The caller has validated the envelope using Decode before constructing Wasm.
 func wrapValidatedEnvelope(envelope []byte) []byte {
+	return append(passiveModulePrefix(len(envelope)), envelope...)
+}
 
+// PassiveModuleIdentity returns the SHA-256 and size of canonical WrapModule
+// output without constructing a second copy of its payload. The envelope is
+// structurally decoded; no authored geometry is inspected.
+func PassiveModuleIdentity(envelope []byte) ([sha256.Size]byte, uint64, error) {
+	if _, err := Decode(envelope); err != nil {
+		return [sha256.Size]byte{}, 0, err
+	}
+	prefix := passiveModulePrefix(len(envelope))
+	digest := sha256.New()
+	_, _ = digest.Write(prefix)
+	_, _ = digest.Write(envelope)
+	var result [sha256.Size]byte
+	digest.Sum(result[:0])
+	return result, uint64(len(prefix) + len(envelope)), nil
+}
+
+// Canonical modules end with their sole envelope payload. Construct only the
+// bounded ABI/header prefix when inspecting or hashing an existing module.
+func passiveModulePrefix(envelopeSize int) []byte {
 	module := []byte{0, 0x61, 0x73, 0x6d, 1, 0, 0, 0}
 	appendSection := func(identifier byte, payload []byte) {
 		module = append(module, identifier)
@@ -28,7 +51,7 @@ func wrapValidatedEnvelope(envelope []byte) []byte {
 	appendSection(1, []byte{1, 0x60, 0, 1, 0x7f})
 	appendSection(3, []byte{3, 0, 0, 0})
 
-	pages := (moduleDataOffset + len(envelope) + wasmPageSize - 1) / wasmPageSize
+	pages := (moduleDataOffset + envelopeSize + wasmPageSize - 1) / wasmPageSize
 	appendSection(5, appendUnsignedLEB([]byte{1, 0}, pages))
 
 	exports := []byte{4}
@@ -47,7 +70,7 @@ func wrapValidatedEnvelope(envelope []byte) []byte {
 
 	code := []byte{3}
 
-	for _, value := range []int{int(EnvelopeVersion), moduleDataOffset, len(envelope)} {
+	for _, value := range []int{int(EnvelopeVersion), moduleDataOffset, envelopeSize} {
 		body := appendSignedLEB([]byte{0, 0x41}, value)
 		body = append(body, 0x0b)
 		code = appendUnsignedLEB(code, len(body))
@@ -58,9 +81,10 @@ func wrapValidatedEnvelope(envelope []byte) []byte {
 
 	data := appendSignedLEB([]byte{1, 0, 0x41}, moduleDataOffset)
 	data = append(data, 0x0b)
-	data = appendUnsignedLEB(data, len(envelope))
-	data = append(data, envelope...)
-	appendSection(11, data)
+	data = appendUnsignedLEB(data, envelopeSize)
+	module = append(module, 11)
+	module = appendUnsignedLEB(module, len(data)+envelopeSize)
+	module = append(module, data...)
 
 	return module
 }

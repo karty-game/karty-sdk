@@ -164,6 +164,29 @@ func (line *boundaryLine) containsStored(a, b world.Vec3) bool {
 	return true
 }
 
+// Nearby parallel authored boundaries can both admit a packed edge within the
+// existing ULP tolerance. Rank their stored lines before assigning that edge,
+// so a surviving one-ULP strip keeps its two opposite boundaries distinct.
+func (line *boundaryLine) storedError(a, b world.Vec3) float64 {
+	origin := unpacked(packed(line.origin))
+	delta := sub(unpacked(packed(add(line.origin, line.delta))), origin)
+	score := 0.0
+	for _, direction := range [3]world.Vec3{
+		{Y: delta.Z, Z: -delta.Y},
+		{X: -delta.Z, Z: delta.X},
+		{X: delta.Y, Y: -delta.X},
+	} {
+		if direction == (world.Vec3{}) {
+			continue
+		}
+		for _, point := range [2]world.Vec3{a, b} {
+			tolerance := max(projectedTolerance(point, direction), projectedTolerance(origin, direction))
+			score = max(score, math.Abs(dot(sub(point, origin), direction))/tolerance)
+		}
+	}
+	return score
+}
+
 func (line *boundaryLine) append(a, b world.Vec3, count int, actual bool) {
 	start, end := line.parameter(a), line.parameter(b)
 	if start > end {
@@ -227,7 +250,8 @@ func (coverage *meshCoverage) validateBoundary(work *cooperativeWork) error {
 	for edge, count := range coverage.edges {
 		work.checkpoint(1024)
 		a, b := unpacked(edge[0]), unpacked(edge[1])
-		found := false
+		found := -1
+		bestError, bestTolerance := math.Inf(1), 0.0
 		for index := range lines {
 			line := &lines[index]
 			tolerance := max(coordinateTolerance(coordinate(a, line.axis)), coordinateTolerance(coordinate(b, line.axis)),
@@ -238,14 +262,16 @@ func (coverage *meshCoverage) validateBoundary(work *cooperativeWork) error {
 				!line.containsStored(a, b) {
 				continue
 			}
-			line.tolerance = max(line.tolerance, parameterTolerance)
-			line.append(a, b, count, true)
-			found = true
-			break
+			if score := line.storedError(a, b); score < bestError {
+				found, bestError, bestTolerance = index, score, parameterTolerance
+			}
 		}
-		if !found {
+		if found < 0 {
 			return fmt.Errorf("unmatched interior triangle edge: %w", ErrChunk)
 		}
+		line := &lines[found]
+		line.tolerance = max(line.tolerance, bestTolerance)
+		line.append(a, b, count, true)
 	}
 	for _, line := range lines {
 		work.checkpoint(1024)

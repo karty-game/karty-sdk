@@ -14,8 +14,8 @@ var ErrPassiveModule = errors.New("level module is not a canonical passive modul
 // instantiating independently downloaded chunk modules: arbitrary Wasm imports,
 // start functions, loops, memory growth or unbounded initial memories are never
 // part of this data transport contract. Legacy level execution is unchanged.
-// Validation allocates bounded canonical-module and data-construction buffers
-// plus the envelope decoder's bounded entry table. It executes no instruction.
+// Validation compares a bounded ABI/header prefix and decodes a bounded entry
+// table. It neither copies the envelope payload nor executes an instruction.
 func ValidatePassiveModule(wasm []byte) error {
 	_, err := DecodePassiveModule(wasm)
 	return err
@@ -69,8 +69,8 @@ func DecodePassiveModule(wasm []byte) (Envelope, error) {
 	if err != nil {
 		return Envelope{}, fmt.Errorf("passive envelope: %w: %w", ErrPassiveModule, err)
 	}
-	canonical := wrapValidatedEnvelope(envelope)
-	if !bytes.Equal(wasm, canonical) {
+	prefix := passiveModulePrefix(len(envelope))
+	if len(wasm) != len(prefix)+len(envelope) || !bytes.Equal(wasm[:len(prefix)], prefix) {
 		return Envelope{}, ErrPassiveModule
 	}
 	return decoded, nil

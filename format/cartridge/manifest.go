@@ -44,6 +44,7 @@ const (
 	FeatureWorldSkyV1                          = "world/sky@1"
 	FeatureWorldSectorsV1                      = "world/sectors@1"
 	FeatureWorldChunksV1                       = "world/chunks@1"
+	FeatureWorldChunkReadyV1                   = "world/chunk-ready@1"
 	FeatureWorldTerrainV1                      = "world/terrain@1"
 	FeatureWorldLightingV1                     = "world/lighting@1"
 	FeatureWorldLightmapsV1                    = "world/lightmaps@1"
@@ -341,6 +342,9 @@ func validManifestFeatures(features []string) bool {
 	if slices.Contains(features, FeatureWorldTerrainV1) && !slices.Contains(features, FeatureWorldSectorsV1) {
 		return false
 	}
+	if slices.Contains(features, FeatureWorldChunkReadyV1) && !slices.Contains(features, FeatureWorldChunksV1) {
+		return false
+	}
 	if slices.Contains(features, FeatureWorldChunksV1) && !slices.Contains(features, FeatureWorldSectorsV1) {
 		return false
 	}
@@ -386,6 +390,7 @@ func validManifestFeature(feature string) bool {
 	case FeatureWorldTerrainV1,
 		FeatureWorldSolidRenderersV1,
 		FeatureWorldChunksV1,
+		FeatureWorldChunkReadyV1,
 		FeatureAudioStreamQOAv1,
 		FeatureSoundQOAv1,
 		FeatureTextureQOIv1,

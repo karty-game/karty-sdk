@@ -128,16 +128,9 @@ func EncodeEnvironmentVariants(catalog EnvironmentVariants, layout Layout, docum
 }
 
 func DecodeEnvironmentVariants(encoded []byte, layout Layout, document *world.Document) (EnvironmentVariants, error) {
-	scan := binwire.NewReader(encoded, "KLV1", MaxEnvironmentCatalogSize)
-	scanWorldlightmapEnvironmentVariants(scan)
-	if scan.Done() != nil {
-		return EnvironmentVariants{}, ErrLayout
-	}
-	r := binwire.NewReader(encoded, "KLV1", MaxEnvironmentCatalogSize)
-	var catalog EnvironmentVariants
-	readWorldlightmapEnvironmentVariants(r, &catalog)
-	if r.Done() != nil {
-		return EnvironmentVariants{}, ErrLayout
+	catalog, err := decodeEnvironmentVariantsBinary(encoded)
+	if err != nil {
+		return EnvironmentVariants{}, err
 	}
 	if err := ValidateEnvironmentVariants(&catalog, layout, document); err != nil {
 		return EnvironmentVariants{}, err
@@ -294,4 +287,19 @@ func environmentVariantStride(catalog *EnvironmentVariants) (int, error) {
 // Old completed artifacts remain readable; baking emits only the current producer.
 func environmentProducer(producer string) bool {
 	return producer == EnvironmentPrebakeProducer || producer == "cpu-environment-rnm3@1"
+}
+
+func decodeEnvironmentVariantsBinary(encoded []byte) (EnvironmentVariants, error) {
+	scan := binwire.NewReader(encoded, "KLV1", MaxEnvironmentCatalogSize)
+	scanWorldlightmapEnvironmentVariants(scan)
+	if scan.Done() != nil {
+		return EnvironmentVariants{}, ErrLayout
+	}
+	r := binwire.NewReader(encoded, "KLV1", MaxEnvironmentCatalogSize)
+	var catalog EnvironmentVariants
+	readWorldlightmapEnvironmentVariants(r, &catalog)
+	if r.Done() != nil {
+		return EnvironmentVariants{}, ErrLayout
+	}
+	return catalog, nil
 }

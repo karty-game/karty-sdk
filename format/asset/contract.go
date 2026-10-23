@@ -29,6 +29,7 @@ const (
 	CapabilityVideoMPEG1v1                        Capability = "video/mpeg1@1"
 	CapabilityWorldLightingV1                     Capability = "world/lighting@1"
 	CapabilityWorldChunksV1                       Capability = "world/chunks@1"
+	CapabilityWorldChunkReadyV1                   Capability = "world/chunk-ready@1"
 	CapabilityWorldTerrainV1                      Capability = "world/terrain@1"
 	CapabilityWorldLightmapsV1                    Capability = "world/lightmaps@1"
 	CapabilityWorldLightmapsPrebakedV1            Capability = "world/lightmaps-prebaked@1"
@@ -96,6 +97,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityVideoMPEG1v1,
 			CapabilityWorldLightingV1,
 			CapabilityWorldChunksV1,
+			CapabilityWorldChunkReadyV1,
 			CapabilityWorldTerrainV1,
 			CapabilityWorldLightmapsV1,
 			CapabilityWorldLightmapsPrebakedV1,

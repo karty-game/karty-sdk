@@ -50,3 +50,7 @@ root depth zero. Keys contain 1–1024 UTF-8 bytes. Decoding scans the complete
 payload and all nested bounds before allocating values. `ValidateMetadata`
 performs this scan without allocating nested values. Authored YAML/TOML parsing
 belongs to the CLI and is not a runtime dependency.
+
+`PassiveModuleIdentity` returns the SHA-256 and length of canonical `WrapModule`
+output from an envelope without constructing another full payload. Passive
+decoding compares the small canonical ABI prefix and borrows the envelope bytes.

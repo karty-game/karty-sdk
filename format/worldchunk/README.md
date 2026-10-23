@@ -24,6 +24,81 @@ fixed binary records. Earlier candidate JSON chunk payloads are rejected and
 must be rebuilt. TOML/YAML authoring and the established world, lightmap and
 level-envelope metadata formats retain their existing contracts.
 
+`world/chunk-ready@1` adds the compiler-authoritative `@world/chunks/ready`
+artifact (`karty.world-chunk-ready@1`, binary magic `KCR1`). It requires
+`world/chunks@1`; older SDK targets keep their existing semantic mesh path.
+Ready-enabled children contain final renderer streams without a duplicate
+semantic mesh entry. `CompileReady` packs already tessellated geometry offline
+into material batches, vertex/normal/UV streams, static tangent bases, RNM
+bindings, wave coordinates, stable surface IDs and semantic owner ranges.
+Liquid vertices remain authored rest positions; animation runs in the vertex
+shader. The catalog's `MeshBytes` retains its canonical `484 * triangle count`
+reservation, using the final emitted triangle count; it does not become the Ready byte count.
+
+For several chunks, call `ReadySurfaces(meshes, document)` once and pass its
+canonical table through `ReadyOptions.Surfaces` to every `CompileReady` call.
+`ReadyOptions.Masked` uses the world's canonical material order. A supplied
+table preserves its slot identities and must contain every source surface;
+missing or duplicate keys fail. Hosts retain that shared table across chunk
+residency changes, without remapping vertex arrays or growing material tables
+on reload. Nil `Surfaces` derives a local deterministic table for standalone
+use.
+
+`ReadyOptions.CleanupStatic` optionally subtracts covered static faces from the
+final streams of one atomic streamed chunk. Only selected, co-resident owners
+in one unambiguous ordinary physical component participate. Only collidable solids act as occluders: noncolliding volumes can be entered.
+Packed solid facet
+halfspaces define a conservative inner volume; exact coplanar sector contact
+resolves same-facing solid duplicates. Opposing floor/wall contact faces on solids
+remain, preserving exterior views through backface-culled sector surfaces.
+Sector surfaces win same-facing duplicates,
+then lower authored solid indexes. This defines stable material ownership for
+previously ambiguous depth ties. Masked, liquid, animated and sky surfaces do
+not participate; actors never act as permanent occluders. Ambiguous scopes or
+unreliable numerical cuts retain their complete original surfaces. Positive
+gaps and nonresident occluders cannot create permanent holes.
+
+Cleanup leaves the canonical semantic mesh and its digest unchanged. Full offline
+validation deterministically reconstructs the cuts and compares every output
+attribute. `ReadyBatch.Sources` indexes that derived triangle sequence, and the
+catalog reserves `484 *` its length. New vertices interpolate the original UV,
+wave, band and RNM streams with their existing chart ownership. Fragmentation can
+increase triangle count, so builders enforce the configured budget after cleanup
+and repartition when possible; `ErrReadyCapacity` identifies format capacity
+limits. Hidden lightmap receivers and their bake allocation remain unchanged.
+Legacy output and non-streamed movable sector geometry use their existing path.
+
+The asset pipeline proves source geometry and authored attributes before
+publishing a child and its catalog hash. Builders validate the semantic mesh
+and accepted RNM binding, then use `DecodeReady`/`ValidateReady` to check exact
+semantic-mesh digest, complete source coverage, packed attributes, material
+classifications, UV/basis bindings and displacement-expanded owner bounds.
+These complete offline proof APIs remain available and retain their checks.
+The `MeshSHA256` header records build provenance; it does not require retaining
+or decoding the source mesh in the runtime artifact.
+
+After verifying the complete child's exact catalog length and SHA-256, hosts
+call `DecodeReadyArtifact` with `ReadyAdmission`: parent material-slot count,
+sorted sector/solid owners, expected triangle count (`MeshBytes / 484`),
+lightmap presence and an optional already accepted canonical surface table.
+This checks bounded binary records and allocation counts, complete consumption,
+finite scalars, material/index/stream references, consistent per-triangle
+surface IDs, batch order/uniqueness, owner identity/range partitions and finite
+ordered owner bounds. It accepts compiler-authoritative geometry without
+repeating polygon coverage, triangulation, authored UV/normal reconstruction
+or vertex/bounds comparisons. Input descriptor values alone do not establish
+artifact integrity or producer correctness: the caller must perform the
+whole-child hash/size verification against its accepted parent first.
+
+Runtime asset integrity is relative to the accepted root catalog; this does not
+introduce publisher signatures or claim arbitrary input was built correctly.
+The complete build proof belongs to the pipeline, while runtime structural and
+resource limits remain mandatory. Ready scalar data is bounded to 64 MiB, with
+the existing triangle, vertex, encoded-entry and child-module limits remaining
+in force. Image/layout dimensions and decoded resource bounds retain their
+own admission. This unpublished candidate changes no existing semantic mesh,
+catalog, shadow or compiled-world binary version.
+
 Before instantiating a downloaded child, hosts call
 `level.ValidatePassiveModule`. It accepts only exact `level.WrapModule` output,
 including its bounded initial memory, three constant ABI functions and one

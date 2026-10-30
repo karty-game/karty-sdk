@@ -43,11 +43,16 @@ const (
 	FeatureWorldEnvironmentSkylightV1          = "world/environment-skylight@1"
 	FeatureWorldSkyV1                          = "world/sky@1"
 	FeatureWorldSectorsV1                      = "world/sectors@1"
+	FeatureWorldSpatialChunksV1                = "world/spatial-chunks@1"
+	FeatureWorldSpatialChunksV2                = "world/spatial-chunks@2"
 	FeatureWorldChunksV1                       = "world/chunks@1"
 	FeatureWorldChunkReadyV1                   = "world/chunk-ready@1"
 	FeatureWorldTerrainV1                      = "world/terrain@1"
 	FeatureWorldLightingV1                     = "world/lighting@1"
 	FeatureWorldLightmapsV1                    = "world/lightmaps@1"
+	FeatureWorldReflectionCubemapsV1           = "world/reflection-cubemaps@1"
+	FeatureWorldFixedLightingV1                = "world/fixed-lighting@1"
+	FeatureWorldFixedCompactLightingV1         = "world/fixed-compact-lighting@1"
 	FeatureWorldLightmapsPrebakedV1            = "world/lightmaps-prebaked@1"
 	FeatureWorldLightmapsEnvironmentVariantsV1 = "world/lightmaps-environment-variants@1"
 	FeatureWorldMaterialMappingV1              = "world/material-mapping@1"
@@ -327,6 +332,15 @@ func validManifestString(value string) bool {
 }
 
 func validManifestFeatures(features []string) bool {
+	if slices.Contains(features, FeatureWorldFixedCompactLightingV1) &&
+		(!slices.Contains(features, FeatureWorldFixedLightingV1) || !slices.Contains(features, FeatureWorldSpatialChunksV2) ||
+			!slices.Contains(features, FeatureWorldChunkReadyV1)) {
+		return false
+	}
+	if (slices.Contains(features, FeatureWorldSpatialChunksV1) || slices.Contains(features, FeatureWorldSpatialChunksV2)) &&
+		(!slices.Contains(features, FeatureWorldChunksV1) || !slices.Contains(features, FeatureWorldChunkReadyV1) || !slices.Contains(features, FeatureWorldFixedLightingV1)) {
+		return false
+	}
 	if slices.Contains(features, FeatureTextureAtlasV1) && !slices.Contains(features, FeatureTextureQOIv1) {
 		return false
 	}
@@ -374,6 +388,15 @@ func validManifestFeatures(features []string) bool {
 			!slices.Contains(features, FeatureWorldChunksV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
 		return false
 	}
+	if slices.Contains(features, FeatureWorldFixedLightingV1) &&
+		(!slices.Contains(features, FeatureWorldLightmapsV1) || !slices.Contains(features, FeatureWorldChunksV1) ||
+			!slices.Contains(features, FeatureWorldSectorsV1) || slices.Contains(features, FeatureWorldLightmapsEnvironmentVariantsV1)) {
+		return false
+	}
+	if slices.Contains(features, FeatureWorldReflectionCubemapsV1) &&
+		(!slices.Contains(features, FeatureWorldFixedLightingV1) || !slices.Contains(features, FeatureWorldChunkReadyV1)) {
+		return false
+	}
 	previous := ""
 	for _, feature := range features {
 		if !validManifestFeature(feature) || feature <= previous {
@@ -387,7 +410,9 @@ func validManifestFeatures(features []string) bool {
 
 func validManifestFeature(feature string) bool {
 	switch feature {
-	case FeatureWorldTerrainV1,
+	case FeatureWorldReflectionCubemapsV1, FeatureWorldSpatialChunksV1, FeatureWorldSpatialChunksV2, FeatureWorldTerrainV1,
+		FeatureWorldFixedCompactLightingV1,
+		FeatureWorldFixedLightingV1,
 		FeatureWorldSolidRenderersV1,
 		FeatureWorldChunksV1,
 		FeatureWorldChunkReadyV1,

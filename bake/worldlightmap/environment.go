@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/karty-game/karty-sdk/format/world"
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
@@ -39,7 +40,7 @@ func prepareEnvironmentInputs(ctx context.Context, document world.Document, layo
 	if _, err := worldlightmap.OfflineDenoiseProducer(options.Denoise); err != nil {
 		return bakeInputs{}, err
 	}
-	if layout.RuntimeBake != nil {
+	if layout.RuntimeBake != nil && !options.fixed {
 		return bakeInputs{}, fmt.Errorf("environment variants require a layout without a point-light recipe")
 	}
 	if err := worldlightmap.Validate(&layout, &document); err != nil {
@@ -60,12 +61,29 @@ func prepareEnvironmentInputs(ctx context.Context, document world.Document, layo
 	if err != nil {
 		return bakeInputs{}, err
 	}
+	if err := validateVegetationForBake(&document, options, images); err != nil {
+		return bakeInputs{}, err
+	}
 	surfaces, err := worldlightmap.Surfaces(&document)
 	if err != nil {
 		return bakeInputs{}, err
 	}
 	transparent := transparentEnvironmentMaterials(&document)
 	applyReceiverScope(surfaces, sectors, solids)
+	if err := prepareFixedTerrain(document, options, surfaces); err != nil {
+		return bakeInputs{}, err
+	}
+	var receivers []worldlightmap.Surface
+	if options.fixed && (len(transparent) > 0 || layout.Selection != nil) {
+		// Copy headers only: removing transport polygons below must not remove
+		// fixed water/glass receivers. Geometry backing stays immutable/shared.
+		receivers = slices.Clone(surfaces)
+	}
+	if layout.Selection != nil {
+		if err := worldlightmap.ApplySurfaceSelection(receivers, layout.Selection); err != nil {
+			return bakeInputs{}, err
+		}
+	}
 	for i := range surfaces {
 		binding := surfaces[i].Binding
 		material, _, _, _, _ := materialOf(&document, binding)
@@ -77,16 +95,40 @@ func prepareEnvironmentInputs(ctx context.Context, document world.Document, layo
 	if err != nil {
 		return bakeInputs{}, err
 	}
-	rangeValue, err := worldlightmap.EnvironmentRGBMRange(
-		document.Environment,
-		world.EnvironmentSettings{TimeOfDay: environment.TimeOfDay, CloudAmount: environment.CloudAmount},
-		options.Bounces,
-	)
+	digest, err = vegetationReflectanceDigest(digest, options.Vegetation)
+	if err != nil {
+		return bakeInputs{}, err
+	}
+	if options.Terrain != nil {
+		terrainDigest, terrainErr := terrainInputDigest(options.Terrain)
+		if terrainErr != nil {
+			return bakeInputs{}, terrainErr
+		}
+		hash := sha256.Sum256([]byte("fixed-terrain-reflectance@1:" + digest + ":" + terrainDigest))
+		digest = hex.EncodeToString(hash[:])
+	}
+	var rangeValue float64
+	var lightIDs []string
+	if options.fixed {
+		if layout.RuntimeBake != nil {
+			if layout.RuntimeBake.Encoding != worldlightmap.DirectRNMEncoding {
+				return bakeInputs{}, worldlightmap.ErrLayout
+			}
+			lightIDs = layout.RuntimeBake.LightIDs
+		}
+		rangeValue, err = fixedRGBMRange(document, layout, environment, options)
+	} else {
+		rangeValue, err = worldlightmap.EnvironmentRGBMRange(
+			document.Environment,
+			world.EnvironmentSettings{TimeOfDay: environment.TimeOfDay, CloudAmount: environment.CloudAmount},
+			options.Bounces,
+		)
+	}
 	if err != nil {
 		return bakeInputs{}, err
 	}
 	return bakeInputs{options: options, rangeValue: rangeValue, images: images,
-		surfaces: surfaces, reflectance: digest}, nil
+		surfaces: surfaces, receivers: receivers, lightIDs: lightIDs, reflectance: digest}, nil
 }
 
 // EnvironmentReflectanceDigest returns the scoped transport reflectance shared
@@ -158,6 +200,9 @@ func EnvironmentInputDigest(document world.Document, layout worldlightmap.Layout
 	}
 	w.F64(environment.SunIntensity)
 	writeShadowTriangles(w, inputs.options.ShadowTriangles)
+	if err := writeVegetationInput(w, inputs.options.Vegetation); err != nil {
+		return "", err
+	}
 	encoded, err := w.Bytes()
 	if err != nil {
 		return "", err
@@ -237,6 +282,9 @@ func (s *scene) environmentIndirect(ctx context.Context, p vec, chart worldlight
 				break
 			}
 			normal := s.surfaces[hit].Normal
+			if s.materials[hit].vegetation != nil && dot(normal, direction) >= 0 {
+				normal = scale(normal, -1)
+			}
 			if dot(normal, direction) >= 0 {
 				break
 			}

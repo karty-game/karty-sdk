@@ -48,6 +48,7 @@ type Layout struct {
 	Bindings       []Binding
 	RuntimeBake    *RuntimeBake
 	Receivers      *ReceiverSelection
+	Selection      *SurfaceSelection
 }
 
 // ReceiverSelection scopes an atlas to global sector/solid identities. The
@@ -121,6 +122,13 @@ func Encode(layout Layout, document *world.Document) ([]byte, error) {
 }
 
 func encodeLayoutBinary(layout Layout) ([]byte, error) {
+	if layout.Selection != nil {
+		return encodeSelectedLayout(layout)
+	}
+	return encodeLegacyLayout(layout)
+}
+
+func encodeLegacyLayout(layout Layout) ([]byte, error) {
 	w := binwire.NewWriter(BinaryMagic, MaxEncodedSize)
 	writeWorldlightmapLayout(w, &layout)
 	encoded, err := w.Bytes()
@@ -141,9 +149,8 @@ func LayoutDigest(layout *Layout) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	r := binwire.NewReader(encoded, BinaryMagic, MaxEncodedSize)
-	scanWorldlightmapLayout(r)
-	if r.Done() != nil {
+	err = scanLayoutBinary(encoded)
+	if err != nil {
 		return "", ErrLayout
 	}
 	return digest(encoded), nil

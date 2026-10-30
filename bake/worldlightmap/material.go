@@ -13,6 +13,7 @@ import (
 
 	"github.com/karty-game/karty-sdk/format/world"
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
+	"github.com/karty-game/karty-sdk/format/worldterrain"
 	"github.com/karty-game/karty-sdk/internal/binwire"
 )
 
@@ -29,6 +30,8 @@ type Material struct {
 const maxMaterialPixels = 16 * 1024 * 1024
 
 type reflectance struct {
+	vegetation      *vegetationReflectance
+	terrain         *worldterrain.Document
 	image           *image.NRGBA
 	width, height   float64
 	mapping         *world.SurfaceUV
@@ -299,6 +302,13 @@ func (r reflectance) texel(u, v float64) vec {
 }
 func uvValue(p world.UVPlane, v vec) float64 { return p.X*v.X + p.Y*v.Y + p.Z*v.Z + p.Offset }
 func (r reflectance) sample(p vec) vec {
+	if r.vegetation != nil {
+		pixel := r.vegetation.pixel(p)
+		return vec{X: diffuseBytes[pixel.R], Y: diffuseBytes[pixel.G], Z: diffuseBytes[pixel.B]}
+	}
+	if r.terrain != nil {
+		return terrainReflectance(r.terrain, p)
+	}
 	if r.mapping != nil {
 		result := vec{}
 		for i, projection := range r.mapping.Projections {

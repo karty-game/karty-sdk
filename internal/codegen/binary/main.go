@@ -62,6 +62,8 @@ var limits = map[string]int{
 	"world.AnimationPreset.Frames":                   64,
 	"world.Emission.Materials":                       196,
 	"world.MaterialEmission.Lights":                  50,
+	"worldlightmap.SurfaceSelection.LiquidTiles":     64,
+	"worldlightmap.SurfaceSelection.Bindings":        76288,
 	"worldlightmap.Layout.Pages":                     1,
 	"worldlightmap.Layout.Charts":                    8192,
 	"worldlightmap.Layout.Bindings":                  76288,
@@ -294,8 +296,11 @@ func (g *generator) emit(out *bytes.Buffer, pkg string, expr ast.Expr, value, ke
 			for _, name := range field.Names {
 				fieldKey := key + "." + name.Name
 				// KWR2 appends its separately generated extension after the frozen base.
-				if fieldKey == "world.Document.Fluids" || fieldKey == "world.Document.SolidRenderers" ||
-					fieldKey == "world.Environment.Appearance" || fieldKey == "world.Environment.Backdrop" {
+				if fieldKey == "worldlightmap.Layout.Selection" ||
+					fieldKey == "world.Document.Fluids" ||
+					fieldKey == "world.Document.SolidRenderers" ||
+					fieldKey == "world.Environment.Appearance" ||
+					fieldKey == "world.Environment.Backdrop" {
 					continue
 				}
 				// Revision-1/2 prebake manifests retain their exact bytes. Only

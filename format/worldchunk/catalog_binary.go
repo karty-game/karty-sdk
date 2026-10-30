@@ -8,6 +8,19 @@ import (
 )
 
 func encodeCatalogBinary(catalog Catalog) ([]byte, error) {
+	if catalog.Schema == SpatialSchema {
+		return encodeSpatialCatalog(catalog)
+	}
+	return encodeLegacyCatalog(catalog)
+}
+
+func encodeLegacyCatalog(catalog Catalog) ([]byte, error) {
+	recordBytes, magic, version := chunkRecordBytes, "KCC2", catalogBinaryVersion
+	if catalog.Schema == FixedSchema {
+		recordBytes += 16
+		magic = "KCC3"
+		version = 3
+	}
 	sectors, solids, candidates := uint64(0), uint64(0), uint64(0)
 	for _, chunk := range catalog.Chunks {
 		sectors += uint64(len(chunk.Sectors))
@@ -18,10 +31,10 @@ func encodeCatalogBinary(catalog Catalog) ([]byte, error) {
 	}
 	size := uint64(
 		catalogHeaderBytes,
-	) + chunkRecordBytes*uint64(
+	) + uint64(recordBytes)*uint64(
 		len(catalog.Chunks),
 	) + 4*(sectors+solids+uint64(len(catalog.SectorChunks)+len(catalog.Candidates)+len(catalog.BakedLights))+candidates)
-	w, err := newWireVersion(size, "KCC2", catalogHeaderBytes, catalogBinaryVersion)
+	w, err := newWireVersion(size, magic, catalogHeaderBytes, version)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +57,10 @@ func encodeCatalogBinary(catalog Catalog) ([]byte, error) {
 		w.u64(c.Size)
 		w.u64(c.MeshBytes)
 		w.u64(c.LightmapBytes)
+		if catalog.Schema == FixedSchema {
+			w.u64(c.LightingBytes)
+			w.u64(c.TerrainBytes)
+		}
 		for _, v := range c.Bounds {
 			w.f64(v)
 		}
@@ -74,7 +91,20 @@ func encodeCatalogBinary(catalog Catalog) ([]byte, error) {
 }
 
 func decodeCatalogBinary(encoded []byte, catalog *Catalog) error {
-	if err := wireHeaderVersion(encoded, "KCC2", catalogHeaderBytes, catalogBinaryVersion); err != nil {
+	if len(encoded) >= 4 && string(encoded[:4]) == "KCC5" {
+		return decodeSpatialCatalog(encoded, catalog)
+	}
+	return decodeLegacyCatalog(encoded, catalog)
+}
+
+func decodeLegacyCatalog(encoded []byte, catalog *Catalog) error {
+	recordBytes, magic, version := chunkRecordBytes, "KCC2", catalogBinaryVersion
+	if len(encoded) >= 4 && string(encoded[:4]) == "KCC3" {
+		recordBytes += 16
+		magic = "KCC3"
+		version = 3
+	}
+	if err := wireHeaderVersion(encoded, magic, catalogHeaderBytes, version); err != nil {
 		return err
 	}
 	r := wireReader{raw: encoded, at: 8}
@@ -87,13 +117,13 @@ func decodeCatalogBinary(encoded []byte, catalog *Catalog) error {
 	if binary.LittleEndian.Uint64(encoded[56:64]) != 0 {
 		return ErrChunk
 	}
-	fixed := uint64(catalogHeaderBytes) + chunkRecordBytes*uint64(chunks)
+	fixed := uint64(catalogHeaderBytes) + uint64(recordBytes)*uint64(chunks)
 	if fixed > uint64(len(encoded)) {
 		return ErrChunk
 	}
 	sectorTotal, solidTotal := uint64(0), uint64(0)
 	for i := range chunks {
-		at := catalogHeaderBytes + int(i)*chunkRecordBytes
+		at := catalogHeaderBytes + int(i)*recordBytes
 		sc := binary.LittleEndian.Uint32(encoded[at+4 : at+8])
 		so := binary.LittleEndian.Uint32(encoded[at+8 : at+12])
 		if sc == 0 || sc > world.MaxSectors || so > world.MaxStaticSolids || binary.LittleEndian.Uint32(encoded[at+12:at+16]) != 0 {
@@ -136,6 +166,9 @@ func decodeCatalogBinary(encoded []byte, catalog *Catalog) error {
 		previous = index
 	}
 	catalog.Schema = Schema
+	if magic == "KCC3" {
+		catalog.Schema = FixedSchema
+	}
 	catalog.GeometrySHA256 = r.hash()
 	r.u64()
 	catalog.Chunks = make([]Chunk, int(chunks))
@@ -148,6 +181,10 @@ func decodeCatalogBinary(encoded []byte, catalog *Catalog) error {
 		c.Size = r.u64()
 		c.MeshBytes = r.u64()
 		c.LightmapBytes = r.u64()
+		if magic == "KCC3" {
+			c.LightingBytes = r.u64()
+			c.TerrainBytes = r.u64()
+		}
 		for j := range c.Bounds {
 			c.Bounds[j] = r.f64()
 		}

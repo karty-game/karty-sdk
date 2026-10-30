@@ -35,8 +35,10 @@ type accelerator struct {
 	wideBounds []float64
 	wideLeaves []wideLeaf
 	// Nine contiguous columns: vertex A and the two precomputed triangle edges.
-	columns  [9][]float64
-	surfaces []int32
+	columns         [9][]float64
+	surfaces        []int32
+	vegetationStart int
+	vegetation      []vegetationReflectance
 }
 
 func (a *accelerator) build(start, end int) int {
@@ -211,6 +213,10 @@ func trace(a *accelerator, o, d vec, limit float64, anyHit bool) (int, float64) 
 						continue
 					}
 					surface := int(a.surfaces[start+i])
+					if len(a.vegetation) > 0 && surface >= a.vegetationStart &&
+						!a.vegetation[surface-a.vegetationStart].covered(add(o, scale(d, distance))) {
+						continue
+					}
 					if distance < limit || hasHit && distance == limit && surface < found {
 						limit, found = distance, surface
 						hasHit = true

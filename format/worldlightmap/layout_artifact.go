@@ -35,29 +35,33 @@ func ValidateLayoutArtifact(layout *Layout, admission LayoutAdmission) error {
 	if admission.SectorCount <= 0 || admission.SectorCount > world.MaxSectors || admission.SolidCount < 0 ||
 		admission.SolidCount > world.MaxStaticSolids ||
 		layout == nil ||
-		layout.Schema != Schema ||
+		!validLayoutVersion(layout) ||
 		!lowerSHA256(layout.GeometrySHA256) ||
-		(layout.Algorithm != Algorithm && layout.Algorithm != ReceiverAlgorithm) ||
-		(layout.Algorithm == ReceiverAlgorithm) != (layout.Receivers != nil) ||
+		(layout.Algorithm != Algorithm) != (layout.Receivers != nil) ||
 		!finite(layout.TexelsPerUnit) ||
 		layout.TexelsPerUnit <= 0 ||
 		layout.TexelsPerUnit > 64 ||
 		layout.Padding < 1 ||
 		layout.Padding > 16 ||
 		len(layout.Pages) != 1 ||
-		len(layout.Charts) == 0 ||
+		len(layout.Charts) == 0 && layout.Selection == nil ||
 		len(layout.Charts) > MaxCharts ||
 		len(layout.Bindings) == 0 ||
 		len(layout.Bindings) > world.MaxWalls+world.MaxSectors*2+world.MaxStaticSolids*(world.MaxSolidVertices+2) {
 		return ErrLayout
 	}
 	page := layout.Pages[0]
-	if page.Width != page.Height || (page.Width != 512 && page.Width != 1024) {
+	if page.Width != page.Height || !validPageSize(page.Width, layout.Selection != nil) {
 		return ErrLayout
 	}
 	if layout.Receivers != nil &&
 		(len(layout.Receivers.Sectors) == 0 || !orderedIndexes(layout.Receivers.Sectors, admission.SectorCount) || !orderedIndexes(layout.Receivers.Solids, admission.SolidCount)) {
 		return ErrLayout
+	}
+	if layout.Selection != nil {
+		if err := ValidateSurfaceSelection(layout.Selection, admission); err != nil {
+			return err
+		}
 	}
 	for index, chart := range layout.Charts {
 		if chart.ID != index || chart.Page != 0 || !validRect(chart.Rect, page) || !validRect(chart.ReceiverRect, page) ||
@@ -86,6 +90,13 @@ func ValidateLayoutArtifact(layout *Layout, admission LayoutAdmission) error {
 }
 
 func decodeLayoutBinary(encoded []byte) (Layout, error) {
+	if len(encoded) >= 4 && string(encoded[:4]) == "KLM3" {
+		return decodeSelectedLayout(encoded)
+	}
+	return decodeLegacyLayout(encoded)
+}
+
+func decodeLegacyLayout(encoded []byte) (Layout, error) {
 	if len(encoded) == 0 || len(encoded) > MaxEncodedSize {
 		return Layout{}, ErrLayout
 	}

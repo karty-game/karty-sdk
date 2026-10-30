@@ -146,6 +146,37 @@ and do not add catalog, child or runtime fields. They affect mesh ownership, whi
 visibility candidates and lighting transport still follow the complete topology
 and physical component across authored-area boundaries.
 
+Candidate SDK 0.0.19 adds opt-in `Options.EnclosureAware`, enabled by the
+CLI for ordinary chunk builds. The planner first tries complete inferred
+spaces, keeps internal splits ahead of doorway crossings, and prefers wider
+shared openings when budgets force subdivision. Coincident reciprocal portals
+with identical floor/ceiling planes connect convex pieces of the same authored
+room/instance when both edges have no authored source edge. Other coplanar,
+full-height indoor openings merge only when their width is at least three
+quarters of the smaller cell's square-root area. Narrow openings, height
+changes, transformed portals and explicit sector-group boundaries remain cuts.
+This conservative heuristic is not a room detector or a cubemap-volume proof.
+
+`Options.MaxSpan` optionally limits the X and Y extent of rendered geometry in
+metres. The CLI defaults to 48; `[chunks] max_span = 32` selects a tighter cap.
+SDK zero disables the limit for compatibility. Limits must be finite and
+nonnegative (CLI authoring requires positive values). Span includes owned solids
+and applies to mesh-only growth and whole-chunk lightmap compaction as well as
+lightmapped plans. A single oversized sector fails with its identity and an
+instruction to subdivide geometry or use spatial render chunks. The cap never
+reduces lightmap density. Spatial tile sizes must fit the configured level limit; outdoor levels can
+raise it explicitly. The CLI also checks cropped terrain before baking.
+
+Each accepted proposal still passes the same exact sector, mesh, encoded and
+lightmap limits. A complete neighboring enclosure that cannot fit is left for
+a later chunk instead of partially filling the current chunk. Large enclosures
+can span multiple chunks. `PlanResult.Enclosures` preserves their canonical
+lowest-sector identity across these budget splits and subsequent whole-chunk
+lightmap compaction. It is build-only metadata, independent of chunk IDs; no
+catalog or runtime probe ownership changes. Disabled options retain authored-order
+planning and a nil enclosure map. See the
+[versioned policy decision](../../docs/enclosure-planning-v1.md).
+
 Candidate SDK 0.0.12 adds `Options.CompactLightmaps`, an optional build policy
 used by environment variant cartridges. After ordinary greedy planning, it
 tries exact page merges of complete receiver groups within one ordinary physical
@@ -401,3 +432,76 @@ validation still rejects disconnected or transformed physical membership; if
 the concentration cannot fit, the original balanced list is retained. This is
 a bounded candidate 0.0.12 build heuristic, without a wire or default `Plan`
 ownership change.
+
+### Spatial surface streaming, version 2
+
+`world/spatial-chunks@2` gates catalog schema `karty.world-chunks@4` (`KCC5`).
+It requires chunks, Ready and fixed lighting. Existing KCC2/KCC3 catalogs retain
+all existing complete-owner, page-size and sector-count validation.
+
+The new catalog keeps primary `Chunks`, `SectorChunks` and `Candidates` unchanged.
+Its separate `Spatial` list contains at most 4096 render leaves. A leaf retains
+its source face bindings, primary `Parent`, canonical XY `Tile`, conservative
+XYZ bounds, artifact hash/size and exact geometry/lighting reservations. Its
+local ID is its list index; `StreamChunk` exposes primary IDs followed by
+spatial IDs for bounded host scheduling without changing typed wire ownership.
+`MaxDistance=0` imposes no extra distance cap. Builders must provide complete
+far coverage within residency budgets, rather than hiding unstreamed ocean.
+
+`Surfaces` accounts for every discovered source face in exact semantic order.
+Each face is `primary`, `spatial` or `terrain`; `Owner` always names the original
+primary chunk. Spatial leaf bindings must name delegated faces of their Parent.
+Coverage validation clips each convex source polygon against its assigned tile
+rectangles, rejects overlapping source interiors, and proves complete area.
+Tile count, aggregate face references (65536), and intersection proof work
+(4 million comparisons) are bounded independently of the 256 primary sectors.
+
+`world-lightmaps@3` / algorithm 4 (`KLM3`) and `world-chunk-mesh@3` (`KCM3`)
+carry the same explicit source-face selection and optional tile rectangle.
+Clipping happens before chart packing and final geometry emission. Source UV,
+wave phase, normal and material identities stay in authored coordinates.
+Density is never reduced implicitly. Selected atlases additionally allow square
+32, 64, 128 and 256 pages. Explicit low-density far tiles are a quality policy;
+these small pages do not claim that lighting is uniform or discard directional
+RNM information. Exact uniform per-chart coefficients may use the compact fixed-lighting contract; varying charts retain the full atlas.
+
+Every new primary requires `CollisionBytes` and a separately compiled
+`@world/chunks/collision` Ready stream from its original complete source owners.
+The reservation uses canonical 484 bytes per source triangle, independently of
+its render reservation. This retains collision when a collidable seabed or wall
+is delegated for rendering. Spatial children have no collision stream, fluid
+volume or actor probe ownership. The first implementation rejects empty render
+meshes; sky-only primaries can retain their sky geometry with an empty-chart
+32-square lighting page.
+
+Terrain-replaced floor ownership requires a root `TerrainSHA256` fingerprint.
+`ValidateSpatialTerrain` proves exact exterior-sector ownership, world-compatible
+active terrain cells and the full encoded source fingerprint offline. Runtime
+admission compares immutable terrain-child lighting fingerprints with that root;
+it does not load full terrain to repeat the source proof.
+
+Spatial water leaves share one positive `LiquidEdgeStep`, in world metres.
+Their clipping rectangles must lie on that global XY grid. The compiler inserts
+all grid crossings on every boundary, including coarse edges opposite several
+small leaves. Source heights and material/wave coordinates are evaluated from
+one authored plane and packed physical position. Interior rings and a centre
+fan preserve those boundary anchors; ordinary uniform triangle subdivision is
+not applied afterwards. A near/far split therefore retains the same animated
+boundary segments even when its interior meshes differ.
+
+`LiquidMaxSubdivisions` is an explicit geometric quality policy. With a common
+edge grid, 1 retains only the outer fan; larger values allow up to five interior
+rings. Zero retains the normal near-detail policy. The edge step and interior
+policy are included in both selected layout and semantic mesh identities and
+are checked against the root leaf record. Their finite work/triangle bounds
+reject an excessively fine grid. A shared grid proves conformity, not an
+interpolation-error bound for arbitrary authored wave frequencies; builders
+must choose appropriate steps and validate the selected material visually.
+
+The version-2 spatial contract permits larger loading units to retain up to 64
+original geometry clips in `LiquidTiles`. The catalog and selected child carry
+the identical bounded list. Its complete, disjoint rectangular coverage is
+validated independently of the existing full-source ownership proof. The mesh
+compiler uses every original clip and subdivision policy before emitting the
+combined Ready buffers, so loading-unit size is independent of geometric detail.
+Ordinary released non-selected layouts, meshes and catalogs retain their bytes.

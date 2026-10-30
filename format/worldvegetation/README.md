@@ -190,3 +190,17 @@ Palm art uses the existing half-height atlas convention: the upper half contains
 one alpha-cutout frond and the lower half contains opaque trunk bark. The frond
 root is at upper-half bottom (`v=0.495`) and its tip at top (`v=0.005`). Optional
 normal maps use identical coordinates; albedo alpha controls visibility.
+
+## Shared species geometry, public Go module 0.0.19
+
+The unreleased module 0.0.19 exposes `SpeciesVertices` and
+`SpeciesVertexFloats` for the existing immutable shrub, tree and palm templates.
+Position, normal, UV, tangent, bitangent and canopy-occlusion values keep the
+current renderer's exact 15-float layout and triangle order. Crossed cards keep
+their existing four-vertex quad and return no woody template. These build-only
+helpers add no serialized fields or capability changes.
+
+The fixed baker uses these same templates for static cutout shadows and diffuse
+contribution in ordinary chunk lightmaps and probes. Visual placement and wind
+remain GPU work. Static baking freezes wind at the rest pose and includes every
+eligible plant, independently of camera distance or visibility thinning.

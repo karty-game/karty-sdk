@@ -14,10 +14,12 @@ import (
 )
 
 type bakeInputs struct {
-	options     Options
-	rangeValue  float64
-	images      map[uint32]image.Image
-	surfaces    []worldlightmap.Surface
+	options    Options
+	rangeValue float64
+	images     map[uint32]image.Image
+	surfaces   []worldlightmap.Surface
+	// Fixed translucent receivers retain polygons outside opaque transport.
+	receivers   []worldlightmap.Surface
 	lightIDs    []string
 	reflectance string
 }
@@ -46,6 +48,9 @@ func prepareBakeInputs(
 	if err != nil {
 		return bakeInputs{}, err
 	}
+	if err := validateVegetationForBake(&document, options, images); err != nil {
+		return bakeInputs{}, err
+	}
 	surfaces, err := worldlightmap.Surfaces(&document)
 	if err != nil {
 		return bakeInputs{}, err
@@ -66,6 +71,10 @@ func prepareBakeInputs(
 		applyReceiverScope(surfaces, sectors, solids)
 	}
 	digest, err := reflectanceDigest(ctx, &document, surfaces, images)
+	if err != nil {
+		return bakeInputs{}, err
+	}
+	digest, err = vegetationReflectanceDigest(digest, options.Vegetation)
 	if err != nil {
 		return bakeInputs{}, err
 	}
@@ -229,6 +238,9 @@ func BakeInputDigest(
 		w.F64(light.Radius)
 	}
 	writeShadowTriangles(w, inputs.options.ShadowTriangles)
+	if err := writeVegetationInput(w, inputs.options.Vegetation); err != nil {
+		return "", err
+	}
 	encoded, err := w.Bytes()
 	if err != nil {
 		return "", err

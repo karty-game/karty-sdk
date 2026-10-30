@@ -9,6 +9,7 @@ import (
 
 	"github.com/karty-game/karty-sdk/format/world"
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
+	"github.com/karty-game/karty-sdk/format/worldterrain"
 )
 
 func EncodeCatalog(catalog Catalog, document *world.Document) ([]byte, error) {
@@ -48,6 +49,23 @@ func DecodeMesh(encoded []byte, document *world.Document) (Mesh, error) {
 }
 
 func ValidateCatalog(catalog *Catalog, document *world.Document) error {
+	if catalog != nil && catalog.Schema == SpatialSchema {
+		return validateSpatialCatalog(catalog, document)
+	}
+	if catalog != nil {
+		if len(catalog.Spatial) != 0 || len(catalog.Surfaces) != 0 || catalog.TerrainSHA256 != "" {
+			return ErrChunk
+		}
+		for _, chunk := range catalog.Chunks {
+			if chunk.CollisionBytes != 0 {
+				return ErrChunk
+			}
+		}
+	}
+	return validateLegacyCatalog(catalog, document)
+}
+
+func validateLegacyCatalog(catalog *Catalog, document *world.Document) error {
 	if err := world.Validate(document); err != nil {
 		return err
 	}
@@ -55,7 +73,8 @@ func ValidateCatalog(catalog *Catalog, document *world.Document) error {
 	if err != nil {
 		return err
 	}
-	if catalog == nil || catalog.Schema != Schema || catalog.GeometrySHA256 != digest || len(catalog.Chunks) == 0 ||
+	if catalog == nil || (catalog.Schema != Schema && catalog.Schema != FixedSchema) || catalog.GeometrySHA256 != digest ||
+		len(catalog.Chunks) == 0 ||
 		len(catalog.Chunks) > len(document.Sectors) ||
 		len(catalog.SectorChunks) != len(document.Sectors) ||
 		len(catalog.Candidates) != len(document.Sectors) {
@@ -75,6 +94,12 @@ func ValidateCatalog(catalog *Catalog, document *world.Document) error {
 	solidSeen := make([]bool, solidCount)
 	renderTriangles := uint64(world.SolidRendererTriangles(document.SolidRenderers))
 	for i, chunk := range catalog.Chunks {
+		if catalog.Schema == FixedSchema &&
+			(chunk.LightingBytes == 0 || chunk.LightingBytes > worldlightmap.MaxFixedLightingSize || chunk.LightmapBytes == 0) ||
+			catalog.Schema == Schema && (chunk.LightingBytes != 0 || chunk.TerrainBytes != 0) ||
+			chunk.TerrainBytes > worldterrain.MaxDecodedBytes+worldterrain.MaxVertices*worldterrain.MaxPatches*24+worldterrain.MaxTriangles*12 {
+			return ErrChunk
+		}
 		if chunk.ID != i || !hash(chunk.ContentSHA256) || chunk.Size == 0 || chunk.Size > MaxEncodedBytes || chunk.MeshBytes == 0 ||
 			chunk.MeshBytes > 64*1024*1024 ||
 			chunk.MeshBytes%484 != 0 ||
@@ -146,7 +171,7 @@ func ValidateMesh(mesh *Mesh, document *world.Document) error {
 	if document.StaticSolids != nil {
 		solidCount = len(document.StaticSolids.Items)
 	}
-	if mesh == nil || mesh.Schema != MeshSchema || mesh.GeometrySHA256 != digest || mesh.SurfaceSHA256 != surfaceDigest ||
+	if mesh == nil || !validMeshVersion(mesh) || mesh.GeometrySHA256 != digest || mesh.SurfaceSHA256 != surfaceDigest ||
 		!indexes(mesh.Sectors, len(document.Sectors), true) ||
 		!indexes(mesh.Solids, solidCount, false) ||
 		!connected(document, mesh.Sectors) ||
@@ -186,15 +211,36 @@ func ValidateMesh(mesh *Mesh, document *world.Document) error {
 	if err != nil {
 		return err
 	}
+	if mesh.Selection != nil {
+		if err := worldlightmap.ValidateSurfaceSelection(
+			mesh.Selection,
+			worldlightmap.LayoutAdmission{SectorCount: len(document.Sectors), SolidCount: solidCount},
+		); err != nil {
+			return err
+		}
+	}
 	coverage := make(map[worldlightmap.Binding]*meshCoverage)
 	for _, surface := range surfaces {
 		binding := surface.Binding
+		if mesh.Selection != nil && !worldlightmap.SurfaceSelected(binding, mesh.Selection) {
+			continue
+		}
 		owners := mesh.Solids
 		if strings.HasPrefix(binding.Kind, "sector-") {
 			owners = mesh.Sectors
 		}
 		if _, included := slices.BinarySearch(owners, binding.Index); included {
-			coverage[binding] = newMeshCoverage(document, surface)
+			receiver := newMeshCoverage(document, surface)
+			if mesh.Selection != nil && mesh.Selection.Clip != nil {
+				clipped := make([][]world.Vec3, 0, len(receiver.polygons))
+				for _, polygon := range receiver.polygons {
+					if p := worldlightmap.ClipSurfacePolygon(polygon, *mesh.Selection.Clip); len(p) >= 3 {
+						clipped = append(clipped, p)
+					}
+				}
+				receiver.polygons = clipped
+			}
+			coverage[binding] = receiver
 		}
 	}
 	liquids := displacedLiquidMaterials(document)
@@ -288,6 +334,9 @@ func ValidateMesh(mesh *Mesh, document *world.Document) error {
 		work.checkpoint(1024)
 		binding := surface.Binding
 		binding.Chart = -1
+		if mesh.Selection != nil && !worldlightmap.SurfaceSelected(binding, mesh.Selection) {
+			continue
+		}
 		owners := mesh.Solids
 		if strings.HasPrefix(binding.Kind, "sector-") {
 			owners = mesh.Sectors

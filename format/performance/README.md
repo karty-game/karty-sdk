@@ -4,6 +4,10 @@
 `Default` supplies the high, medium, low and potato ladder. `Normalize` overlays
 authored settings; `Encode` writes a resolved ladder and `Decode` validates it.
 
+High, medium and low enable reflections by default; potato disables them.
+Low retains its 0.75 render scale. An authored `floor_reflections` value overrides
+the default for that profile.
+
 Candidate SDK 0.0.11 keeps custom section `karty.performance.v1` and selects
 binary version 2. The header is `KTPF`, u16 version 2, u16 reserved zero, followed
 by target FPS f64, a u32-length UTF-8 default profile, and u32 profile count 4.

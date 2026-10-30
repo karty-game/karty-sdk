@@ -25,7 +25,8 @@ func ValidateMeshBinding(mesh *Mesh, layout *worldlightmap.Layout) error {
 		}
 		return nil
 	}
-	if layout.Receivers == nil || !slices.Equal(mesh.Sectors, layout.Receivers.Sectors) ||
+	if !worldlightmap.EqualSurfaceSelections(mesh.Selection, layout.Selection) || layout.Receivers == nil ||
+		!slices.Equal(mesh.Sectors, layout.Receivers.Sectors) ||
 		!slices.Equal(mesh.Solids, layout.Receivers.Solids) ||
 		layout.GeometrySHA256 != mesh.GeometrySHA256 {
 		return ErrChunk

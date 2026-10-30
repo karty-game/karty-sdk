@@ -28,10 +28,15 @@ const (
 	CapabilityAudioStreamQOAv1                    Capability = "audio-stream/qoa@1"
 	CapabilityVideoMPEG1v1                        Capability = "video/mpeg1@1"
 	CapabilityWorldLightingV1                     Capability = "world/lighting@1"
+	CapabilityWorldSpatialChunksV1                Capability = "world/spatial-chunks@1"
+	CapabilityWorldSpatialChunksV2                Capability = "world/spatial-chunks@2"
 	CapabilityWorldChunksV1                       Capability = "world/chunks@1"
 	CapabilityWorldChunkReadyV1                   Capability = "world/chunk-ready@1"
 	CapabilityWorldTerrainV1                      Capability = "world/terrain@1"
 	CapabilityWorldLightmapsV1                    Capability = "world/lightmaps@1"
+	CapabilityWorldReflectionCubemapsV1           Capability = "world/reflection-cubemaps@1"
+	CapabilityWorldFixedLightingV1                Capability = "world/fixed-lighting@1"
+	CapabilityWorldFixedCompactLightingV1         Capability = "world/fixed-compact-lighting@1"
 	CapabilityWorldLightmapsPrebakedV1            Capability = "world/lightmaps-prebaked@1"
 	CapabilityWorldLightmapsEnvironmentVariantsV1 Capability = "world/lightmaps-environment-variants@1"
 	CapabilityWorldMaterialMappingV1              Capability = "world/material-mapping@1"
@@ -97,9 +102,14 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityVideoMPEG1v1,
 			CapabilityWorldLightingV1,
 			CapabilityWorldChunksV1,
+			CapabilityWorldSpatialChunksV1,
+			CapabilityWorldSpatialChunksV2,
 			CapabilityWorldChunkReadyV1,
 			CapabilityWorldTerrainV1,
 			CapabilityWorldLightmapsV1,
+			CapabilityWorldFixedLightingV1,
+			CapabilityWorldFixedCompactLightingV1,
+			CapabilityWorldReflectionCubemapsV1,
 			CapabilityWorldLightmapsPrebakedV1,
 			CapabilityWorldLightmapsEnvironmentVariantsV1,
 			CapabilityWorldMaterialAtlasV1,

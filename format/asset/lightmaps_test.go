@@ -44,3 +44,18 @@ func TestEnvironmentVariantsCapabilityVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestFixedLightingCapabilityVersion(t *testing.T) {
+	t.Parallel()
+	if err := (asset.Capabilities{Runtime: []asset.Capability{asset.CapabilityWorldFixedLightingV1}}).Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, capabilities := range []asset.Capabilities{
+		{Runtime: []asset.Capability{"world/fixed-lighting@2"}},
+		{Runtime: []asset.Capability{asset.CapabilityWorldFixedLightingV1, asset.CapabilityWorldFixedLightingV1}},
+	} {
+		if capabilities.Validate() == nil {
+			t.Fatal("unsupported fixed lighting capability accepted")
+		}
+	}
+}

@@ -586,3 +586,47 @@ field, guest command, manifest capability, RNM layout, prebake encoding or
 runtime shading requirement. Existing artifact readers remain compatible.
 Wind, cutout alpha and transmission are not simulated by these opaque proxies;
 consumers should use coarse, sparse geometry and report that approximation.
+
+## Static vegetation transport decision, public Go module 0.0.19
+
+The unreleased module 0.0.19 adds the optional build-only `Options.Vegetation`
+input. `Vegetation` contains the existing compiled vegetation document and its
+cutout albedo images. It adds no cartridge schema, sidecar, guest API or runtime
+shadow resources. A nil input preserves the previous bake pixels and identities.
+
+All authored vegetation contributes at its deterministic rest pose to the same
+transport accelerator as rooms, solids and terrain. The existing RNM receiver
+atlases, terrain coefficients and actor probes therefore include foliage sun
+occlusion, sky occlusion and diffuse color bounce together. Leaves reject alpha
+below 128; bark remains opaque. Both sides of a leaf participate in diffuse
+transport. No receiver texels or separate vegetation shadow maps are allocated.
+
+Root hash, ordinal acceptance, variation, footprint margins and triangulated
+terrain/hole sampling follow the current visual placement algorithm. Species
+triangles come from the shared `worldvegetation.SpeciesVertices` helpers.
+Visual roots remain GPU generated; only the offline bake enumerates plants.
+Baking ignores camera distance, visibility thinning and wind displacement. Wind
+continues to animate the visual geometry over fixed rest-pose illumination.
+
+The builder checks the complete candidate triangle count before expanding any
+plants, rejecting more than `MaxVegetationTriangles` (262,144 additional
+triangles). World and foliage albedo input together retain the 16 Mi-pixel
+budget. The world-bound `Baker` includes foliage identity in its retained
+transport cache, so unchanged chunk scopes reuse the combined BVH. Processed
+RGBA pixels, presets, layers and seeds participate in reflectance/input digests;
+editing foliage cannot reuse a bake that omitted or placed it differently.
+The private static-vegetation input identity is `static-vegetation-rest@1`;
+changing its placement or species algorithm requires a new identity.
+
+### Exact constant chart output
+
+`CompactFixedLighting` may replace a completed spatial result's image with
+bounded per-chart linear RNM coefficients. The helper checks every covered RGBM
+sample of every chart and all three lobes against the full ordinary bake, with
+zero tolerance. Any shadow, bounced-color variation, missing chart coverage or
+mismatched lobe coverage keeps the full detailed image. Different constant
+charts retain different colors and orientations. This optimization preserves
+bake input identities and uses the same fixed solution; it initially reduces
+saved/runtime data without reducing offline tracing work. Bind a successful
+result using `NewFixedLighting` with a nil image. The resulting `KFL2` manifest
+requires `world/fixed-compact-lighting@1`; detailed `KFL1` outputs stay unchanged.

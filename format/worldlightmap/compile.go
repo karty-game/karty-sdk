@@ -32,7 +32,7 @@ func resolvedOptions(options Options) (Options, error) {
 		options.ShadowSize = 512
 	}
 	if !finite(options.TexelsPerUnit) || options.TexelsPerUnit <= 0 || options.TexelsPerUnit > 64 ||
-		(options.PageSize != 512 && options.PageSize != 1024) || options.Padding < 1 || options.Padding > 16 ||
+		!validPageSize(options.PageSize, true) || options.Padding < 1 || options.Padding > 16 ||
 		options.MaxPages != 1 || options.MaxTexels < options.PageSize*options.PageSize || options.MaxTexels > MaxTexels ||
 		options.ShadowSize < 32 || options.ShadowSize > 512 {
 		return Options{}, fmt.Errorf("density, page or byte budget: %w", ErrLayout)
@@ -45,17 +45,20 @@ func resolvedOptions(options Options) (Options, error) {
 // and ceilings across ordinary reciprocal portals, never across transformed or
 // disconnected spaces. Walls and solid sides retain semantic chart identities.
 func Compile(document world.Document, options Options) (Layout, error) {
-	return compileReceivers(document, options, nil)
+	return compileReceivers(document, options, nil, nil)
 }
 
 // CompileReceivers packs only selected receivers at the requested density.
 // Global bindings and the full geometry digest keep chunk identity stable.
 // Algorithm 2 never merges charts across an unselected sector.
 func CompileReceivers(document world.Document, options Options, sectors, solids []int) (Layout, error) {
-	return compileReceivers(document, options, &ReceiverSelection{Sectors: slices.Clone(sectors), Solids: slices.Clone(solids)})
+	return compileReceivers(document, options, &ReceiverSelection{Sectors: slices.Clone(sectors), Solids: slices.Clone(solids)}, nil)
 }
 
-func compileReceivers(document world.Document, options Options, selection *ReceiverSelection) (Layout, error) {
+func compileReceivers(document world.Document, options Options, selection *ReceiverSelection, faces *SurfaceSelection) (Layout, error) {
+	if faces == nil && options.PageSize != 0 && !validPageSize(options.PageSize, false) {
+		return Layout{}, ErrLayout
+	}
 	options, err := resolvedOptions(options)
 	if err != nil {
 		return Layout{}, err
@@ -83,6 +86,11 @@ func compileReceivers(document world.Document, options Options, selection *Recei
 			}
 		}
 	}
+	if faces != nil {
+		if err := ApplySurfaceSelection(surfaces, faces); err != nil {
+			return Layout{}, err
+		}
+	}
 	digest, err := geometryDigestValidated(&document)
 	if err != nil {
 		return Layout{}, err
@@ -96,9 +104,14 @@ func compileReceivers(document world.Document, options Options, selection *Recei
 		Pages:          []Page{{options.PageSize, options.PageSize}},
 		Bindings:       make([]Binding, len(surfaces)),
 		Receivers:      selection,
+		Selection:      faces,
 	}
 	if selection != nil {
 		layout.Algorithm = ReceiverAlgorithm
+	}
+	if faces != nil {
+		layout.Schema = SelectedSchema
+		layout.Algorithm = SelectedAlgorithm
 	}
 	if options.Light != "" {
 		layout.RuntimeBake = &RuntimeBake{Encoding: PointVisibilityEncoding, LightID: options.Light, ShadowSize: options.ShadowSize}

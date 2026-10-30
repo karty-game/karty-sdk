@@ -10,19 +10,20 @@ import (
 // Validate checks every record, rectangle, semantic binding and receiver before
 // a caller can allocate GPU resources. The geometry digest prevents stale UVs.
 func Validate(layout *Layout, document *world.Document) error {
-	if layout == nil || layout.Schema != Schema || (layout.Algorithm != Algorithm && layout.Algorithm != ReceiverAlgorithm) ||
-		(layout.Algorithm == ReceiverAlgorithm) != (layout.Receivers != nil) || !finite(layout.TexelsPerUnit) ||
+	if layout == nil || !validLayoutVersion(layout) ||
+		(layout.Algorithm != Algorithm) != (layout.Receivers != nil) ||
+		!finite(layout.TexelsPerUnit) ||
 		layout.TexelsPerUnit <= 0 ||
 		layout.TexelsPerUnit > 64 ||
 		layout.Padding < 1 ||
 		layout.Padding > 16 ||
 		len(layout.Pages) != 1 ||
-		len(layout.Charts) == 0 ||
+		len(layout.Charts) == 0 && layout.Selection == nil ||
 		len(layout.Charts) > MaxCharts {
 		return ErrLayout
 	}
 	page := layout.Pages[0]
-	if page.Width != page.Height || (page.Width != 512 && page.Width != 1024) {
+	if page.Width != page.Height || !validPageSize(page.Width, layout.Selection != nil) {
 		return ErrLayout
 	}
 	if err := world.Validate(document); err != nil {
@@ -44,6 +45,11 @@ func Validate(layout *Layout, document *world.Document) error {
 			if !receiverSelected(surfaces[i].Binding, layout.Receivers) {
 				surfaces[i].Polygons = nil
 			}
+		}
+	}
+	if layout.Selection != nil {
+		if err := ApplySurfaceSelection(surfaces, layout.Selection); err != nil {
+			return err
 		}
 	}
 	return validatePrepared(layout, document, digest, surfaces)

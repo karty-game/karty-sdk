@@ -1,5 +1,89 @@
 # Build-generated world lightmap layout
 
+## Fixed combined lighting, version 1
+
+Candidate Go module v0.0.19 adds `world/fixed-lighting@1`. One authored fixed
+sun/sky and the layout's selected eligible static lamps enter the same CPU
+transport and directional RNM surface result. `BakeFixed` and `Baker.BakeFixed`
+emit `cpu-fixed-rnm3@3`; `NewFixedLighting` binds its result to a separately
+encoded linear RGBA QOI image. Existing KLM1, KPB1 and environment producers
+retain their bytes and behavior. The new output has no runtime condition
+variants, fetching, blending or whole-atlas weather lighting multiplier.
+
+Producer revision 2 preserves translucent liquid/glass surfaces as fixed RNM
+receivers. They receive the same static sun, sky, lamps and artistic fill as
+opaque surfaces, including covered black when unlit. Their polygons remain
+excluded from the transport accelerator: they never occlude direct or sky
+lighting or reflect bounced light into other receivers. Runtime opacity,
+refraction and specular remain material/presentation behavior. Receiver
+rasterization and opaque transport share semantic surface indices without
+sharing their polygon inclusion rule. This corrects empty translucent charts
+being sampled as complete fixed lighting; no live diffuse fallback is needed.
+
+Producer revision 3 identifies terrain hemisphere samples by exact physical
+position and normalized shading normal, rather than a patch-local vertex index.
+Shared vertices therefore retain identical finite-sample RNM across patch
+partitions and chunk crops of the same full transport world. Signed zero is
+canonicalized; a nonnegative 31-bit coordinate hash gives the same sample index
+on 32-bit and 64-bit hosts. The authored seed still controls sample rotation.
+Ordinary atlas texel and actor-probe sampling sequences remain unchanged.
+
+The KFL1 wire/schema remains unchanged. Completed revision-1/2 artifacts remain
+readable and retain their producer identity when rebound. New fixed input/cache
+digests include the revision-3 producer, so old pixels cannot satisfy a fresh
+bake. The separate legacy environment producer still excludes translucent
+receivers and retains its original pixels and producer/cache identity.
+
+Each owning chunk carries `@world/lightmaps/fixed` (KFL1) and
+`@world/lightmaps/fixed-rnm3`, plus layout, geometry and optional terrain. Root
+and child metadata use `kartyWorldFixedLighting: karty.world-fixed-lighting@1`.
+Admission verifies the whole child first, then bounded typed records, canonical
+hashes, image/layout identities, full QOI integrity and receiver ownership.
+Build/cache validation additionally checks world/source provenance. Surface,
+reflectance and input hashes bind fixed sources, original albedo, sampling and
+full/cropped terrain. Worker count is excluded from identity.
+
+`FixedLighting` stores chunk-local compiled point/sun records and six-axis
+ambient probes in +X,-X,+Y,-Y,+Z,-Z order. Each probe nominates at most two
+visible direct sources. Its ambient cube contains sky, bounced light and every
+non-nominated source's direct illumination; nominated direct illumination is
+excluded. Runtime uses the nearest probe in the object's sector and evaluates
+exactly its nominated sources. Mixing ambient cubes whose exclusion sets differ
+would double-count or lose light and is outside this contract. Compiled source
+records never re-light already baked static surfaces.
+
+Probe placement uses the convex sector centroid plus an interior 2-by-2 XY grid
+at three heights, at most 15 probes per sector and 3840 per world. Terrain raises
+probe floors and solid interiors are excluded. This bounded layout approximates
+fine visibility variation; it is not a visibility field.
+
+Authored `Lighting.Ambient`/`AmbientCube` is preserved as non-bounced fixed
+artistic fill, baked into surface RNM and matching probe ambient exactly once.
+The cube replaces the constant fill. Runtime global fill is disabled for these
+receivers; source identities and RGBM bounds include the authored fill.
+
+KFL1 has the standard 16-byte typed header, bounded strings/scalars followed by
+compiled lights, probes and terrain coefficients. Limits are 2 MiB encoded,
+4097 sources, 4096 probes and two direct slots. Complete preflight precedes owned
+slice allocation. `FixedLightingBytes` separately bounds resident scalar storage.
+Colors and coefficients are finite nonnegative linear RGB. Ordinary RNM, normal
+maps and scalar material AO remain. SSBump/reflection probes are outside v1.
+
+Terrain receives genuine baked per-vertex RNM3, nine float32 values per exact
+`worldterrain.CompilePatch` vertex. `TerrainLightingBasis` defines the shared
+normal-derived frame. Full terrain enters the same transport accelerator; only
+the chunk's cropped terrain emits coefficients. `TerrainSHA256` and
+`TerrainReceiverSHA256` bind full/child documents independently.
+`ValidateFixedTerrainBinding` checks child digest, patch identity and exact
+vertex counts. Terrain bounces use low-frequency far-colour reflectance in v1;
+detailed normal/albedo textures still control runtime material appearance.
+
+Fixed catalogs use semantic `karty.world-chunks@2`, KCC3 binary version 3,
+136-byte chunk records. `LightmapBytes` remains decoded RNM image storage;
+`LightingBytes` is exactly `FixedLightingBytes`, and `TerrainBytes` is exactly
+`worldterrain.ResidentGeometryBytes` for the child terrain. Publication/eviction
+own them together. KCC2 remains unchanged and rejects nonzero new reservations.
+
 ## Compiler-authoritative chunk resources
 
 For `world/chunk-ready@1` children, the build pipeline completes the source
@@ -496,3 +580,58 @@ there are no old tracing branches. New producer strings commit new prebake and
 pixel-cache identities even on fixtures with unchanged pixels. Rebuild the
 host/CLI together for new producer support; older hosts reject new producer
 names. Released documentation and SDK manifests are unchanged.
+
+### Spatial receiver layouts
+
+Selected layout schema `karty.world-lightmaps@3` / algorithm 4 is encoded as
+`KLM3`, a bounded typed envelope around the unchanged base fields and an explicit
+`SurfaceSelection`. Its face bindings retain global discovery order and use
+`Chart=-1` as source identity; the compiled layout supplies actual chart indexes.
+An optional XY rectangle clips receivers before packing. Missing selected faces
+are legal only with the independently validated root spatial ownership table.
+The complete ordinary physical component still supplies transport geometry.
+
+`CompileSelectedReceivers` retains requested local texel density and supports
+32/64/128/256 pages in addition to the existing 512/1024 sizes. Old schema readers
+and their page-size rules remain unchanged. `Compile` and `CompileReceivers`
+continue producing the previous schema.
+
+Clipped fixed bakes use producer `cpu-fixed-spatial-rnm3@1`. They carry no actor
+probes or terrain receiver coefficients. The shared terrain/opaque world remains
+transport, and every source/selector/tile/quality input remains in the fixed
+input and layout digests. Sampling rotation uses physical position and normal,
+rather than atlas placement. Shared tile boundary estimates are kept unfiltered
+by low/medium denoise so independently filtered interiors cannot change the two
+sides of one common edge. Covered black remains RGBM alpha 1; uncovered pixels
+remain alpha 0. Normal mapping still evaluates the same three linear RNM lobes.
+
+### Exact uniform fixed spatial charts
+
+Optional `world/fixed-compact-lighting@1` uses `FixedCompactSchema` (`KFL2`) for
+spatial children whose whole atlas can be replaced by `ConstantRNM`. Each
+`ChartRNM` record contains the existing nine linear RNM coefficients, including
+valid covered black, and canonical chart identity. All layout charts must be
+present; partial compact/atlas mixtures are not supported. Compact results retain
+the full layout and input identity, have zero image dimensions and bytes, and
+accept no image entry. Ordinary fixed atlas manifests keep `KFL1` bytes unchanged.
+`NewFixedLighting`, `ValidateFixedLighting` and artifact validation enforce the
+same atomic geometry/layout/source contract for both representations. See the
+[versioned spatial decision](../../docs/spatial-surface-contract.md).
+
+### Geometry cells inside larger loading units
+
+Selected layout algorithm 4 adds up to 64 `LiquidTiles` geometry cells to the
+versioned `KLS2` selection payload. Each cell stores its original XY `Clip` and
+`LiquidMaxSubdivisions`. Together they must cover the selection's outer clip
+exactly, have no positive overlap, remain inside its finite bounds and share
+the existing liquid edge grid. Missing cells preserve the ordinary one-clip
+geometry policy. Compiler-owned copies prevent caller mutation during layout
+construction. Selection digests and exact mesh/catalog binding include every
+cell and its geometry policy.
+
+The geometry compiler emits each original cell independently into a shared
+mesh and atlas. This preserves source positions, triangle interpolation,
+material/secondary coordinates and animated wave phase while loading fewer
+units. Receiver charts keep the requested texel density across the combined
+rectangle; their atlas coordinates and packing may change. The cell list does
+not prescribe geometry LOD and does not lower lightmap detail.

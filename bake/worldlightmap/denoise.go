@@ -108,6 +108,13 @@ func (s *scene) denoise(
 							if grid.pixels[a].surface < 0 {
 								continue
 							}
+							// Shared tile edges keep the common world-position
+							// estimator. Independent filter neighbourhoods must
+							// not change the two sides of one lighting seam.
+							if spatialFilterBoundary(layout, grid.pixels[a].position) {
+								scratch[a] = data[a].indirect
+								continue
+							}
 							centre := data[a].indirect.colour()
 							var sum [9]float64
 							weightSum := 0.0
@@ -218,4 +225,14 @@ func absInt(n int) int {
 		return -n
 	}
 	return n
+}
+
+func spatialFilterBoundary(layout worldlightmap.Layout, p vec) bool {
+	if layout.Selection == nil || layout.Selection.Clip == nil {
+		return false
+	}
+	c := *layout.Selection.Clip
+	tolerance := max(1e-7, math.Max(math.Abs(p.X), math.Abs(p.Y))*1e-10)
+	return math.Abs(p.X-c[0]) <= tolerance || math.Abs(p.X-c[2]) <= tolerance || math.Abs(p.Y-c[1]) <= tolerance ||
+		math.Abs(p.Y-c[3]) <= tolerance
 }

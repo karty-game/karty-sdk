@@ -186,6 +186,13 @@ func (r *wireReader) basis() (value Basis) {
 }
 
 func encodeMeshBinary(mesh Mesh) ([]byte, error) {
+	if mesh.Selection != nil {
+		return encodeSelectedMesh(mesh)
+	}
+	return encodeLegacyMesh(mesh)
+}
+
+func encodeLegacyMesh(mesh Mesh) ([]byte, error) {
 	size := uint64(meshHeaderBytes) + 4*uint64(len(mesh.Sectors)+len(mesh.Solids)+len(mesh.Indices)) +
 		vertexRecordBytes*uint64(len(mesh.Vertices)) + triangleRecordBytes*uint64(len(mesh.Triangles))
 	w, err := newWire(size, "KCM1", meshHeaderBytes)
@@ -338,6 +345,13 @@ func readTriangle(r *wireReader) (t Triangle, err error) {
 }
 
 func decodeMeshBinary(encoded []byte, mesh *Mesh) error {
+	if len(encoded) >= 4 && string(encoded[:4]) == "KCM3" {
+		return decodeSelectedMesh(encoded, mesh)
+	}
+	return decodeLegacyMesh(encoded, mesh)
+}
+
+func decodeLegacyMesh(encoded []byte, mesh *Mesh) error {
 	if err := wireHeader(encoded, "KCM1", meshHeaderBytes); err != nil {
 		return err
 	}

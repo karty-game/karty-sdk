@@ -433,6 +433,27 @@ func scanWorldlightmapLayout(r *binwire.Reader) {
 		scanWorldlightmapReceiverSelection(r)
 	}
 }
+func writeWorldlightmapLiquidTile(w *binwire.Writer, v *LiquidTile) {
+	if w.Err() != nil {
+		return
+	}
+	for i88 := range (*v).Clip {
+		w.F64((*v).Clip[i88])
+	}
+	w.I32((*v).LiquidMaxSubdivisions)
+}
+func readWorldlightmapLiquidTile(r *binwire.Reader, v *LiquidTile) {
+	for i89 := range (*v).Clip {
+		(*v).Clip[i89] = r.F64()
+	}
+	(*v).LiquidMaxSubdivisions = r.I32()
+}
+func scanWorldlightmapLiquidTile(r *binwire.Reader) {
+	for i90 := 0; i90 < 4; i90++ {
+		r.F64()
+	}
+	r.I32()
+}
 func writeWorldlightmapPage(w *binwire.Writer, v *Page) {
 	if w.Err() != nil {
 		return
@@ -522,54 +543,54 @@ func writeWorldlightmapReceiverSelection(w *binwire.Writer, v *ReceiverSelection
 	if w.Err() != nil {
 		return
 	}
-	for i88 := range (*v).Sectors {
-		w.I32((*v).Sectors[i88])
+	for i91 := range (*v).Sectors {
+		w.I32((*v).Sectors[i91])
 	}
 	w.Count(len((*v).Solids), (*v).Solids == nil, 1024)
 	if w.Err() != nil {
 		return
 	}
-	for i89 := range (*v).Solids {
-		w.I32((*v).Solids[i89])
+	for i92 := range (*v).Solids {
+		w.I32((*v).Solids[i92])
 	}
 }
 func readWorldlightmapReceiverSelection(r *binwire.Reader, v *ReceiverSelection) {
-	ni90, pi90 := r.Count(256, 4, 8)
+	ni93, pi93 := r.Count(256, 4, 8)
 	if r.Err() != nil {
 		return
 	}
-	if pi90 {
-		(*v).Sectors = make([]int, ni90)
+	if pi93 {
+		(*v).Sectors = make([]int, ni93)
 	}
-	for i90 := range (*v).Sectors {
-		(*v).Sectors[i90] = r.I32()
+	for i93 := range (*v).Sectors {
+		(*v).Sectors[i93] = r.I32()
 	}
-	ni91, pi91 := r.Count(1024, 4, 8)
+	ni94, pi94 := r.Count(1024, 4, 8)
 	if r.Err() != nil {
 		return
 	}
-	if pi91 {
-		(*v).Solids = make([]int, ni91)
+	if pi94 {
+		(*v).Solids = make([]int, ni94)
 	}
-	for i91 := range (*v).Solids {
-		(*v).Solids[i91] = r.I32()
+	for i94 := range (*v).Solids {
+		(*v).Solids[i94] = r.I32()
 	}
 }
 func scanWorldlightmapReceiverSelection(r *binwire.Reader) {
-	ni92, pi92 := r.Count(256, 4, 8)
+	ni95, pi95 := r.Count(256, 4, 8)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi92
-	for i92 := 0; i92 < ni92 && r.Err() == nil; i92++ {
+	_ = pi95
+	for i95 := 0; i95 < ni95 && r.Err() == nil; i95++ {
 		r.I32()
 	}
-	ni93, pi93 := r.Count(1024, 4, 8)
+	ni96, pi96 := r.Count(1024, 4, 8)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi93
-	for i93 := 0; i93 < ni93 && r.Err() == nil; i93++ {
+	_ = pi96
+	for i96 := 0; i96 < ni96 && r.Err() == nil; i96++ {
 		r.I32()
 	}
 }
@@ -583,36 +604,126 @@ func writeWorldlightmapRuntimeBake(w *binwire.Writer, v *RuntimeBake) {
 	if w.Err() != nil {
 		return
 	}
-	for i94 := range (*v).LightIDs {
-		w.String(string((*v).LightIDs[i94]), 4096)
+	for i97 := range (*v).LightIDs {
+		w.String(string((*v).LightIDs[i97]), 4096)
 	}
 	w.I32((*v).ShadowSize)
 }
 func readWorldlightmapRuntimeBake(r *binwire.Reader, v *RuntimeBake) {
 	(*v).Encoding = r.String(4096)
 	(*v).LightID = r.String(4096)
-	ni95, pi95 := r.Count(4096, 4, 16)
+	ni98, pi98 := r.Count(4096, 4, 16)
 	if r.Err() != nil {
 		return
 	}
-	if pi95 {
-		(*v).LightIDs = make([]string, ni95)
+	if pi98 {
+		(*v).LightIDs = make([]string, ni98)
 	}
-	for i95 := range (*v).LightIDs {
-		(*v).LightIDs[i95] = r.String(4096)
+	for i98 := range (*v).LightIDs {
+		(*v).LightIDs[i98] = r.String(4096)
 	}
 	(*v).ShadowSize = r.I32()
 }
 func scanWorldlightmapRuntimeBake(r *binwire.Reader) {
 	r.SkipString(4096)
 	r.SkipString(4096)
-	ni96, pi96 := r.Count(4096, 4, 16)
+	ni99, pi99 := r.Count(4096, 4, 16)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi96
-	for i96 := 0; i96 < ni96 && r.Err() == nil; i96++ {
+	_ = pi99
+	for i99 := 0; i99 < ni99 && r.Err() == nil; i99++ {
 		r.SkipString(4096)
 	}
 	r.I32()
+}
+func writeWorldlightmapSurfaceSelection(w *binwire.Writer, v *SurfaceSelection) {
+	if w.Err() != nil {
+		return
+	}
+	w.F64((*v).LiquidEdgeStep)
+	w.I32((*v).LiquidMaxSubdivisions)
+	w.Count(len((*v).LiquidTiles), (*v).LiquidTiles == nil, 64)
+	if w.Err() != nil {
+		return
+	}
+	for i100 := range (*v).LiquidTiles {
+		writeWorldlightmapLiquidTile(w, &(*v).LiquidTiles[i100])
+	}
+	w.Count(len((*v).Bindings), (*v).Bindings == nil, 76288)
+	if w.Err() != nil {
+		return
+	}
+	for i101 := range (*v).Bindings {
+		writeWorldlightmapBinding(w, &(*v).Bindings[i101])
+	}
+	w.Bool((*v).Clip != nil)
+	if (*v).Clip != nil {
+		for i102 := range *(*v).Clip {
+			w.F64((*(*v).Clip)[i102])
+		}
+	}
+}
+func readWorldlightmapSurfaceSelection(r *binwire.Reader, v *SurfaceSelection) {
+	(*v).LiquidEdgeStep = r.F64()
+	(*v).LiquidMaxSubdivisions = r.I32()
+	ni103, pi103 := r.Count(64, 36, 40)
+	if r.Err() != nil {
+		return
+	}
+	if pi103 {
+		(*v).LiquidTiles = make([]LiquidTile, ni103)
+	}
+	for i103 := range (*v).LiquidTiles {
+		readWorldlightmapLiquidTile(r, &(*v).LiquidTiles[i103])
+	}
+	ni104, pi104 := r.Count(76288, 16, 40)
+	if r.Err() != nil {
+		return
+	}
+	if pi104 {
+		(*v).Bindings = make([]Binding, ni104)
+	}
+	for i104 := range (*v).Bindings {
+		readWorldlightmapBinding(r, &(*v).Bindings[i104])
+	}
+	if r.Bool() {
+		r.Allocate(32)
+		if r.Err() != nil {
+			return
+		}
+		(*v).Clip = new([4]float64)
+		for i105 := range *(*v).Clip {
+			(*(*v).Clip)[i105] = r.F64()
+		}
+	}
+}
+func scanWorldlightmapSurfaceSelection(r *binwire.Reader) {
+	r.F64()
+	r.I32()
+	ni106, pi106 := r.Count(64, 36, 40)
+	if r.Err() != nil {
+		return
+	}
+	_ = pi106
+	for i106 := 0; i106 < ni106 && r.Err() == nil; i106++ {
+		scanWorldlightmapLiquidTile(r)
+	}
+	ni107, pi107 := r.Count(76288, 16, 40)
+	if r.Err() != nil {
+		return
+	}
+	_ = pi107
+	for i107 := 0; i107 < ni107 && r.Err() == nil; i107++ {
+		scanWorldlightmapBinding(r)
+	}
+	if r.Bool() {
+		r.Allocate(32)
+		if r.Err() != nil {
+			return
+		}
+		for i108 := 0; i108 < 4; i108++ {
+			r.F64()
+		}
+	}
 }

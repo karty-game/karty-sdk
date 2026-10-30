@@ -167,6 +167,9 @@ func liquidFactors(mesh *Mesh, liquids map[uint32]liquidMaterial) []int {
 	edges := make(map[liquidEdge]int)
 	for index, triangle := range mesh.Triangles {
 		patches[index] = liquidPatch{parent: index, factor: 1}
+		if mesh.Selection != nil && mesh.Selection.LiquidEdgeStep > 0 {
+			continue
+		}
 		if !horizontalLiquid(unpacked(triangle.Normal), triangle.Material, liquids) {
 			continue
 		}
@@ -218,10 +221,18 @@ func meshOwnsTriangle(mesh *Mesh, triangle Triangle) bool {
 }
 
 func tessellateLiquids(source Mesh, liquids map[uint32]liquidMaterial) (Mesh, error) {
+	if source.Selection != nil && source.Selection.LiquidEdgeStep > 0 {
+		return source, nil
+	}
 	if len(liquids) == 0 {
 		return source, nil
 	}
 	factors := liquidFactors(&source, liquids)
+	if source.Selection != nil && source.Selection.LiquidMaxSubdivisions > 0 {
+		for i := range factors {
+			factors[i] = min(factors[i], source.Selection.LiquidMaxSubdivisions)
+		}
+	}
 	return tessellateLiquidFactors(source, factors)
 }
 

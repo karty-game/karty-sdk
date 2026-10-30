@@ -12,12 +12,19 @@ import (
 
 	"github.com/karty-game/karty-sdk/format/world"
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
+	"github.com/karty-game/karty-sdk/format/worldterrain"
 )
 
 // Options bounds both work and scratch. Samples defaults to 16 and Workers to
 // GOMAXPROCS (at most 64). Bounces is an explicit 0..4; zero is direct-only.
 // Seed zero is valid. Sampling is independent of worker count and scheduling.
 type Options struct {
+	// Terrain is full offline transport; TerrainReceivers is the chunk crop.
+	Terrain          *worldterrain.Document
+	TerrainReceivers *worldterrain.Document
+	// Vegetation contributes static rest-pose cutouts to this same bake.
+	Vegetation                *Vegetation
+	fixed                     bool
 	Samples, Bounces, Workers int
 	Seed                      uint64
 	Denoise                   string  // empty/off preserves original pixels; low or medium filters indirect only
@@ -78,6 +85,9 @@ func bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 	}
 	options = inputs.options
 	rangeValue, surfaces := inputs.rangeValue, inputs.surfaces
+	if inputs.receivers != nil {
+		surfaces = inputs.receivers
+	}
 	prepared, err := shared.transport(ctx, &document, inputs, options.Bounces > 0 || environment != nil)
 	if err != nil {
 		return Result{}, err
@@ -90,6 +100,9 @@ func bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 		materials:      prepared.materials,
 		maxRayDistance: options.MaxRayDistance,
 		environment:    environment,
+	}
+	if options.fixed {
+		s.fixedFill = document.Lighting
 	}
 	if options.Bounces > 0 || environment != nil {
 		s.samples = initialSamples(options.Samples)
@@ -177,6 +190,9 @@ func bake(ctx context.Context, document world.Document, layout worldlightmap.Lay
 						}
 						if x%16 == 0 && ctx.Err() != nil {
 							return
+						}
+						if layout.Selection != nil && layout.Selection.Clip != nil {
+							index = terrainSampleIndex(r.position, chart.Normal)
 						}
 						coeff := s.direct(r.position, chart, c)
 						if filtering {

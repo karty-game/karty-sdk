@@ -13,6 +13,7 @@ import (
 
 const (
 	Schema           = "karty.world-chunks@1"
+	FixedSchema      = "karty.world-chunks@2"
 	MeshSchema       = "karty.world-chunk-mesh@1"
 	Feature          = cartridge.FeatureWorldChunksV1
 	CatalogEntryName = "@world/chunks/catalog"
@@ -28,6 +29,7 @@ const (
 var ErrChunk = errors.New("world chunk is invalid")
 
 type Catalog struct {
+	TerrainSHA256  string
 	Schema         string
 	GeometrySHA256 string
 	Chunks         []Chunk
@@ -39,20 +41,26 @@ type Catalog struct {
 	// by completed child prebakes. Hosts partition these sources before loading
 	// children; they never consume runtime direct-light slots.
 	BakedLights []int
+	Spatial     []SpatialChunk
+	Surfaces    []SurfaceOwnership
 }
 
 type Chunk struct {
-	ID            int
-	Sectors       []int
-	Solids        []int
-	ContentSHA256 string
-	Size          uint64
-	MeshBytes     uint64
-	LightmapBytes uint64
-	Bounds        [6]float64
+	ID             int
+	Sectors        []int
+	Solids         []int
+	ContentSHA256  string
+	Size           uint64
+	MeshBytes      uint64
+	LightmapBytes  uint64
+	LightingBytes  uint64
+	TerrainBytes   uint64
+	CollisionBytes uint64
+	Bounds         [6]float64
 }
 
 type Mesh struct {
+	Selection      *worldlightmap.SurfaceSelection
 	Schema         string
 	GeometrySHA256 string
 	SurfaceSHA256  string
@@ -113,13 +121,22 @@ type Secondary struct {
 }
 
 type Options struct {
+	Selection       *worldlightmap.SurfaceSelection
 	MaxMeshBytes    uint64
 	MaxEncodedBytes uint64
 	MaxSectors      int
+	// MaxSpan limits both horizontal extents of the rendered geometry in metres.
+	// Zero disables this build-only limit; a single oversized sector must be
+	// subdivided by the producer rather than silently exempted.
+	MaxSpan float64
 	// Lightmap.PageSize is a maximum: 1024 (or zero) first tries 512, then
 	// retries 1024 only when the receiver charts exceed page capacity.
 	Lightmap   worldlightmap.Options
 	NoLightmap bool
+	// EnclosureAware prefers complete inferred enclosures and wide internal
+	// connections before crossing doorways. All resource limits still apply.
+	// False retains the original authored-order growth policy.
+	EnclosureAware bool
 	// SectorGroups is an optional build-only authored-area preference. Nil keeps
 	// budget-only grouping. Otherwise every global sector has an ID in [0,256).
 	// Ordinary connectivity and hard budgets can still split an authored area.
@@ -148,6 +165,10 @@ type PlanResult struct {
 	Chunks       []PlannedChunk
 	SectorChunks []int
 	Candidates   [][]int
+	// Enclosures maps each sector to the lowest sector index in its inferred
+	// enclosure. It is build-only metadata, independent of chunk budgets/IDs.
+	// Nil means EnclosureAware was not requested.
+	Enclosures []int
 }
 
 // DecodedMeshBytes is the packed scalar array size, independent of Go padding:

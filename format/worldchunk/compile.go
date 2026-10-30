@@ -60,20 +60,30 @@ func CompileMesh(document world.Document, sectors, solids []int, layout worldlig
 	}
 	mesh := Mesh{
 		Schema:         MeshSchema,
+		Selection:      layout.Selection,
 		GeometrySHA256: layout.GeometrySHA256,
 		SurfaceSHA256:  surfaceDigest,
 		Sectors:        slices.Clone(sectors),
 		Solids:         slices.Clone(solids),
 	}
+	if layout.Selection != nil {
+		mesh.Schema = SelectedMeshSchema
+	}
 	mesh.Bounds = [6]float64{math.Inf(1), math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1), math.Inf(-1)}
 	for si, surface := range surfaces {
 		binding := surface.Binding
+		if layout.Selection != nil && !worldlightmap.SurfaceSelected(binding, layout.Selection) {
+			continue
+		}
 		owner := solids
 		if strings.HasPrefix(binding.Kind, "sector-") {
 			owner = sectors
 		}
 		material, _, _ := surfaceMaterial(&document, binding)
 		if _, included := slices.BinarySearch(owner, binding.Index); !included {
+			if layout.Selection != nil {
+				continue
+			}
 			physical := componentSolids
 			if strings.HasPrefix(binding.Kind, "sector-") {
 				physical = component
@@ -246,6 +256,16 @@ func emitPolygon(
 	secondary *world.SurfaceSecondary,
 	band *world.SurfaceUV,
 ) error {
+	if len(polygon) < 3 {
+		return nil
+	}
+	if layout.Selection != nil && len(layout.Selection.LiquidTiles) != 0 {
+		return emitSubtiledPolygon(mesh, document, layout, junctions, polygon, template, mapping, secondary, band)
+	}
+	origin := polygon[0]
+	if layout.Selection != nil && layout.Selection.Clip != nil {
+		polygon = worldlightmap.ClipSurfacePolygon(polygon, *layout.Selection.Clip)
+	}
 	polygon = junctions.split(polygon)
 	if len(polygon) < 3 {
 		return nil
@@ -275,53 +295,36 @@ func emitPolygon(
 	if band != nil {
 		template.Band.Basis = projectionBasis(band.Projections[0], unpacked(template.Normal))
 	}
-	center := world.Vec3{}
-	for _, p := range polygon {
-		center = add(center, scale(p, 1/float64(len(polygon))))
+	triangles := make([][3]world.Vec3, 0, len(polygon))
+	if layout.Selection != nil && layout.Selection.LiquidEdgeStep > 0 && spatialLiquidSurface(document, template) {
+		var err error
+		triangles, err = spatialLiquidTriangles(polygon, layout.Selection, document, template)
+		if err != nil {
+			return err
+		}
+	} else {
+		center := world.Vec3{}
+		for _, p := range polygon {
+			center = add(center, scale(p, 1/float64(len(polygon))))
+		}
+		for i, a := range polygon {
+			triangles = append(triangles, [3]world.Vec3{center, a, polygon[(i+1)%len(polygon)]})
+		}
 	}
-	for i, a := range polygon {
-		b := polygon[(i+1)%len(polygon)]
-		// Junctions discovered in float64 can differ while producing identical
-		// float32 vertices. Winding and degeneracy must use the stored geometry.
+	for _, positions := range triangles {
+		center, a, b := positions[0], positions[1], positions[2]
 		storedCenter, storedA, storedB := unpacked(packed(center)), unpacked(packed(a)), unpacked(packed(b))
 		orientation := dot(cross(sub(storedA, storedCenter), sub(storedB, storedCenter)), unpacked(template.Normal))
 		if orientation == 0 {
 			continue
 		}
 		if orientation < 0 {
-			a, b = b, a
+			positions[1], positions[2] = positions[2], positions[1]
 		}
 		if len(mesh.Triangles) >= MaxTriangles {
 			return ErrChunk
 		}
-		triangle := template
-		positions := [3]world.Vec3{center, a, b}
-		for _, p := range positions {
-			vertex := Vertex{Position: packed(p)}
-			for j, projection := range mapping.Projections {
-				vertex.UV[j] = uvAt(projection, p, polygon[0], true, true)
-			}
-			vertex.WaveUV = [2]float32{float32(evaluate(mapping.Projections[0].U, p)), float32(evaluate(mapping.Projections[0].V, p))}
-			if template.Secondary.MappingCount > 0 {
-				for j, projection := range secondary.UV.Projections {
-					vertex.SecondaryUV[j] = uvAt(projection, p, polygon[0], true, true)
-				}
-			}
-			if band != nil {
-				vertex.BandUV = uvAt(band.Projections[0], p, polygon[0], template.Band.RepeatU, template.Band.RepeatV)
-			}
-			if triangle.Chart >= 0 {
-				chart := layout.Charts[triangle.Chart]
-				vertex.LightmapUV = [2]float32{float32(affine(chart.UPlane, p)), float32(affine(chart.VPlane, p))}
-			}
-			mesh.Indices = append(mesh.Indices, uint32(len(mesh.Vertices)))
-			mesh.Vertices = append(mesh.Vertices, vertex)
-			for axis, value := range vertex.Position {
-				mesh.Bounds[axis] = math.Min(mesh.Bounds[axis], float64(value))
-				mesh.Bounds[axis+3] = math.Max(mesh.Bounds[axis+3], float64(value))
-			}
-		}
-		mesh.Triangles = append(mesh.Triangles, triangle)
+		emitFaceTriangle(mesh, document, layout, positions, template, mapping, secondary, band, origin)
 	}
 	return nil
 }
@@ -426,70 +429,45 @@ func unit(v world.Vec3) world.Vec3 {
 	return scale(v, 1/length)
 }
 
-type pointIndex [3][]world.Vec3
-
-func coordinate(v world.Vec3, axis int) float64 {
-	if axis == 0 {
-		return v.X
-	}
-	if axis == 1 {
-		return v.Y
-	}
-	return v.Z
-}
-func newPointIndex(points []world.Vec3) pointIndex {
-	var result pointIndex
-	for axis := range 3 {
-		result[axis] = slices.Clone(points)
-		slices.SortFunc(result[axis], func(a, b world.Vec3) int { return compare(coordinate(a, axis), coordinate(b, axis)) })
-	}
-	return result
-}
-func compare(a, b float64) int {
-	if a < b {
-		return -1
-	}
-	if a > b {
-		return 1
-	}
-	return 0
-}
-func (index pointIndex) split(polygon []world.Vec3) []world.Vec3 {
-	result := make([]world.Vec3, 0, len(polygon))
-	for i, a := range polygon {
-		b := polygon[(i+1)%len(polygon)]
-		delta := sub(b, a)
-		length := dot(delta, delta)
-		axis := 0
-		for candidate := 1; candidate < 3; candidate++ {
-			if math.Abs(coordinate(delta, candidate)) > math.Abs(coordinate(delta, axis)) {
-				axis = candidate
+func emitFaceTriangle(
+	mesh *Mesh,
+	_ *world.Document,
+	layout worldlightmap.Layout,
+	positions [3]world.Vec3,
+	template Triangle,
+	mapping *world.SurfaceUV,
+	secondary *world.SurfaceSecondary,
+	band *world.SurfaceUV,
+	origin world.Vec3,
+) {
+	triangle := template
+	for _, p := range positions {
+		if layout.Selection != nil && layout.Selection.LiquidEdgeStep > 0 {
+			p = unpacked(packed(p))
+		}
+		vertex := Vertex{Position: packed(p)}
+		for j, projection := range mapping.Projections {
+			vertex.UV[j] = uvAt(projection, p, origin, true, true)
+		}
+		vertex.WaveUV = [2]float32{float32(evaluate(mapping.Projections[0].U, p)), float32(evaluate(mapping.Projections[0].V, p))}
+		if template.Secondary.MappingCount > 0 {
+			for j, projection := range secondary.UV.Projections {
+				vertex.SecondaryUV[j] = uvAt(projection, p, origin, true, true)
 			}
 		}
-		cuts := []float64{0}
-		low, high := math.Min(coordinate(a, axis), coordinate(b, axis)), math.Max(coordinate(a, axis), coordinate(b, axis))
-		start, _ := slices.BinarySearchFunc(index[axis], low, func(p world.Vec3, v float64) int { return compare(coordinate(p, axis), v) })
-		for _, p := range index[axis][start:] {
-			if coordinate(p, axis) > high {
-				break
-			}
-			t := dot(sub(p, a), delta) / length
-			if t <= 1e-9 || t >= 1-1e-9 {
-				continue
-			}
-			difference := sub(p, add(a, scale(delta, t)))
-			if dot(difference, difference) <= 1e-16 {
-				cuts = append(cuts, t)
-			}
+		if band != nil {
+			vertex.BandUV = uvAt(band.Projections[0], p, origin, template.Band.RepeatU, template.Band.RepeatV)
 		}
-		slices.Sort(cuts)
-		last := -1.0
-		for _, t := range cuts {
-			if t-last > 1e-9 {
-				result = append(result, add(a, scale(delta, t)))
-				last = t
-			}
+		if triangle.Chart >= 0 {
+			chart := layout.Charts[triangle.Chart]
+			vertex.LightmapUV = [2]float32{float32(affine(chart.UPlane, p)), float32(affine(chart.VPlane, p))}
+		}
+		mesh.Indices = append(mesh.Indices, uint32(len(mesh.Vertices)))
+		mesh.Vertices = append(mesh.Vertices, vertex)
+		for axis, value := range vertex.Position {
+			mesh.Bounds[axis] = math.Min(mesh.Bounds[axis], float64(value))
+			mesh.Bounds[axis+3] = math.Max(mesh.Bounds[axis+3], float64(value))
 		}
 	}
-	return result
+	mesh.Triangles = append(mesh.Triangles, triangle)
 }

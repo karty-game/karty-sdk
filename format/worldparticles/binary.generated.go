@@ -59,19 +59,19 @@ func writeWorldparticlesColorKey(w *binwire.Writer, v *ColorKey) {
 		return
 	}
 	w.F64((*v).Age)
-	for i103 := range (*v).RGBA {
-		w.F64((*v).RGBA[i103])
+	for i115 := range (*v).RGBA {
+		w.F64((*v).RGBA[i115])
 	}
 }
 func readWorldparticlesColorKey(r *binwire.Reader, v *ColorKey) {
 	(*v).Age = r.F64()
-	for i104 := range (*v).RGBA {
-		(*v).RGBA[i104] = r.F64()
+	for i116 := range (*v).RGBA {
+		(*v).RGBA[i116] = r.F64()
 	}
 }
 func scanWorldparticlesColorKey(r *binwire.Reader) {
 	r.F64()
-	for i105 := 0; i105 < 4; i105++ {
+	for i117 := 0; i117 < 4; i117++ {
 		r.F64()
 	}
 }
@@ -84,56 +84,56 @@ func writeWorldparticlesDocument(w *binwire.Writer, v *Document) {
 	if w.Err() != nil {
 		return
 	}
-	for i106 := range (*v).Presets {
-		writeWorldparticlesPreset(w, &(*v).Presets[i106])
+	for i118 := range (*v).Presets {
+		writeWorldparticlesPreset(w, &(*v).Presets[i118])
 	}
 	w.Count(len((*v).Emitters), (*v).Emitters == nil, 256)
 	if w.Err() != nil {
 		return
 	}
-	for i107 := range (*v).Emitters {
-		writeWorldparticlesEmitter(w, &(*v).Emitters[i107])
+	for i119 := range (*v).Emitters {
+		writeWorldparticlesEmitter(w, &(*v).Emitters[i119])
 	}
 }
 func readWorldparticlesDocument(r *binwire.Reader, v *Document) {
 	(*v).Version = r.U16()
-	ni108, pi108 := r.Count(64, 216, 360)
+	ni120, pi120 := r.Count(64, 216, 360)
 	if r.Err() != nil {
 		return
 	}
-	if pi108 {
-		(*v).Presets = make([]Preset, ni108)
+	if pi120 {
+		(*v).Presets = make([]Preset, ni120)
 	}
-	for i108 := range (*v).Presets {
-		readWorldparticlesPreset(r, &(*v).Presets[i108])
+	for i120 := range (*v).Presets {
+		readWorldparticlesPreset(r, &(*v).Presets[i120])
 	}
-	ni109, pi109 := r.Count(256, 124, 168)
+	ni121, pi121 := r.Count(256, 124, 168)
 	if r.Err() != nil {
 		return
 	}
-	if pi109 {
-		(*v).Emitters = make([]Emitter, ni109)
+	if pi121 {
+		(*v).Emitters = make([]Emitter, ni121)
 	}
-	for i109 := range (*v).Emitters {
-		readWorldparticlesEmitter(r, &(*v).Emitters[i109])
+	for i121 := range (*v).Emitters {
+		readWorldparticlesEmitter(r, &(*v).Emitters[i121])
 	}
 }
 func scanWorldparticlesDocument(r *binwire.Reader) {
 	r.U16()
-	ni110, pi110 := r.Count(64, 216, 360)
+	ni122, pi122 := r.Count(64, 216, 360)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi110
-	for i110 := 0; i110 < ni110 && r.Err() == nil; i110++ {
+	_ = pi122
+	for i122 := 0; i122 < ni122 && r.Err() == nil; i122++ {
 		scanWorldparticlesPreset(r)
 	}
-	ni111, pi111 := r.Count(256, 124, 168)
+	ni123, pi123 := r.Count(256, 124, 168)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi111
-	for i111 := 0; i111 < ni111 && r.Err() == nil; i111++ {
+	_ = pi123
+	for i123 := 0; i123 < ni123 && r.Err() == nil; i123++ {
 		scanWorldparticlesEmitter(r)
 	}
 }
@@ -147,33 +147,33 @@ func writeWorldparticlesEmission(w *binwire.Writer, v *Emission) {
 	if w.Err() != nil {
 		return
 	}
-	for i112 := range (*v).Bursts {
-		writeWorldparticlesBurst(w, &(*v).Bursts[i112])
+	for i124 := range (*v).Bursts {
+		writeWorldparticlesBurst(w, &(*v).Bursts[i124])
 	}
 }
 func readWorldparticlesEmission(r *binwire.Reader, v *Emission) {
 	(*v).Rate = r.F64()
 	(*v).DurationSeconds = r.F64()
-	ni113, pi113 := r.Count(16, 12, 16)
+	ni125, pi125 := r.Count(16, 12, 16)
 	if r.Err() != nil {
 		return
 	}
-	if pi113 {
-		(*v).Bursts = make([]Burst, ni113)
+	if pi125 {
+		(*v).Bursts = make([]Burst, ni125)
 	}
-	for i113 := range (*v).Bursts {
-		readWorldparticlesBurst(r, &(*v).Bursts[i113])
+	for i125 := range (*v).Bursts {
+		readWorldparticlesBurst(r, &(*v).Bursts[i125])
 	}
 }
 func scanWorldparticlesEmission(r *binwire.Reader) {
 	r.F64()
 	r.F64()
-	ni114, pi114 := r.Count(16, 12, 16)
+	ni126, pi126 := r.Count(16, 12, 16)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi114
-	for i114 := 0; i114 < ni114 && r.Err() == nil; i114++ {
+	_ = pi126
+	for i126 := 0; i126 < ni126 && r.Err() == nil; i126++ {
 		scanWorldparticlesBurst(r)
 	}
 }
@@ -249,15 +249,15 @@ func writeWorldparticlesPreset(w *binwire.Writer, v *Preset) {
 	if w.Err() != nil {
 		return
 	}
-	for i115 := range (*v).SizeOverLife {
-		writeWorldparticlesScalarKey(w, &(*v).SizeOverLife[i115])
+	for i127 := range (*v).SizeOverLife {
+		writeWorldparticlesScalarKey(w, &(*v).SizeOverLife[i127])
 	}
 	w.Count(len((*v).ColorOverLife), (*v).ColorOverLife == nil, 4)
 	if w.Err() != nil {
 		return
 	}
-	for i116 := range (*v).ColorOverLife {
-		writeWorldparticlesColorKey(w, &(*v).ColorOverLife[i116])
+	for i128 := range (*v).ColorOverLife {
+		writeWorldparticlesColorKey(w, &(*v).ColorOverLife[i128])
 	}
 	writeWorldparticlesRange(w, &(*v).RotationDegrees)
 	writeWorldparticlesRange(w, &(*v).RotationSpeedDegrees)
@@ -273,25 +273,25 @@ func readWorldparticlesPreset(r *binwire.Reader, v *Preset) {
 	readWorldVec3(r, &(*v).Acceleration)
 	(*v).Drag = r.F64()
 	readWorldparticlesSprite(r, &(*v).Sprite)
-	ni117, pi117 := r.Count(4, 16, 16)
+	ni129, pi129 := r.Count(4, 16, 16)
 	if r.Err() != nil {
 		return
 	}
-	if pi117 {
-		(*v).SizeOverLife = make([]ScalarKey, ni117)
+	if pi129 {
+		(*v).SizeOverLife = make([]ScalarKey, ni129)
 	}
-	for i117 := range (*v).SizeOverLife {
-		readWorldparticlesScalarKey(r, &(*v).SizeOverLife[i117])
+	for i129 := range (*v).SizeOverLife {
+		readWorldparticlesScalarKey(r, &(*v).SizeOverLife[i129])
 	}
-	ni118, pi118 := r.Count(4, 40, 40)
+	ni130, pi130 := r.Count(4, 40, 40)
 	if r.Err() != nil {
 		return
 	}
-	if pi118 {
-		(*v).ColorOverLife = make([]ColorKey, ni118)
+	if pi130 {
+		(*v).ColorOverLife = make([]ColorKey, ni130)
 	}
-	for i118 := range (*v).ColorOverLife {
-		readWorldparticlesColorKey(r, &(*v).ColorOverLife[i118])
+	for i130 := range (*v).ColorOverLife {
+		readWorldparticlesColorKey(r, &(*v).ColorOverLife[i130])
 	}
 	readWorldparticlesRange(r, &(*v).RotationDegrees)
 	readWorldparticlesRange(r, &(*v).RotationSpeedDegrees)
@@ -307,20 +307,20 @@ func scanWorldparticlesPreset(r *binwire.Reader) {
 	scanWorldVec3(r)
 	r.F64()
 	scanWorldparticlesSprite(r)
-	ni119, pi119 := r.Count(4, 16, 16)
+	ni131, pi131 := r.Count(4, 16, 16)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi119
-	for i119 := 0; i119 < ni119 && r.Err() == nil; i119++ {
+	_ = pi131
+	for i131 := 0; i131 < ni131 && r.Err() == nil; i131++ {
 		scanWorldparticlesScalarKey(r)
 	}
-	ni120, pi120 := r.Count(4, 40, 40)
+	ni132, pi132 := r.Count(4, 40, 40)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi120
-	for i120 := 0; i120 < ni120 && r.Err() == nil; i120++ {
+	_ = pi132
+	for i132 := 0; i132 < ni132 && r.Err() == nil; i132++ {
 		scanWorldparticlesColorKey(r)
 	}
 	scanWorldparticlesRange(r)
@@ -379,8 +379,8 @@ func writeWorldparticlesSprite(w *binwire.Writer, v *Sprite) {
 	if w.Err() != nil {
 		return
 	}
-	for i121 := range (*v).Frames {
-		w.U32((*v).Frames[i121])
+	for i133 := range (*v).Frames {
+		w.U32((*v).Frames[i133])
 	}
 	w.F64((*v).FPS)
 	w.String(string((*v).Playback), 4096)
@@ -388,15 +388,15 @@ func writeWorldparticlesSprite(w *binwire.Writer, v *Sprite) {
 	w.String(string((*v).Blend), 4096)
 }
 func readWorldparticlesSprite(r *binwire.Reader, v *Sprite) {
-	ni122, pi122 := r.Count(16, 4, 4)
+	ni134, pi134 := r.Count(16, 4, 4)
 	if r.Err() != nil {
 		return
 	}
-	if pi122 {
-		(*v).Frames = make([]uint32, ni122)
+	if pi134 {
+		(*v).Frames = make([]uint32, ni134)
 	}
-	for i122 := range (*v).Frames {
-		(*v).Frames[i122] = r.U32()
+	for i134 := range (*v).Frames {
+		(*v).Frames[i134] = r.U32()
 	}
 	(*v).FPS = r.F64()
 	(*v).Playback = r.String(4096)
@@ -404,12 +404,12 @@ func readWorldparticlesSprite(r *binwire.Reader, v *Sprite) {
 	(*v).Blend = r.String(4096)
 }
 func scanWorldparticlesSprite(r *binwire.Reader) {
-	ni123, pi123 := r.Count(16, 4, 4)
+	ni135, pi135 := r.Count(16, 4, 4)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi123
-	for i123 := 0; i123 < ni123 && r.Err() == nil; i123++ {
+	_ = pi135
+	for i135 := 0; i135 < ni135 && r.Err() == nil; i135++ {
 		r.U32()
 	}
 	r.F64()

@@ -64,16 +64,17 @@ func validateCatalogBakedLights(catalog *Catalog, document *world.Document) erro
 // ValidateBakedSelection binds a child's source membership to its parent
 // catalog. The recipe must contain exactly the parent union filtered to this
 // ordinary physical component; ordering remains part of the prebake identity.
-// A nil layout is valid only for a descriptor with no lightmap.
+// A nil layout is valid only for a descriptor with no baked lighting. Compact
+// spatial lighting retains its exact layout even though LightmapBytes is zero.
 func ValidateBakedSelection(catalog *Catalog, chunkID int, document *world.Document, layout *worldlightmap.Layout) error {
 	if err := ValidateCatalog(catalog, document); err != nil {
 		return err
 	}
-	if chunkID < 0 || chunkID >= len(catalog.Chunks) {
+	if chunkID < 0 || chunkID >= catalog.StreamCount() {
 		return ErrChunk
 	}
-	chunk := catalog.Chunks[chunkID]
-	if chunk.LightmapBytes == 0 {
+	chunk, _ := catalog.StreamChunk(chunkID)
+	if chunk.LightmapBytes == 0 && (catalog.Schema != SpatialSchema || chunk.LightingBytes == 0) {
 		if layout != nil {
 			return ErrChunk
 		}
@@ -83,8 +84,16 @@ func ValidateBakedSelection(catalog *Catalog, chunkID int, document *world.Docum
 		!slices.Equal(layout.Receivers.Solids, chunk.Solids) {
 		return ErrChunk
 	}
+	if catalog.Schema == SpatialSchema {
+		if err := ValidateStreamSelection(catalog, chunkID, layout); err != nil {
+			return err
+		}
+	}
 	if err := worldlightmap.Validate(layout, document); err != nil {
 		return err
+	}
+	if layout.RuntimeBake == nil && (catalog.Schema == FixedSchema || catalog.Schema == SpatialSchema) && len(catalog.BakedLights) == 0 {
+		return nil
 	}
 	if layout.RuntimeBake == nil || layout.RuntimeBake.Encoding != worldlightmap.DirectRNMEncoding {
 		return ErrChunk

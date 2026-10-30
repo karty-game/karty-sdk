@@ -189,7 +189,21 @@ func (p *meshOnlyPreparation) trial(sectors []int, options Options) (PlannedChun
 	if encoded > MaxEncodedSize || encoded > options.MaxEncodedBytes {
 		return PlannedChunk{}, fmt.Errorf("mesh needs %d encoded bytes (budget %d): %w", encoded, options.MaxEncodedBytes, ErrChunk)
 	}
+	chunk.Bounds = emptyMeshBounds()
+	for _, sector := range sectors {
+		mergeMeshBounds(&chunk.Bounds, p.fragments[sector].Bounds)
+	}
+	for _, solid := range solids {
+		mergeMeshBounds(&chunk.Bounds, p.fragments[p.sectorCount+solid].Bounds)
+	}
 	return chunk, nil
+}
+
+func mergeMeshBounds(bounds *[6]float64, fragment [6]float64) {
+	for axis := range 3 {
+		bounds[axis] = min(bounds[axis], fragment[axis])
+		bounds[axis+3] = max(bounds[axis+3], fragment[axis+3])
+	}
 }
 
 func (p *meshOnlyPreparation) finish(chunk PlannedChunk, document *world.Document) (PlannedChunk, error) {

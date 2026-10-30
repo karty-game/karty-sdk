@@ -43,7 +43,7 @@ func Default() Config {
 		Profiles: []Profile{
 			{Name: "high", RenderScale: 1.5, MinWindowWidth: 1401, FloorReflections: &reflectionsOn},
 			{Name: "medium", RenderScale: 1, FloorReflections: &reflectionsOn},
-			{Name: "low", RenderScale: .75, FloorReflections: &noReflections},
+			{Name: "low", RenderScale: .75, FloorReflections: &reflectionsOn},
 			{Name: "potato", RenderScale: .5, MaxWindowWidth: 799, FloorReflections: &noReflections},
 		},
 	}

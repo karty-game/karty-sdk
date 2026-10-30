@@ -14,56 +14,56 @@ func writeWorldvegetationDocument(w *binwire.Writer, v *Document) {
 	if w.Err() != nil {
 		return
 	}
-	for i124 := range (*v).Presets {
-		writeWorldvegetationPreset(w, &(*v).Presets[i124])
+	for i136 := range (*v).Presets {
+		writeWorldvegetationPreset(w, &(*v).Presets[i136])
 	}
 	w.Count(len((*v).Layers), (*v).Layers == nil, 1024)
 	if w.Err() != nil {
 		return
 	}
-	for i125 := range (*v).Layers {
-		writeWorldvegetationLayer(w, &(*v).Layers[i125])
+	for i137 := range (*v).Layers {
+		writeWorldvegetationLayer(w, &(*v).Layers[i137])
 	}
 }
 func readWorldvegetationDocument(r *binwire.Reader, v *Document) {
 	(*v).Version = r.U16()
-	ni126, pi126 := r.Count(64, 69, 96)
+	ni138, pi138 := r.Count(64, 69, 96)
 	if r.Err() != nil {
 		return
 	}
-	if pi126 {
-		(*v).Presets = make([]Preset, ni126)
+	if pi138 {
+		(*v).Presets = make([]Preset, ni138)
 	}
-	for i126 := range (*v).Presets {
-		readWorldvegetationPreset(r, &(*v).Presets[i126])
+	for i138 := range (*v).Presets {
+		readWorldvegetationPreset(r, &(*v).Presets[i138])
 	}
-	ni127, pi127 := r.Count(1024, 24, 56)
+	ni139, pi139 := r.Count(1024, 24, 56)
 	if r.Err() != nil {
 		return
 	}
-	if pi127 {
-		(*v).Layers = make([]Layer, ni127)
+	if pi139 {
+		(*v).Layers = make([]Layer, ni139)
 	}
-	for i127 := range (*v).Layers {
-		readWorldvegetationLayer(r, &(*v).Layers[i127])
+	for i139 := range (*v).Layers {
+		readWorldvegetationLayer(r, &(*v).Layers[i139])
 	}
 }
 func scanWorldvegetationDocument(r *binwire.Reader) {
 	r.U16()
-	ni128, pi128 := r.Count(64, 69, 96)
+	ni140, pi140 := r.Count(64, 69, 96)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi128
-	for i128 := 0; i128 < ni128 && r.Err() == nil; i128++ {
+	_ = pi140
+	for i140 := 0; i140 < ni140 && r.Err() == nil; i140++ {
 		scanWorldvegetationPreset(r)
 	}
-	ni129, pi129 := r.Count(1024, 24, 56)
+	ni141, pi141 := r.Count(1024, 24, 56)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi129
-	for i129 := 0; i129 < ni129 && r.Err() == nil; i129++ {
+	_ = pi141
+	for i141 := 0; i141 < ni141 && r.Err() == nil; i141++ {
 		scanWorldvegetationLayer(r)
 	}
 }
@@ -151,56 +151,56 @@ func writeWorldvegetationlegacyDocument(w *binwire.Writer, v *legacyDocument) {
 	if w.Err() != nil {
 		return
 	}
-	for i130 := range (*v).Presets {
-		writeWorldvegetationlegacyPreset(w, &(*v).Presets[i130])
+	for i142 := range (*v).Presets {
+		writeWorldvegetationlegacyPreset(w, &(*v).Presets[i142])
 	}
 	w.Count(len((*v).Layers), (*v).Layers == nil, 1024)
 	if w.Err() != nil {
 		return
 	}
-	for i131 := range (*v).Layers {
-		writeWorldvegetationLayer(w, &(*v).Layers[i131])
+	for i143 := range (*v).Layers {
+		writeWorldvegetationLayer(w, &(*v).Layers[i143])
 	}
 }
 func readWorldvegetationlegacyDocument(r *binwire.Reader, v *legacyDocument) {
 	(*v).Version = r.U16()
-	ni132, pi132 := r.Count(64, 64, 80)
+	ni144, pi144 := r.Count(64, 64, 80)
 	if r.Err() != nil {
 		return
 	}
-	if pi132 {
-		(*v).Presets = make([]legacyPreset, ni132)
+	if pi144 {
+		(*v).Presets = make([]legacyPreset, ni144)
 	}
-	for i132 := range (*v).Presets {
-		readWorldvegetationlegacyPreset(r, &(*v).Presets[i132])
+	for i144 := range (*v).Presets {
+		readWorldvegetationlegacyPreset(r, &(*v).Presets[i144])
 	}
-	ni133, pi133 := r.Count(1024, 24, 56)
+	ni145, pi145 := r.Count(1024, 24, 56)
 	if r.Err() != nil {
 		return
 	}
-	if pi133 {
-		(*v).Layers = make([]Layer, ni133)
+	if pi145 {
+		(*v).Layers = make([]Layer, ni145)
 	}
-	for i133 := range (*v).Layers {
-		readWorldvegetationLayer(r, &(*v).Layers[i133])
+	for i145 := range (*v).Layers {
+		readWorldvegetationLayer(r, &(*v).Layers[i145])
 	}
 }
 func scanWorldvegetationlegacyDocument(r *binwire.Reader) {
 	r.U16()
-	ni134, pi134 := r.Count(64, 64, 80)
+	ni146, pi146 := r.Count(64, 64, 80)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi134
-	for i134 := 0; i134 < ni134 && r.Err() == nil; i134++ {
+	_ = pi146
+	for i146 := 0; i146 < ni146 && r.Err() == nil; i146++ {
 		scanWorldvegetationlegacyPreset(r)
 	}
-	ni135, pi135 := r.Count(1024, 24, 56)
+	ni147, pi147 := r.Count(1024, 24, 56)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi135
-	for i135 := 0; i135 < ni135 && r.Err() == nil; i135++ {
+	_ = pi147
+	for i147 := 0; i147 < ni147 && r.Err() == nil; i147++ {
 		scanWorldvegetationLayer(r)
 	}
 }
@@ -213,56 +213,56 @@ func writeWorldvegetationlegacyGeometryDocument(w *binwire.Writer, v *legacyGeom
 	if w.Err() != nil {
 		return
 	}
-	for i136 := range (*v).Presets {
-		writeWorldvegetationlegacyGeometryPreset(w, &(*v).Presets[i136])
+	for i148 := range (*v).Presets {
+		writeWorldvegetationlegacyGeometryPreset(w, &(*v).Presets[i148])
 	}
 	w.Count(len((*v).Layers), (*v).Layers == nil, 1024)
 	if w.Err() != nil {
 		return
 	}
-	for i137 := range (*v).Layers {
-		writeWorldvegetationLayer(w, &(*v).Layers[i137])
+	for i149 := range (*v).Layers {
+		writeWorldvegetationLayer(w, &(*v).Layers[i149])
 	}
 }
 func readWorldvegetationlegacyGeometryDocument(r *binwire.Reader, v *legacyGeometryDocument) {
 	(*v).Version = r.U16()
-	ni138, pi138 := r.Count(64, 65, 88)
+	ni150, pi150 := r.Count(64, 65, 88)
 	if r.Err() != nil {
 		return
 	}
-	if pi138 {
-		(*v).Presets = make([]legacyGeometryPreset, ni138)
+	if pi150 {
+		(*v).Presets = make([]legacyGeometryPreset, ni150)
 	}
-	for i138 := range (*v).Presets {
-		readWorldvegetationlegacyGeometryPreset(r, &(*v).Presets[i138])
+	for i150 := range (*v).Presets {
+		readWorldvegetationlegacyGeometryPreset(r, &(*v).Presets[i150])
 	}
-	ni139, pi139 := r.Count(1024, 24, 56)
+	ni151, pi151 := r.Count(1024, 24, 56)
 	if r.Err() != nil {
 		return
 	}
-	if pi139 {
-		(*v).Layers = make([]Layer, ni139)
+	if pi151 {
+		(*v).Layers = make([]Layer, ni151)
 	}
-	for i139 := range (*v).Layers {
-		readWorldvegetationLayer(r, &(*v).Layers[i139])
+	for i151 := range (*v).Layers {
+		readWorldvegetationLayer(r, &(*v).Layers[i151])
 	}
 }
 func scanWorldvegetationlegacyGeometryDocument(r *binwire.Reader) {
 	r.U16()
-	ni140, pi140 := r.Count(64, 65, 88)
+	ni152, pi152 := r.Count(64, 65, 88)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi140
-	for i140 := 0; i140 < ni140 && r.Err() == nil; i140++ {
+	_ = pi152
+	for i152 := 0; i152 < ni152 && r.Err() == nil; i152++ {
 		scanWorldvegetationlegacyGeometryPreset(r)
 	}
-	ni141, pi141 := r.Count(1024, 24, 56)
+	ni153, pi153 := r.Count(1024, 24, 56)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi141
-	for i141 := 0; i141 < ni141 && r.Err() == nil; i141++ {
+	_ = pi153
+	for i153 := 0; i153 < ni153 && r.Err() == nil; i153++ {
 		scanWorldvegetationLayer(r)
 	}
 }

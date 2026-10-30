@@ -10,7 +10,8 @@ import (
 	"github.com/karty-game/karty-sdk/format/worldlightmap"
 )
 
-// Plan grows connected chunks deterministically in authored sector order. A
+// Plan grows connected chunks deterministically. EnclosureAware prefers whole
+// inferred spaces; otherwise growth follows authored sector order. A
 // budget failure never lowers density. An oversized single sector is an error.
 // MaxEncodedBytes limits the mesh entry here; builders must also check the final
 // child module including compressed lightmaps against that exact byte budget.
@@ -39,7 +40,8 @@ func Plan(document world.Document, options Options) (PlanResult, error) {
 	if options.MaxSectors == 0 {
 		options.MaxSectors = world.MaxSectors
 	}
-	if options.MaxMeshBytes < 1 || options.MaxMeshBytes > 64*1024*1024 || options.MaxEncodedBytes < 1 ||
+	if math.IsNaN(options.MaxSpan) || math.IsInf(options.MaxSpan, 0) || options.MaxSpan < 0 ||
+		options.MaxMeshBytes < 1 || options.MaxMeshBytes > 64*1024*1024 || options.MaxEncodedBytes < 1 ||
 		options.MaxEncodedBytes > MaxEncodedBytes ||
 		options.MaxSectors < 1 ||
 		options.MaxSectors > world.MaxSectors {
@@ -57,10 +59,13 @@ func Plan(document world.Document, options Options) (PlanResult, error) {
 		}
 	}
 	result := PlanResult{SectorChunks: make([]int, len(document.Sectors))}
+	if options.EnclosureAware {
+		result.Enclosures = inferEnclosures(&document, options.SectorGroups)
+	}
 	for i := range result.SectorChunks {
 		result.SectorChunks[i] = -1
 	}
-	trial := func(sectors []int) (PlannedChunk, error) {
+	compileTrial := func(sectors []int) (PlannedChunk, error) {
 		if prepared != nil {
 			return prepared.trial(sectors, options)
 		}
@@ -75,10 +80,30 @@ func Plan(document world.Document, options Options) (PlanResult, error) {
 		if adaptive {
 			lightmapOptions.PageSize = 512
 		}
-		layout, compileErr := worldlightmap.CompileReceivers(document, lightmapOptions, sectors, solids)
+		compileLayout := func() (worldlightmap.Layout, error) {
+			if options.Selection != nil {
+				return worldlightmap.CompileSelectedReceivers(document, lightmapOptions, sectors, solids, *options.Selection)
+			}
+			return worldlightmap.CompileReceivers(document, lightmapOptions, sectors, solids)
+		}
+		maximumPage := options.Lightmap.PageSize
+		if maximumPage == 0 {
+			maximumPage = 1024
+		}
+		if options.Selection != nil {
+			lightmapOptions.PageSize = 32
+		}
+		layout, compileErr := compileLayout()
+		if options.Selection != nil {
+			for errors.Is(compileErr, worldlightmap.ErrPageCapacity) && lightmapOptions.PageSize < maximumPage {
+				lightmapOptions.PageSize *= 2
+				layout, compileErr = compileLayout()
+			}
+			adaptive = false
+		}
 		if adaptive && errors.Is(compileErr, worldlightmap.ErrPageCapacity) {
 			lightmapOptions.PageSize = 1024
-			layout, compileErr = worldlightmap.CompileReceivers(document, lightmapOptions, sectors, solids)
+			layout, compileErr = compileLayout()
 		}
 		if compileErr != nil {
 			return PlannedChunk{}, compileErr
@@ -117,50 +142,32 @@ func Plan(document world.Document, options Options) (PlanResult, error) {
 			LightmapBytes: lightmapBytes,
 		}, nil
 	}
+	trial := func(sectors []int) (PlannedChunk, error) {
+		chunk, trialErr := compileTrial(sectors)
+		if trialErr != nil {
+			return PlannedChunk{}, trialErr
+		}
+		if options.MaxSpan > 0 && (chunk.Bounds[3]-chunk.Bounds[0] > options.MaxSpan ||
+			chunk.Bounds[4]-chunk.Bounds[1] > options.MaxSpan) {
+			return PlannedChunk{}, fmt.Errorf(
+				"render geometry spans %g x %g metres (limit %g); subdivide source geometry or use spatial render chunks: %w",
+				chunk.Bounds[3]-chunk.Bounds[0],
+				chunk.Bounds[4]-chunk.Bounds[1],
+				options.MaxSpan,
+				ErrChunk,
+			)
+		}
+		return chunk, nil
+	}
 	for seed := range document.Sectors {
 		if result.SectorChunks[seed] >= 0 {
 			continue
 		}
-		sectors := []int{seed}
-		chunk, trialErr := trial(sectors)
+		chunk, trialErr := growPlannedChunk(&document, options, seed, result.SectorChunks, result.Enclosures, trial)
 		if trialErr != nil {
-			return PlanResult{}, fmt.Errorf("sector %q cannot fit one chunk: %w", document.Sectors[seed].ID, trialErr)
+			return PlanResult{}, trialErr
 		}
-		for len(sectors) < options.MaxSectors {
-			added := false
-			for candidate := range document.Sectors {
-				if options.SectorGroups != nil && options.SectorGroups[candidate] != options.SectorGroups[seed] {
-					continue
-				}
-				if result.SectorChunks[candidate] >= 0 {
-					continue
-				}
-				if _, included := slices.BinarySearch(sectors, candidate); included {
-					continue
-				}
-				adjacent := false
-				for _, sector := range sectors {
-					for edge, wall := range document.Sectors[sector].Walls {
-						adjacent = adjacent || int(wall.Portal) == candidate && ordinary(&document, sector, edge)
-					}
-				}
-				if !adjacent {
-					continue
-				}
-				proposal := slices.Clone(sectors)
-				proposal = append(proposal, candidate)
-				slices.Sort(proposal)
-				grown, growErr := trial(proposal)
-				if growErr != nil {
-					continue
-				}
-				sectors, chunk, added = proposal, grown, true
-				break
-			}
-			if !added {
-				break
-			}
-		}
+		sectors := chunk.Sectors
 		if prepared != nil {
 			chunk, trialErr = prepared.finish(chunk, &document)
 			if trialErr != nil {

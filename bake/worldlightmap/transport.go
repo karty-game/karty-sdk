@@ -9,6 +9,7 @@ import (
 )
 
 type scene struct {
+	fixedFill      *world.Lighting
 	surfaces       []worldlightmap.Surface
 	materials      []reflectance
 	accel          accelerator
@@ -42,6 +43,12 @@ func (s *scene) direct(p vec, chart worldlightmap.Chart, c *counters) [3]vec {
 	var result [3]vec
 	if s.environment != nil {
 		result = s.environmentSun(p, chart, c)
+	}
+	if s.fixedFill != nil {
+		for index, basis := range rnmBasis {
+			direction := add(add(scale(chart.Tangent, basis.X), scale(chart.Bitangent, basis.Y)), scale(chart.Normal, basis.Z))
+			result[index] = add(result[index], fixedFill(s.fixedFill, direction))
+		}
 	}
 	if len(s.lights) == 0 {
 		return result
@@ -152,6 +159,9 @@ func (s *scene) indirect(
 				break
 			}
 			n := s.surfaces[hit].Normal
+			if s.materials[hit].vegetation != nil && dot(n, d) >= 0 {
+				n = scale(n, -1)
+			}
 			if dot(n, d) >= 0 {
 				break
 			}

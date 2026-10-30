@@ -16,60 +16,60 @@ func writeWorldmaterialLayout(w *binwire.Writer, v *Layout) {
 	if w.Err() != nil {
 		return
 	}
-	for i97 := range (*v).Materials {
-		writeWorldmaterialRect(w, &(*v).Materials[i97])
+	for i109 := range (*v).Materials {
+		writeWorldmaterialRect(w, &(*v).Materials[i109])
 	}
 	w.Count(len((*v).Mips), (*v).Mips == nil, 8)
 	if w.Err() != nil {
 		return
 	}
-	for i98 := range (*v).Mips {
-		writeWorldmaterialMipLevel(w, &(*v).Mips[i98])
+	for i110 := range (*v).Mips {
+		writeWorldmaterialMipLevel(w, &(*v).Mips[i110])
 	}
 }
 func readWorldmaterialLayout(r *binwire.Reader, v *Layout) {
 	(*v).Schema = r.String(4096)
 	(*v).Width = r.I32()
 	(*v).Height = r.I32()
-	ni99, pi99 := r.Count(196, 29, 72)
+	ni111, pi111 := r.Count(196, 29, 72)
 	if r.Err() != nil {
 		return
 	}
-	if pi99 {
-		(*v).Materials = make([]Rect, ni99)
+	if pi111 {
+		(*v).Materials = make([]Rect, ni111)
 	}
-	for i99 := range (*v).Materials {
-		readWorldmaterialRect(r, &(*v).Materials[i99])
+	for i111 := range (*v).Materials {
+		readWorldmaterialRect(r, &(*v).Materials[i111])
 	}
-	ni100, pi100 := r.Count(8, 20, 40)
+	ni112, pi112 := r.Count(8, 20, 40)
 	if r.Err() != nil {
 		return
 	}
-	if pi100 {
-		(*v).Mips = make([]MipLevel, ni100)
+	if pi112 {
+		(*v).Mips = make([]MipLevel, ni112)
 	}
-	for i100 := range (*v).Mips {
-		readWorldmaterialMipLevel(r, &(*v).Mips[i100])
+	for i112 := range (*v).Mips {
+		readWorldmaterialMipLevel(r, &(*v).Mips[i112])
 	}
 }
 func scanWorldmaterialLayout(r *binwire.Reader) {
 	r.SkipString(4096)
 	r.I32()
 	r.I32()
-	ni101, pi101 := r.Count(196, 29, 72)
+	ni113, pi113 := r.Count(196, 29, 72)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi101
-	for i101 := 0; i101 < ni101 && r.Err() == nil; i101++ {
+	_ = pi113
+	for i113 := 0; i113 < ni113 && r.Err() == nil; i113++ {
 		scanWorldmaterialRect(r)
 	}
-	ni102, pi102 := r.Count(8, 20, 40)
+	ni114, pi114 := r.Count(8, 20, 40)
 	if r.Err() != nil {
 		return
 	}
-	_ = pi102
-	for i102 := 0; i102 < ni102 && r.Err() == nil; i102++ {
+	_ = pi114
+	for i114 := 0; i114 < ni114 && r.Err() == nil; i114++ {
 		scanWorldmaterialMipLevel(r)
 	}
 }

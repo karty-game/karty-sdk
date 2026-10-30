@@ -7,6 +7,7 @@ This Go module builds independently of engine source and credentials.
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
 | [`format/cartridge`](format/cartridge/README.md)             | Game manifests, embedded assets, Wasm sections and streaming media catalogs     |
 | [`format/level`](format/level/README.md)                     | Versioned level envelopes and modules                                           |
+| [`format/worldreflection`](format/worldreflection/README.md) | Saved cubemaps, projection volumes and explicit receiver bindings               |
 | [`format/worldchunk`](format/worldchunk/README.md)           | Independent render chunks, offline meshes and conservative streaming visibility |
 | [`format/actions`](format/actions/README.md)                 | Authored sequences, action literals and level-scoped actor references           |
 | [`format/world`](format/world/README.md)                     | Canonical compiled convex-sector worlds, lighting, mapping and static solids    |

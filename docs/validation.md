@@ -185,3 +185,61 @@ type's own comment changed no semantics. The same lint command then passed with
 zero issues. This includes the untracked candidate sources; no exclusions or
 assertions were weakened. SDK source was frozen after these checks for isolated
 consumer export. GPU execution and mobile performance remain separate gates.
+
+## Compiled character resources — 2026-10-30
+
+The new `format/character` owns bounded KCHR v1 models, shared named animation
+banks, canonical binary encoding and independent decoded storage. The runtime
+capability and cartridge feature registries accept `world/characters@1`, with a
+required `world/sectors@1` cartridge dependency. SDK inputs remain an unreleased
+candidate; these checks do not establish public module availability.
+
+After checking the writable warmed `/tmp/karty-engine-go-cache`, serialized
+commands from the SDK root used Go 1.27.3, the pinned SIMD experiment, and two
+workers:
+
+```sh
+MISE_ACTIVATE_AGGRESSIVE=1 GOTOOLCHAIN=go1.27.3 GOCACHE=/tmp/karty-engine-go-cache GOMAXPROCS=2 GOWORK=off mise run test
+MISE_ACTIVATE_AGGRESSIVE=1 GOTOOLCHAIN=go1.27.3 GOCACHE=/tmp/karty-engine-go-cache GOMAXPROCS=2 GOWORK=off mise run build
+```
+
+Both passed; the complete test task took 27.95 seconds, including the uncached
+source-policy check. Earlier focused `mise exec -- go test -timeout=9s
+./format/asset ./format/cartridge ./format/character` passed with the same Go,
+cache and worker settings. Focused lint of those three packages passed with zero
+issues. Its initial package load selected older Nix Go and failed with `unknown
+GOEXPERIMENT simd`; selecting the pinned compiler after mise fixed package
+loading:
+
+```sh
+mise exec -- env PATH=/home/kef/.local/share/mise/installs/go/1.27.3/bin:/usr/bin:/bin \
+  GOROOT=/home/kef/.local/share/mise/installs/go/1.27.3 GOTOOLCHAIN=go1.27.3 \
+  GOCACHE=/tmp/karty-engine-go-cache GOLANGCI_LINT_CACHE=/tmp/karty-engine-lint-cache \
+  GOMAXPROCS=2 GOWORK=off \
+  /home/kef/.local/share/mise/installs/golangci-lint/2.15.0/golangci-lint-2.15.0-linux-amd64/golangci-lint \
+  run ./format/asset ./format/cartridge ./format/character
+```
+
+With `GOTOOLCHAIN=go1.27.3 GOCACHE=/tmp/karty-engine-go-cache GOMAXPROCS=2
+GOWORK=off`, `mise exec -- go test -timeout=9s ./format/character -run='^$'
+-fuzz=FuzzDecode -fuzztime=5s` passed 231,693 executions and found 29 additional
+interesting inputs. The SDK fuzz task now includes this target.
+
+Coverage includes canonical round trips, complete ownership, every truncated
+prefix, trailing bytes, malformed counts, cycles and forward parent references,
+missing or duplicate animation targets, invalid keys and quaternions, palette
+weights and indices, singular/projective inverse binds, and malformed textures.
+The largest legal 2,048-square RGBA QOI stream fits its per-image bound while
+retaining the 64 MiB document cap. Conservative bind/animation hierarchy
+envelopes reject accumulated scale overflow and singular scale transitions.
+
+This is native CPU validation and module compilation. Engine pose sampling,
+actual WASM execution, browser/native graphics and physical-device frame rate
+are separate consumer checks. No deadline or existing assertion was extended.
+
+The final character audit added rejection of non-sRGB QOI albedo, matching the
+renderer color-space contract. After that guard and its malformed-input
+regression, `MISE_ACTIVATE_AGGRESSIVE=1 GOWORK=off GOTOOLCHAIN=go1.27.3
+GOCACHE=/tmp/karty-engine-go-cache GOMAXPROCS=2 mise exec -- go test -count=1
+-timeout=9s ./format/character` passed in 0.061 s. The source was frozen again
+before the final isolated consumer archive export.

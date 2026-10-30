@@ -48,6 +48,7 @@ const (
 	CapabilityWorldParticlesV1                    Capability = "world/particles@1"
 	CapabilityWorldParticlesV2                    Capability = "world/particles@2"
 	CapabilityWorldAnimationsV1                   Capability = "world/animations@1"
+	CapabilityWorldCharactersV1                   Capability = "world/characters@1"
 	CapabilityWorldFluidsV1                       Capability = "world/fluids@1"
 	CapabilityWorldEmissionV1                     Capability = "world/emission@1"
 	CapabilityWorldEnvironmentV1                  Capability = "world/environment@1"
@@ -119,6 +120,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldMaterialReflectanceV1,
 			CapabilityWorldSolidRenderersV1, CapabilityWorldStaticSolidsV1,
 			CapabilityWorldAnimationsV1,
+			CapabilityWorldCharactersV1,
 			CapabilityWorldVegetationV1,
 			CapabilityWorldVegetationV2,
 			CapabilityWorldVegetationV3,

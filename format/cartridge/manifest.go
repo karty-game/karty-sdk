@@ -35,6 +35,7 @@ const (
 	FeatureWorldParticlesV1                    = "world/particles@1"
 	FeatureWorldParticlesV2                    = "world/particles@2"
 	FeatureWorldAnimationsV1                   = "world/animations@1"
+	FeatureWorldCharactersV1                   = "world/characters@1"
 	FeatureWorldFluidsV1                       = "world/fluids@1"
 	FeatureWorldEmissionV1                     = "world/emission@1"
 	FeatureWorldEnvironmentV1                  = "world/environment@1"
@@ -370,7 +371,7 @@ func validManifestFeatures(features []string) bool {
 			(!slices.Contains(features, FeatureWorldMaterialAtlasV1) && !slices.Contains(features, FeatureWorldMaterialAtlasV2))) {
 		return false
 	}
-	if (slices.Contains(features, FeatureWorldFluidsV1) || slices.Contains(features, FeatureWorldSolidRenderersV1) || slices.Contains(features, FeatureWorldVegetationV1) || slices.Contains(features, FeatureWorldVegetationV2) || slices.Contains(features, FeatureWorldVegetationV3) || slices.Contains(features, FeatureWorldVegetationV4) || slices.Contains(features, FeatureWorldVegetationV5) || slices.Contains(features, FeatureWorldParticlesV1) || slices.Contains(features, FeatureWorldParticlesV2) || slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
+	if (slices.Contains(features, FeatureWorldCharactersV1) || slices.Contains(features, FeatureWorldFluidsV1) || slices.Contains(features, FeatureWorldSolidRenderersV1) || slices.Contains(features, FeatureWorldVegetationV1) || slices.Contains(features, FeatureWorldVegetationV2) || slices.Contains(features, FeatureWorldVegetationV3) || slices.Contains(features, FeatureWorldVegetationV4) || slices.Contains(features, FeatureWorldVegetationV5) || slices.Contains(features, FeatureWorldParticlesV1) || slices.Contains(features, FeatureWorldParticlesV2) || slices.Contains(features, FeatureWorldAnimationsV1) || slices.Contains(features, FeatureWorldEmissionV1)) &&
 		!slices.Contains(features, FeatureWorldSectorsV1) {
 		return false
 	}
@@ -440,6 +441,7 @@ func validManifestFeature(feature string) bool {
 		FeatureWorldEnvironmentBackdropV1,
 		FeatureWorldEnvironmentSkylightV1,
 		FeatureWorldSkyV1,
+		FeatureWorldCharactersV1,
 		FeatureWorldParticlesV1,
 		FeatureWorldParticlesV2,
 		FeatureWorldVegetationV1,

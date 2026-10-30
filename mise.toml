@@ -92,6 +92,7 @@ run = [
   "bash scripts/go-fuzz ./format/level FuzzEnvelopeDecode",
   "bash scripts/go-fuzz ./format/level FuzzMetadataDecode",
   "bash scripts/go-fuzz ./format/actions FuzzBinaryActionsDecode",
+  "bash scripts/go-fuzz ./format/character FuzzDecode",
   "bash scripts/go-fuzz ./format/world FuzzDecode",
   "bash scripts/go-fuzz ./format/worldparticles FuzzParticleDecode",
   "bash scripts/go-fuzz ./format/worldvegetation FuzzVegetationDecode",

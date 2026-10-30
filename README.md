@@ -12,6 +12,7 @@ This Go module builds independently of engine source and credentials.
 | [`format/worldchunk`](format/worldchunk/README.md)           | Independent render chunks, offline meshes and conservative streaming visibility |
 | [`format/actions`](format/actions/README.md)                 | Authored sequences, action literals and level-scoped actor references           |
 | [`format/world`](format/world/README.md)                     | Canonical compiled convex-sector worlds, lighting, mapping and static solids    |
+| [`format/worldterrain`](format/worldterrain/README.md)       | Compiled heightfields, terrain ownership and resident mesh bounds               |
 | [`format/worldvegetation`](format/worldvegetation/README.md) | Seeded per-sector vegetation layers, cutout presets and visibility bounds       |
 | [`format/worldparticles`](format/worldparticles/README.md)   | Bounded GPU sprite particle presets, schedules and emitter motion envelopes     |
 | [`format/worldsky`](format/worldsky/README.md)               | Project-owned sky textures and bounded presentation settings                    |
@@ -50,15 +51,35 @@ Go module tags (`vVERSION`) pin immutable public package dependencies. Engine
 artifact tags (`sdk-vVERSION`) version downloadable SDK bundles and hosts
 independently. Capability declarations govern host support separately from
 these release identifiers.
-Compiled worlds support versions 1–3, and authoring documents support versions
-1–20. New optional features retain their explicit version gates and canonical
-encoding rules. Incompatible formats or producer behavior need a versioned
+Compiled world documents support versions 1–3, independently of their KWR1–KWR4
+binary envelopes; authoring documents support versions 1–20. New optional
+features retain their explicit version gates and canonical encoding rules. Incompatible formats or producer behavior need a versioned
 decision and compatibility coverage.
 
 The private engine workflow publishes SDK bundles, native hosts, browser Wasm,
 checksums and signatures here. This repository does not build private engine
 source. Game developers obtain these artifacts through
 [Karty](https://github.com/karty-game/karty), without engine access or credentials.
+
+## Source and resource versions
+
+Source versions retain the contracts of earlier documents. Optional resources
+use their own capability and binary versions; see each package's contract.
+
+| Source | Addition                                     | Resource capability               |
+| ------ | -------------------------------------------- | --------------------------------- |
+| 13     | Per-room vegetation layers                   | `world/vegetation@1` (`KWV1`)     |
+| 14     | Built-in shrub geometry                      | `world/vegetation@2` (`KWV2`)     |
+| 15     | Optional vegetation normal textures          | `world/vegetation@3` (`KWV3`)     |
+| 16     | Tree geometry                                | `world/vegetation@4` (`KWV4`)     |
+| 17     | Explicit liquid volumes                      | `world/fluids@1` (`KWR3`)         |
+| 18     | Authored environment lighting and sky colors | `world/environment@2` (`KWR4`)    |
+| 19     | Compact rectangular rooms                    | Existing compiled world contracts |
+| 20     | Palm geometry                                | `world/vegetation@5` (`KWV5`)     |
+
+Compiled terrain is an optional `world/terrain@1` sidecar, independent of the
+source document version. Its heightfield, local material palettes, normal maps
+and sector floor ownership are defined in [the terrain contract](format/worldterrain/README.md).
 
 ## Licensing
 
@@ -68,24 +89,3 @@ in [`codec/qoi`](codec/qoi/NOTICE.md) and [`codec/qoa`](codec/qoa/NOTICE.md).
 Official runtime binaries use the separate
 [Karty Runtime License](RUNTIME_LICENSE.md), which allows distribution with free
 and commercial games; private engine implementation source remains proprietary.
-
-Source 14 adds built-in shrub geometry through vegetation version 2 (`KWV2`,
-`world/vegetation@2`); Source 13 / KWV1 remain supported.
-
-Source 15 adds optional `normal_texture` vegetation resources through version 3
-(`KWV3`, `world/vegetation@3`); earlier vegetation versions remain supported.
-
-Source 16 adds `geometry: tree` through vegetation version 4 (`KWV4`,
-`world/vegetation@4`), retaining previous vegetation versions.
-
-Source 17 adds explicit liquid volumes (`world/fluids@1`, KWR3), retaining KWR1/KWR2 worlds without fluid definitions.
-
-Source 18 replaces prototype environment styles with explicit authored lighting and optional sky colors (`world/environment@2`, KWR4). Released environment inputs remain readable.
-
-Compiled terrain is an optional `world/terrain@1` sidecar. Its immutable
-heightfield, local four-material palettes, normal maps and sector floor ownership
-are defined in [the terrain contract](format/worldterrain/README.md). Source
-version 18 remains unchanged.
-
-Source 20 adds `geometry: palm` through vegetation version 5 (`KWV5`,
-`world/vegetation@5`), retaining all previous source and vegetation versions.

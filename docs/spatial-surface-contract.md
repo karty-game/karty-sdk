@@ -41,8 +41,8 @@ visual interpolation quality at a selected step and material frequency.
 
 ## Exact uniform receiver coefficients
 
-The current candidate adds optional capability
-`world/fixed-compact-lighting@1`, requiring `world/spatial-chunks@2`,
+Optional capability
+`world/fixed-compact-lighting@1` requires `world/spatial-chunks@2`,
 `world/fixed-lighting@1` and `world/chunk-ready@1`. A completed spatial child may
 replace its whole receiver atlas with fixed manifest schema
 `karty.world-fixed-lighting@2` (`KFL2`). This is a representation of the same
@@ -76,18 +76,18 @@ ordinary/compact parity and resident byte accounting separately. This first
 representation change reduces saved/runtime data; it does not claim fewer
 offline rays, because the complete bake remains the reference classification.
 
-This decision belongs to the unreleased public Go module candidate `v0.0.19`
-and engine SDK bundle candidate `0.0.20`; their independent versions are not
-advanced by this addition. Published dependencies and artifacts remain immutable.
+This decision was introduced for public Go module `v0.0.19` and engine SDK
+bundle `0.0.20`. These are independent release identifiers; published
+dependencies and artifacts remain immutable.
 
 ## Loading units independent of geometry cells
 
-The current candidate advances the unreleased spatial capability to
+The decision advances the spatial capability to
 `world/spatial-chunks@2`: KCC5 catalog schema 4, KLM3 selected layout schema 3 /
 algorithm 4, KCM3 selected mesh schema 3, and KLS2 selector payload. These replace
 the prior unreleased candidate envelopes; released non-selected formats are
-unchanged. The same public module `v0.0.19` and engine bundle `0.0.20` candidates
-contain this revision. No published archive is modified.
+unchanged. This revision belongs to the same public module `v0.0.19` and engine
+bundle `0.0.20` implementation scope. No published archive is modified.
 
 A loading unit may retain up to 64 original geometry cells, each with an exact
 XY clip and original subdivision cap. Their rectangles must cover the loading

@@ -1,5 +1,24 @@
 # Validation
 
+## Current state
+
+The format-module candidate is **v0.0.20**. Character resources and the current
+lighting/streaming formats are maintained contracts, not private experiments.
+Public module availability and exact-commit CI remain separate release gates.
+
+Use the pinned tasks from the repository root. The latest recorded complete
+checks below passed native tests/build/lint, race detection, SIMD fallback,
+actual Linux 386 tests, actual Go/Wasm execution and fuzz exploration. Unit,
+race, fallback, 386 and Wasm workloads execute once with `-count=1`, Go's standard
+ten-minute hang watchdog and fifteen-minute CI job watchdogs. The JavaScript
+runtime uses `GOMAXPROCS=1`; native checks use the documented worker settings.
+No automatic retry or package batching is part of this policy.
+
+The dated records retain the commands and initial failures observed at the time.
+Older nine-second command examples describe historical runs, not the current
+execution policy. Documentation/tooling cleanup preserves production Go source,
+format versions, fixtures, assertions and allocation bounds.
+
 ## Fixed chunk lighting candidate, 2026-10-23
 
 - `GOCACHE=/tmp/karty-engine-go-cache mise exec -- go test -timeout=9s ./bake/worldlightmap ./format/worldlightmap ./format/worldchunk ./format/worldterrain ./format/cartridge -run '^TestFixed' -count=1` passed. Covers combined sun/lamp transport, deterministic workers, direct/ambient accounting, bounded KFL1 admission, KCC3 reservations and terrain coefficients/identity.
@@ -243,3 +262,51 @@ regression, `MISE_ACTIVATE_AGGRESSIVE=1 GOWORK=off GOTOOLCHAIN=go1.27.3
 GOCACHE=/tmp/karty-engine-go-cache GOMAXPROCS=2 mise exec -- go test -count=1
 -timeout=9s ./format/character` passed in 0.061 s. The source was frozen again
 before the final isolated consumer archive export.
+
+## SDK CI execution policy — 2026-10-30 JST
+
+[Checks run 41031598097](https://github.com/karty-game/karty-sdk/actions/runs/41031598097)
+failed on main commit `2aad1ed75ff2a1f2395cbe8ceedce20a71c09827` in
+`mise run test-race`. Formatting, lint, ordinary tests, build, fuzz and Wasm
+passed. The race log reports a nine-second package timeout in
+`bake/worldlightmap`, while `TestAbsorbingSurfacesEndIndirectPaths` had run for
+only one second. It contains no data-race report. The package's combined
+instrumented workload exhausted the custom aggregate timer.
+
+The SDK tasks now use Go's standard ten-minute hang protection and explicit
+fifteen-minute GitHub job watchdogs. Custom nine-second cutoffs are removed
+from unit, race, SIMD fallback, native 386, Wasm, benchmark and fuzz launchers.
+Race and 386 tasks execute complete packages, with the former producer/chunk
+skip lists and separate invocations removed. Tests execute once using
+`-count=1`; there are no automatic retries. Test assertions, fixture workloads,
+race instrumentation and allocation/resource bounds are unchanged. Fuzzing
+retains five seconds of actual exploration per target and its missing-target
+check. An initial eight-test batching patch was discarded because it retained
+the same inappropriate timing policy.
+
+With the writable warmed `GOCACHE=/tmp/karty-engine-go-cache`, Go 1.27.3,
+`GOEXPERIMENT=simd`, `MISE_ACTIVATE_AGGRESSIVE=1`, `GOWORK=off` and native
+`GOMAXPROCS=2`, from the SDK root:
+
+- `mise run test-race` passed the complete suite in one invocation. The lightmap
+  baker took 5.184 s; the complete world-chunk package took 10.655 s and passed
+  every assertion. The latter is legitimate work that cannot fit the former
+  nine-second package policy.
+- `mise run check` passed formatting, lint, the uncached native suite and build.
+- `mise run test-simd-emulated` passed, including the complete baker workload.
+- `mise run test-32` passed actual native Linux 386 execution, with syscall access
+  outside the restricted sandbox.
+- `mise run test-wasm` passed actual execution using the official Go runner and
+  pinned Node. The task pins `GOMAXPROCS=1` for the single-threaded JavaScript/Wasm
+  runtime. The first local invocation inherited the native two-worker setting
+  and failed immediately with `newosproc: not implemented`; explicitly selecting
+  the supported runtime setting fixes that environmental failure deterministically.
+
+No production Go source or wire formats changed. Local checks do not establish
+success of a new pushed-commit GitHub run. Nothing was committed or published.
+
+The revised fuzz launcher was exercised with `mise exec -- bash scripts/go-fuzz
+./format/character FuzzDecode`: 264,189 executions passed with the existing
+five-second exploration budget (6.021 s including startup/cleanup). Final
+`mise run check-fmt` and `git diff --check` also passed. No tests or assertions
+were deleted, and the temporary batching script is absent from the final patch.

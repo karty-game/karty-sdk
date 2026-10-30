@@ -109,17 +109,25 @@ To investigate a target further, run the corresponding `go test -fuzz`
 command through `mise exec` with a longer budget.
 
 `test-race` and `test-32` run one package at a time to bound CPU contention.
-Dense baker producer compatibility fixtures run separately with the same
-nine-second timeout. Race tests also isolate the large-world mesh entry fixture
-from the other chunk tests so they do not share one package deadline. Every
-race invocation retains race detection; native 386 tests also exercise Go's
-SIMD fallback.
+The unit, race, SIMD fallback, 32-bit and Wasm tasks run their complete
+workloads once using `-count=1`; compilation caches remain reusable. Race detection, dense producer fixtures and
+large-world mesh cases run together in their owning package. Native 386 tests
+also exercise Go's SIMD fallback.
+
+Tests use Go's standard ten-minute hang watchdog. Each GitHub Actions job also
+has a fifteen-minute watchdog covering setup and the complete job. Runner speed
+does not impose a custom package performance threshold. Timing and allocation
+comparisons belong in `mise run bench`; correctness tests retain their result,
+ownership, bounds and allocation assertions.
 
 `test-wasm` executes Go Wasm tests using the official runner and pinned Node,
 one package at a time to bound memory use. Its launcher passes a minimal
 environment to stay within Go's 8 KiB argument/environment limit, preserving
 temporary paths and the `GODEBUG` and `GOMAXPROCS` controls. It does not exercise
 browser graphics.
+The task pins `GOMAXPROCS=1` because Go's JavaScript/Wasm runtime cannot create
+additional operating-system threads; inherited native worker settings must not
+make the Wasm runtime fail during startup.
 
 Runtime format/codec packages keep their Go-only dependencies.
 

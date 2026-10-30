@@ -1,6 +1,6 @@
 # Enclosure planning policy v1
 
-Accepted 2026-10-24 for the unpublished SDK module v0.0.19 candidate.
+Accepted 2026-10-24 for SDK module v0.0.19.
 
 `Options.EnclosureAware` is an additive build-policy opt-in. Its zero value
 preserves existing planning; the CLI enables it by default and changes its

@@ -22,11 +22,11 @@ test = "mise run test"
 
 [tasks.test]
 depends = ["check-source-policy"]
-run = "go test -timeout=9s ./..."
+run = "go test -count=1 ./..."
 
 [tasks.check-source-policy]
 description = "Check the production source size limit across every platform and build tag without test caching"
-run = "go test -count=1 -timeout=9s ./internal/sourcepolicy"
+run = "go test -count=1 ./internal/sourcepolicy"
 
 [tasks.build]
 run = "go build ./..."
@@ -49,32 +49,23 @@ run = "golangci-lint run ./..."
 
 [tasks.test-race]
 # Keep race-instrumented atlas validation from competing with baker tests.
-# Give dense producer and large-world fixtures their own nine-second budgets.
-run = [
-  "go test -p=1 -timeout=9s -race ./... -skip='^(TestProducerCompatibility|TestMeshOnlyWorldMayExceedOneMeshEntry)$'",
-  "go test -timeout=9s -race ./bake/worldlightmap -run='^TestProducerCompatibility$'",
-  "go test -timeout=9s -race ./format/worldchunk -run='^TestMeshOnlyWorldMayExceedOneMeshEntry$'",
-]
+run = "go test -p=1 -count=1 -race ./..."
 
 [tasks.test-simd-emulated]
 env = { GODEBUG = "simd=0" }
-run = "go test -timeout=9s ./bake/worldlightmap"
+run = "go test -count=1 ./bake/worldlightmap"
 
 [tasks.test-32]
 env = { GOARCH = "386", CGO_ENABLED = "0" }
-# The 386 SIMD fallback also needs an isolated producer compatibility budget.
-run = [
-  "go test -p=1 -timeout=9s ./... -skip='^TestProducerCompatibility$'",
-  "go test -timeout=9s ./bake/worldlightmap -run='^TestProducerCompatibility$'",
-]
+run = "go test -p=1 -count=1 ./..."
 
 # Execute packages one at a time to bound Node processes and Wasm memory use.
 [tasks.test-wasm]
-env = { GOOS = "js", GOARCH = "wasm" }
-run = 'go test -p=1 -timeout=9s -exec="$PWD/scripts/go-wasm-exec" ./...'
+env = { GOOS = "js", GOARCH = "wasm", GOMAXPROCS = "1" }
+run = 'go test -p=1 -count=1 -exec="$PWD/scripts/go-wasm-exec" ./...'
 
 [tasks.bench]
-run = "go test -timeout=9s ./codec/... ./format/worldmaterial ./format/worldlightmap ./bake/worldlightmap -run=^$ -bench=. -benchmem"
+run = "go test ./codec/... ./format/worldmaterial ./format/worldlightmap ./bake/worldlightmap -run=^$ -bench=. -benchmem"
 
 # Each target gets a bounded exploration budget in addition to ordinary seed
 # coverage. Cap workers to keep malformed-input memory use predictable in CI.
@@ -113,9 +104,3 @@ run = "hk install --mise"
 
 [tasks.generate-world]
 run = "go run ./internal/codegen/binary ."
-
-[tasks.fmt-fluids]
-run = [
-  "golangci-lint fmt format/world/fluids*.go format/world/codec.go format/world/types.go format/world/validate.go format/worldsource/fluids.go format/worldsource/types.go format/worldsource/validate.go format/cartridge/fluids_test.go format/cartridge/manifest.go format/asset/contract.go format/worldlightmap/fluids_test.go format/worldlightmap/offline.go format/worldlightmap/environment_variants.go internal/codegen/binary/main.go",
-  "prettier --write format/world/README.md",
-]

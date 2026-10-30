@@ -12,10 +12,10 @@ pattern="^${target}$"
 
 # go test -fuzz succeeds when its pattern matches nothing. Check the compiled
 # package's target list first so renames cannot silently remove CI exploration.
-listed="$(go test -timeout=9s -list="$pattern" "$package")"
+listed="$(go test -list="$pattern" "$package")"
 if ! grep -Fxq -- "$target" <<<"$listed"; then
   echo "fuzz target $target is missing from $package" >&2
   exit 1
 fi
 
-exec go test -timeout=9s "$package" -run='^$' -fuzz="$pattern" -fuzztime=5s -parallel=2
+exec go test "$package" -run='^$' -fuzz="$pattern" -fuzztime=5s -parallel=2

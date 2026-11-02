@@ -35,6 +35,7 @@ const (
 	CapabilityWorldTerrainV1                      Capability = "world/terrain@1"
 	CapabilityWorldLightmapsV1                    Capability = "world/lightmaps@1"
 	CapabilityWorldReflectionCubemapsV1           Capability = "world/reflection-cubemaps@1"
+	CapabilityWorldReflectionGPUV1                Capability = "world/reflection-gpu@1"
 	CapabilityWorldFixedLightingV1                Capability = "world/fixed-lighting@1"
 	CapabilityWorldFixedCompactLightingV1         Capability = "world/fixed-compact-lighting@1"
 	CapabilityWorldLightmapsPrebakedV1            Capability = "world/lightmaps-prebaked@1"
@@ -62,6 +63,10 @@ const (
 	CapabilityWorldMaterialAtlasV2                Capability = "world/material-atlas@2"
 	CapabilityWorldMaterialLayersV1               Capability = "world/material-layers@1"
 	CapabilityWorldMaterialReflectanceV1          Capability = "world/material-reflectance@1"
+	CapabilityWorldMaterialSSBumpV1               Capability = "world/material-ssbump@1"
+	CapabilityWorldMaterialGPUV1                  Capability = "world/material-gpu@1"
+	CapabilityWorldGPUChunksV1                    Capability = "world/gpu-chunks@1"
+	CapabilityWorldGPUChunksV2                    Capability = "world/gpu-chunks@2"
 )
 
 const (
@@ -111,6 +116,7 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldFixedLightingV1,
 			CapabilityWorldFixedCompactLightingV1,
 			CapabilityWorldReflectionCubemapsV1,
+			CapabilityWorldReflectionGPUV1,
 			CapabilityWorldLightmapsPrebakedV1,
 			CapabilityWorldLightmapsEnvironmentVariantsV1,
 			CapabilityWorldMaterialAtlasV1,
@@ -118,6 +124,9 @@ func (capabilities Capabilities) Validate() error {
 			CapabilityWorldMaterialLayersV1,
 			CapabilityWorldMaterialMappingV1,
 			CapabilityWorldMaterialReflectanceV1,
+			CapabilityWorldMaterialSSBumpV1,
+			CapabilityWorldMaterialGPUV1,
+			CapabilityWorldGPUChunksV1, CapabilityWorldGPUChunksV2,
 			CapabilityWorldSolidRenderersV1, CapabilityWorldStaticSolidsV1,
 			CapabilityWorldAnimationsV1,
 			CapabilityWorldCharactersV1,

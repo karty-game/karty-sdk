@@ -14,6 +14,7 @@ import (
 const (
 	Schema           = "karty.world-chunks@1"
 	FixedSchema      = "karty.world-chunks@2"
+	PhysicalSchema   = "karty.world-chunks@5"
 	MeshSchema       = "karty.world-chunk-mesh@1"
 	Feature          = cartridge.FeatureWorldChunksV1
 	CatalogEntryName = "@world/chunks/catalog"

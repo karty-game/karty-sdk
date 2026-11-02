@@ -36,7 +36,7 @@ func validateCatalogBakedLights(catalog *Catalog, document *world.Document) erro
 		if !indexes(chunk.Sectors, len(document.Sectors), true) {
 			return ErrChunk
 		}
-		if chunk.LightmapBytes == 0 {
+		if chunk.LightmapBytes == 0 && (catalog.Schema != PhysicalSchema || chunk.LightingBytes == 0) {
 			complete[components[chunk.Sectors[0]]] = false
 		}
 	}
@@ -74,7 +74,7 @@ func ValidateBakedSelection(catalog *Catalog, chunkID int, document *world.Docum
 		return ErrChunk
 	}
 	chunk, _ := catalog.StreamChunk(chunkID)
-	if chunk.LightmapBytes == 0 && (catalog.Schema != SpatialSchema || chunk.LightingBytes == 0) {
+	if chunk.LightmapBytes == 0 && ((catalog.Schema != SpatialSchema && catalog.Schema != PhysicalSchema) || chunk.LightingBytes == 0) {
 		if layout != nil {
 			return ErrChunk
 		}
@@ -92,7 +92,9 @@ func ValidateBakedSelection(catalog *Catalog, chunkID int, document *world.Docum
 	if err := worldlightmap.Validate(layout, document); err != nil {
 		return err
 	}
-	if layout.RuntimeBake == nil && (catalog.Schema == FixedSchema || catalog.Schema == SpatialSchema) && len(catalog.BakedLights) == 0 {
+	if layout.RuntimeBake == nil &&
+		(catalog.Schema == FixedSchema || catalog.Schema == SpatialSchema || catalog.Schema == PhysicalSchema) &&
+		len(catalog.BakedLights) == 0 {
 		return nil
 	}
 	if layout.RuntimeBake == nil || layout.RuntimeBake.Encoding != worldlightmap.DirectRNMEncoding {

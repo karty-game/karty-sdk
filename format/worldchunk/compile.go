@@ -14,10 +14,14 @@ func GeometryDigest(document *world.Document) (string, error) {
 	return worldlightmap.GeometryDigest(document)
 }
 
-// CompileMesh triangulates immutable authored receiver polygons offline. Every
-// boundary vertex, including collinear junctions, gets its own triangle edge.
-// The runtime reads final arrays and never constructs or tessellates a face.
-func CompileMesh(document world.Document, sectors, solids []int, layout worldlightmap.Layout) (Mesh, error) {
+// compileMesh shares the existing offline geometry path between full receivers
+// and explicit geometry-only cell selections.
+func compileMesh(
+	document world.Document,
+	sectors, solids []int,
+	layout worldlightmap.Layout,
+	selection *worldlightmap.SurfaceSelection,
+) (Mesh, error) {
 	if err := world.Validate(&document); err != nil {
 		return Mesh{}, err
 	}
@@ -31,6 +35,7 @@ func CompileMesh(document world.Document, sectors, solids []int, layout worldlig
 			return Mesh{}, err
 		}
 		layout = worldlightmap.Layout{GeometrySHA256: digest, Receivers: &worldlightmap.ReceiverSelection{Sectors: sectors, Solids: solids}}
+		layout.Selection = selection
 		surfaces, err := worldlightmap.Surfaces(&document)
 		if err != nil {
 			return Mesh{}, err

@@ -52,6 +52,7 @@ const (
 	FeatureWorldLightingV1                     = "world/lighting@1"
 	FeatureWorldLightmapsV1                    = "world/lightmaps@1"
 	FeatureWorldReflectionCubemapsV1           = "world/reflection-cubemaps@1"
+	FeatureWorldReflectionGPUV1                = "world/reflection-gpu@1"
 	FeatureWorldFixedLightingV1                = "world/fixed-lighting@1"
 	FeatureWorldFixedCompactLightingV1         = "world/fixed-compact-lighting@1"
 	FeatureWorldLightmapsPrebakedV1            = "world/lightmaps-prebaked@1"
@@ -63,6 +64,10 @@ const (
 	FeatureWorldMaterialAtlasV2                = "world/material-atlas@2"
 	FeatureWorldMaterialLayersV1               = "world/material-layers@1"
 	FeatureWorldMaterialReflectanceV1          = "world/material-reflectance@1"
+	FeatureWorldMaterialSSBumpV1               = "world/material-ssbump@1"
+	FeatureWorldMaterialGPUV1                  = "world/material-gpu@1"
+	FeatureWorldGPUChunksV1                    = "world/gpu-chunks@1"
+	FeatureWorldGPUChunksV2                    = "world/gpu-chunks@2"
 )
 
 var ErrManifest = errors.New("game cartridge manifest is invalid")
@@ -333,6 +338,15 @@ func validManifestString(value string) bool {
 }
 
 func validManifestFeatures(features []string) bool {
+	gpuChunks := slices.Contains(features, FeatureWorldGPUChunksV1) || slices.Contains(features, FeatureWorldGPUChunksV2)
+	if slices.Contains(features, FeatureWorldReflectionGPUV1) &&
+		(!slices.Contains(features, FeatureWorldReflectionCubemapsV1) || !gpuChunks) {
+		return false
+	}
+	if gpuChunks &&
+		(!slices.Contains(features, FeatureWorldMaterialGPUV1) || !slices.Contains(features, FeatureWorldSectorsV1)) {
+		return false
+	}
 	if slices.Contains(features, FeatureWorldFixedCompactLightingV1) &&
 		(!slices.Contains(features, FeatureWorldFixedLightingV1) || !slices.Contains(features, FeatureWorldSpatialChunksV2) ||
 			!slices.Contains(features, FeatureWorldChunkReadyV1)) {
@@ -366,7 +380,7 @@ func validManifestFeatures(features []string) bool {
 	if slices.Contains(features, FeatureWorldEnvironmentV1) && !slices.Contains(features, FeatureWorldSectorsV1) {
 		return false
 	}
-	if slices.Contains(features, FeatureWorldMaterialReflectanceV1) &&
+	if (slices.Contains(features, FeatureWorldMaterialReflectanceV1) || slices.Contains(features, FeatureWorldMaterialSSBumpV1) || slices.Contains(features, FeatureWorldMaterialGPUV1)) &&
 		(!slices.Contains(features, FeatureWorldSectorsV1) ||
 			(!slices.Contains(features, FeatureWorldMaterialAtlasV1) && !slices.Contains(features, FeatureWorldMaterialAtlasV2))) {
 		return false
@@ -395,7 +409,8 @@ func validManifestFeatures(features []string) bool {
 		return false
 	}
 	if slices.Contains(features, FeatureWorldReflectionCubemapsV1) &&
-		(!slices.Contains(features, FeatureWorldFixedLightingV1) || !slices.Contains(features, FeatureWorldChunkReadyV1)) {
+		(!slices.Contains(features, FeatureWorldFixedLightingV1) ||
+			(!slices.Contains(features, FeatureWorldChunkReadyV1) && !gpuChunks)) {
 		return false
 	}
 	previous := ""
@@ -411,7 +426,12 @@ func validManifestFeatures(features []string) bool {
 
 func validManifestFeature(feature string) bool {
 	switch feature {
-	case FeatureWorldReflectionCubemapsV1, FeatureWorldSpatialChunksV1, FeatureWorldSpatialChunksV2, FeatureWorldTerrainV1,
+	case FeatureWorldGPUChunksV1, FeatureWorldGPUChunksV2,
+		FeatureWorldReflectionGPUV1,
+		FeatureWorldReflectionCubemapsV1,
+		FeatureWorldSpatialChunksV1,
+		FeatureWorldSpatialChunksV2,
+		FeatureWorldTerrainV1,
 		FeatureWorldFixedCompactLightingV1,
 		FeatureWorldFixedLightingV1,
 		FeatureWorldSolidRenderersV1,
@@ -423,6 +443,8 @@ func validManifestFeature(feature string) bool {
 		FeatureTextureAtlasV1,
 		FeatureVideoMPEG1v1,
 		FeatureWorldMaterialReflectanceV1,
+		FeatureWorldMaterialSSBumpV1,
+		FeatureWorldMaterialGPUV1,
 		FeatureWorldSectorsV1,
 		FeatureWorldLightingV1,
 		FeatureWorldLightmapsV1,

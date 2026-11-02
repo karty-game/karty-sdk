@@ -16,10 +16,15 @@ func encodeCatalogBinary(catalog Catalog) ([]byte, error) {
 
 func encodeLegacyCatalog(catalog Catalog) ([]byte, error) {
 	recordBytes, magic, version := chunkRecordBytes, "KCC2", catalogBinaryVersion
-	if catalog.Schema == FixedSchema {
+	if catalog.Schema == FixedSchema || catalog.Schema == PhysicalSchema {
 		recordBytes += 16
 		magic = "KCC3"
 		version = 3
+	}
+	if catalog.Schema == PhysicalSchema {
+		recordBytes += 8
+		magic = "KCC6"
+		version = 6
 	}
 	sectors, solids, candidates := uint64(0), uint64(0), uint64(0)
 	for _, chunk := range catalog.Chunks {
@@ -57,9 +62,12 @@ func encodeLegacyCatalog(catalog Catalog) ([]byte, error) {
 		w.u64(c.Size)
 		w.u64(c.MeshBytes)
 		w.u64(c.LightmapBytes)
-		if catalog.Schema == FixedSchema {
+		if catalog.Schema == FixedSchema || catalog.Schema == PhysicalSchema {
 			w.u64(c.LightingBytes)
 			w.u64(c.TerrainBytes)
+		}
+		if catalog.Schema == PhysicalSchema {
+			w.u64(c.CollisionBytes)
 		}
 		for _, v := range c.Bounds {
 			w.f64(v)
@@ -103,6 +111,11 @@ func decodeLegacyCatalog(encoded []byte, catalog *Catalog) error {
 		recordBytes += 16
 		magic = "KCC3"
 		version = 3
+	}
+	if len(encoded) >= 4 && string(encoded[:4]) == "KCC6" {
+		recordBytes += 24
+		magic = "KCC6"
+		version = 6
 	}
 	if err := wireHeaderVersion(encoded, magic, catalogHeaderBytes, version); err != nil {
 		return err
@@ -166,8 +179,11 @@ func decodeLegacyCatalog(encoded []byte, catalog *Catalog) error {
 		previous = index
 	}
 	catalog.Schema = Schema
-	if magic == "KCC3" {
+	if magic == "KCC3" || magic == "KCC6" {
 		catalog.Schema = FixedSchema
+	}
+	if magic == "KCC6" {
+		catalog.Schema = PhysicalSchema
 	}
 	catalog.GeometrySHA256 = r.hash()
 	r.u64()
@@ -181,9 +197,12 @@ func decodeLegacyCatalog(encoded []byte, catalog *Catalog) error {
 		c.Size = r.u64()
 		c.MeshBytes = r.u64()
 		c.LightmapBytes = r.u64()
-		if magic == "KCC3" {
+		if magic == "KCC3" || magic == "KCC6" {
 			c.LightingBytes = r.u64()
 			c.TerrainBytes = r.u64()
+		}
+		if magic == "KCC6" {
+			c.CollisionBytes = r.u64()
 		}
 		for j := range c.Bounds {
 			c.Bounds[j] = r.f64()

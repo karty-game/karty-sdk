@@ -281,12 +281,7 @@ func solidOwners(document *world.Document, override ...[]int) ([]int, error) {
 			}
 			owners[solid] = sector
 		} else {
-			for sector, room := range document.Sectors {
-				if overlaps(item, room) {
-					owners[solid] = sector
-					break
-				}
-			}
+			owners[solid] = solidReceiverOwner(item, document.Sectors)
 		}
 		if owners[solid] < 0 {
 			return nil, fmt.Errorf("solid %q has no receiver space: %w", item.ID, ErrChunk)

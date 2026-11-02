@@ -108,6 +108,16 @@ Input remains bounded to 32 MiB. Hosts reserve the input plus the bounded
 canonical-module and data-construction buffers during this check. Legacy level
 execution retains its existing contract.
 
+`SolidOwners(document)` validates a compiled world and returns the first sector
+with positive convex footprint intersection for each authored static solid.
+Boundary-only contact or overlapping bounding boxes cannot displace a later
+sector containing actual area. If no sector has positive footprint intersection,
+exterior trims retain their first conservative bounds owner. Explicit
+`Options.SolidOwners` overrides retain their existing validation and selection.
+Offline planners reuse the exact default `Plan` ownership policy without
+inferring it from wider physical chunks or duplicating geometry rules. The query
+does not change the document, and it returns nil when the world has no solids.
+
 `Plan` grows connected groups deterministically in sector order through ordinary
 coincident reciprocal portals. It never grows across a transformed or one-way
 edge. Such an edge's endpoints can still share a chunk when an ordinary route
@@ -505,3 +515,13 @@ validated independently of the existing full-source ownership proof. The mesh
 compiler uses every original clip and subdivision policy before emitting the
 combined Ready buffers, so loading-unit size is independent of geometric detail.
 Ordinary released non-selected layouts, meshes and catalogs retain their bytes.
+
+## Physical-only GPU-cell ownership
+
+`PhysicalSchema` (`karty.world-chunks@5`, binary `KCC6`) is the separately gated
+physics/probe catalog used by `world/gpu-chunks@1`. It preserves complete sector
+and solid ownership and the existing portal candidate graph. Descriptors require
+positive bounded collision and fixed-lighting metadata reservations, with zero
+render mesh and lightmap image bytes. They cannot carry old spatial render
+children. Existing `KCC2`, `KCC3` and `KCC5` contracts retain their original rules.
+The independently resident render cells live in `format/worldgpuchunk`.

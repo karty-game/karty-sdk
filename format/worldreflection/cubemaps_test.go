@@ -14,26 +14,32 @@ import (
 
 func fixture(t *testing.T) (worldreflection.Bundle, level.Envelope) {
 	t.Helper()
+
 	metadata, err := level.EncodeMetadata(level.Metadata{})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	raw, err := level.Encode(metadata, []level.SourceEntry{{Name: "input", Kind: level.EntryData, Data: []byte("static world")}})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	envelope, err := level.Decode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	pixels := image.NewNRGBA(image.Rect(0, 0, worldreflection.FaceSize*worldreflection.Faces, worldreflection.FaceSize))
 	for index := range pixels.Pix {
 		pixels.Pix[index] = 255
 	}
+
 	encoded, _, err := qoi.Encode(pixels, qoi.Options{Channels: qoi.ChannelsRGBA, Colorspace: qoi.ColorspaceSRGB})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return worldreflection.Bundle{
 		Producer:    worldreflection.Producer,
 		InputSHA256: worldreflection.InputDigest(envelope),
@@ -48,22 +54,27 @@ func fixture(t *testing.T) (worldreflection.Bundle, level.Envelope) {
 func TestSavedCubemapRoundTripAndInputIdentity(t *testing.T) {
 	t.Parallel()
 	bundle, envelope := fixture(t)
+
 	data, err := worldreflection.Encode(bundle)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	decoded, err := worldreflection.Decode(data)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	again, err := worldreflection.Encode(decoded)
 	if err != nil || !bytes.Equal(again, data) {
 		t.Fatalf("noncanonical round trip: %v", err)
 	}
+
 	document := &world.Document{Sectors: make([]world.Sector, 2), StaticSolids: &world.StaticSolids{Items: make([]world.Solid, 1)}}
 	if err := decoded.ValidateSource(envelope, document); err != nil {
 		t.Fatal(err)
 	}
+
 	raw, err := level.Encode(
 		envelope.Metadata,
 		[]level.SourceEntry{
@@ -74,17 +85,21 @@ func TestSavedCubemapRoundTripAndInputIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	extended, err := level.Decode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if err := decoded.ValidateSource(extended, document); err != nil {
 		t.Fatal("self entry changed input identity", err)
 	}
+
 	extended.Metadata = []byte("changed lighting")
 	if decoded.ValidateSource(extended, document) == nil {
 		t.Fatal("changed inputs accepted")
 	}
+
 	if decoded.ValidateSource(envelope, &world.Document{}) == nil {
 		t.Fatal("incomplete binding table accepted")
 	}
@@ -92,6 +107,7 @@ func TestSavedCubemapRoundTripAndInputIdentity(t *testing.T) {
 
 func TestSavedCubemapRejectsMalformedCompleteBatch(t *testing.T) {
 	t.Parallel()
+
 	mutations := map[string]func(*worldreflection.Bundle){
 		"missing image":      func(b *worldreflection.Bundle) { b.Probes[0].Image = nil },
 		"last image invalid": func(b *worldreflection.Bundle) { b.Probes = append(b.Probes, worldreflection.Probe{ID: 8}) },
@@ -108,21 +124,26 @@ func TestSavedCubemapRejectsMalformedCompleteBatch(t *testing.T) {
 			t.Parallel()
 			bundle, _ := fixture(t)
 			mutate(&bundle)
+
 			if _, err := worldreflection.Encode(bundle); err == nil {
 				t.Fatal("accepted invalid bundle")
 			}
 		})
 	}
+
 	bundle, _ := fixture(t)
+
 	data, err := worldreflection.Encode(bundle)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, size := range []int{0, 3, 8, 64, len(data) - 1} {
 		if _, err := worldreflection.Decode(data[:size]); err == nil {
 			t.Fatalf("accepted truncation %d", size)
 		}
 	}
+
 	if _, err := worldreflection.Decode(append(data, 0)); err == nil {
 		t.Fatal("accepted trailing bytes")
 	}

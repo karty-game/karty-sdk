@@ -57,7 +57,7 @@ func ValidateCatalog(catalog *Catalog, document *world.Document) error {
 			return ErrChunk
 		}
 		for _, chunk := range catalog.Chunks {
-			if chunk.CollisionBytes != 0 {
+			if chunk.CollisionBytes != 0 && catalog.Schema != PhysicalSchema {
 				return ErrChunk
 			}
 		}
@@ -73,7 +73,8 @@ func validateLegacyCatalog(catalog *Catalog, document *world.Document) error {
 	if err != nil {
 		return err
 	}
-	if catalog == nil || (catalog.Schema != Schema && catalog.Schema != FixedSchema) || catalog.GeometrySHA256 != digest ||
+	if catalog == nil || (catalog.Schema != Schema && catalog.Schema != FixedSchema && catalog.Schema != PhysicalSchema) ||
+		catalog.GeometrySHA256 != digest ||
 		len(catalog.Chunks) == 0 ||
 		len(catalog.Chunks) > len(document.Sectors) ||
 		len(catalog.SectorChunks) != len(document.Sectors) ||
@@ -94,13 +95,15 @@ func validateLegacyCatalog(catalog *Catalog, document *world.Document) error {
 	solidSeen := make([]bool, solidCount)
 	renderTriangles := uint64(world.SolidRendererTriangles(document.SolidRenderers))
 	for i, chunk := range catalog.Chunks {
-		if catalog.Schema == FixedSchema &&
-			(chunk.LightingBytes == 0 || chunk.LightingBytes > worldlightmap.MaxFixedLightingSize || chunk.LightmapBytes == 0) ||
+		if (catalog.Schema == FixedSchema || catalog.Schema == PhysicalSchema) &&
+			(chunk.LightingBytes == 0 || chunk.LightingBytes > worldlightmap.MaxFixedLightingSize || (catalog.Schema == FixedSchema && chunk.LightmapBytes == 0)) ||
 			catalog.Schema == Schema && (chunk.LightingBytes != 0 || chunk.TerrainBytes != 0) ||
 			chunk.TerrainBytes > worldterrain.MaxDecodedBytes+worldterrain.MaxVertices*worldterrain.MaxPatches*24+worldterrain.MaxTriangles*12 {
 			return ErrChunk
 		}
-		if chunk.ID != i || !hash(chunk.ContentSHA256) || chunk.Size == 0 || chunk.Size > MaxEncodedBytes || chunk.MeshBytes == 0 ||
+		if chunk.ID != i || !hash(chunk.ContentSHA256) || chunk.Size == 0 || chunk.Size > MaxEncodedBytes ||
+			(chunk.MeshBytes == 0 && catalog.Schema != PhysicalSchema) ||
+			(catalog.Schema == PhysicalSchema && (chunk.MeshBytes != 0 || chunk.LightmapBytes != 0 || chunk.CollisionBytes == 0 || chunk.CollisionBytes > MaxTriangles*484 || chunk.CollisionBytes%484 != 0)) ||
 			chunk.MeshBytes > 64*1024*1024 ||
 			chunk.MeshBytes%484 != 0 ||
 			(chunk.LightmapBytes != 0 && chunk.LightmapBytes != 512*512*12 && chunk.LightmapBytes != 1024*1024*12) ||

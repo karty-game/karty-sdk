@@ -1,6 +1,6 @@
 # World material SSBump companion, version 1
 
-Versioned decision: SDK candidate **0.0.21** introduces the optional
+Versioned decision: SDK candidate **0.1.0** introduces the optional
 `world/material-ssbump@1` runtime capability and cartridge requirement. Existing
 SDK 0.0.20 artifacts are immutable. An older host must reject the unknown
 requirement rather than display coefficients as a normal map. The requirement
@@ -58,7 +58,7 @@ bytes identify cached output. Reprojected chart coefficients use the RNM basis
 transfer and preserve occlusion energy before alpha compositing. Generation is
 an artistic finite-radius approximation, not recovered physical surface shape.
 
-Public dependency qualification uses a frozen, isolated 0.0.21 module/file-proxy
+Public dependency qualification uses a frozen, isolated 0.1.0 module/file-proxy
 candidate and matching checksums before engine and CLI pins advance. It does not
 publish a source tag or replace released 0.0.20 archives. Format tests, actual
 runtime admission and rendered lighting qualification remain separate gates.

@@ -155,6 +155,17 @@ func TestZstdFramePreflightRejectsUnboundedWindowsAndExtraFrames(t *testing.T) {
 
 func FuzzInspect(f *testing.F) {
 	f.Add(fixture(4, 4, 1, true))
+	for _, name := range []string{"testdata/linear-rgba8-array.ktx2", "testdata/srgb-rgba8-mips.ktx2"} {
+		seed, err := os.ReadFile(name)
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(seed)
+	}
 	f.Add([]byte{})
-	f.Fuzz(func(t *testing.T, data []byte) { _, _ = Inspect(data) })
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = Inspect(data)
+		_, _ = InspectRGBA8(data)
+		_, _ = InspectRGBA8Array(data)
+	})
 }

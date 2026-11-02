@@ -149,6 +149,22 @@ func TestTogetherRejectsIncompleteBase(t *testing.T) {
 }
 
 func FuzzDescriptor(f *testing.F) {
+	layout, err := worldmaterial.NewLayout([]uint32{7, 42})
+	if err != nil {
+		f.Fatal(err)
+	}
+
+	descriptor, err := NewDescriptor(layout, []uint32{7})
+	if err != nil {
+		f.Fatal(err)
+	}
+
+	seed, err := EncodeDescriptor(descriptor)
+	if err != nil {
+		f.Fatal(err)
+	}
+
+	f.Add(seed)
 	f.Add([]byte("KSB1"))
 	f.Fuzz(func(t *testing.T, b []byte) {
 		d, err := DecodeDescriptor(b)

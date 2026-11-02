@@ -1,5 +1,9 @@
 # GPU-ready spatial chunks
 
+This contract ships with the **0.1.0** SDK/host release. Rebuild earlier
+cartridges and levels for the matching WebGPU host; the release does not add a
+runtime conversion path for previous GPU buffers.
+
 `world/gpu-chunks@2` selects `karty.world-gpu-chunks@2`. It requires prepared
 world materials and sectors. Physics/probe catalogs and completed lighting
 remain optional; live-only cells use a neutral three-layer RNM image.

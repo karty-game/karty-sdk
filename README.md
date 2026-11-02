@@ -51,6 +51,14 @@ requirements and the race, SIMD fallback, 32-bit, Wasm, fuzz and benchmark check
 
 ## Versions and releases
 
+The next coordinated release is **0.1.0**. The WebGPU host and prepared asset
+contracts are a breaking cartridge change: rebuild existing cartridges, levels
+and baked assets with SDK 0.1.0, and distribute them with its matching host.
+Pre-0.1.0 outputs are not a supported input to the new host. Existing published
+SDKs and hosts remain immutable and continue to serve their original games.
+The release number does not replace individual resource versions: compact cells
+still declare `world/gpu-chunks@2` and `karty.webgpu-cell@2`.
+
 Go module tags (`vVERSION`) pin immutable public package dependencies. Engine
 artifact tags (`sdk-vVERSION`) version downloadable SDK bundles and hosts
 independently. Capability declarations govern host support separately from

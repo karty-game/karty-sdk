@@ -1,6 +1,6 @@
 # Prepared GPU world materials, version 1
 
-The unreleased SDK/host **0.0.21** candidate adds `world/material-gpu@1`.
+The unreleased SDK/host **0.1.0** candidate adds `world/material-gpu@1`.
 It requires `world/sectors@1` and `world/material-atlas@1` or `@2`. Existing
 released bundles and the ordinary QOI material contract remain immutable.
 Older hosts reject this capability rather than interpreting new channel data
